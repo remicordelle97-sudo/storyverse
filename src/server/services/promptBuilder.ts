@@ -51,41 +51,98 @@ const AGE_GUIDELINES: Record<string, string> = {
 
 const STRUCTURE_GUIDELINES: Record<string, string> = {
   "rule-of-three": `STORY STRUCTURE — Rule of Three:
-The protagonist must attempt to solve the central problem THREE times.
-- First attempt: seems promising but fails in a small way.
-- Second attempt: a different approach, fails in a bigger way or with an unexpected twist.
-- Third attempt: combines what was learned from the first two failures, succeeds.
-Each attempt should escalate in stakes and creativity. The third success should feel earned because of what was learned from the failures.`,
+The protagonist must attempt to solve the central problem THREE times. This is one of the oldest and most satisfying patterns in children's storytelling.
+
+PACING:
+- Pages 1-2 (short) / 1-5 (long): Set the scene. Introduce the protagonist in their world. Establish the problem clearly — make it concrete and visual, not abstract.
+- First attempt (~25% of pages): The protagonist tries the most obvious solution. It seems to work at first, building hope — then fails in a small, slightly funny way. The failure should reveal something the protagonist didn't know.
+- Second attempt (~25% of pages): A completely different approach. The protagonist is more determined. Build tension higher. This attempt fails bigger or in a surprising, unexpected way. The failure should be more emotional — show the protagonist's frustration or doubt through body language and actions.
+- Third attempt (~25% of pages): The protagonist pauses. Reflects on what went wrong before. Combines a lesson or detail from BOTH previous failures into a new, creative solution that neither attempt alone could have produced. The success should feel clever and earned.
+- Final pages: Celebrate the win. Show how the world or the protagonist has changed. End with warmth and a "wink."
+
+KEY RULES:
+- Each attempt must use a genuinely DIFFERENT strategy — not just "try harder."
+- The failures must teach something specific that feeds into the final solution.
+- Escalate the emotional stakes with each attempt: curiosity → determination → doubt → triumph.
+- The third success must feel inevitable in hindsight but surprising in the moment.
+- Sprinkle humour into the failures — children love when things go amusingly wrong.`,
 
   "cumulative": `STORY STRUCTURE — Cumulative (Snowball):
-Each new event or character builds on the previous ones, creating a chain that grows and grows.
-- Start with one simple action or encounter.
-- Each page/scene adds a new element that connects to everything before it.
-- The chain builds to a delightful peak or gentle collapse.
-- Think: "The House That Jack Built" or "If You Give a Mouse a Cookie."
-- The fun is in the growing complexity and the callbacks to earlier elements.`,
+Each new event, character, or detail builds on everything before it, creating a chain that grows and grows until it reaches a satisfying peak or playful collapse. Think: "The House That Jack Built," "If You Give a Mouse a Cookie," "There Was an Old Lady Who Swallowed a Fly."
+
+PACING:
+- Page 1: Start with ONE simple action, encounter, or object. Make it vivid and specific.
+- Each subsequent page: Introduce ONE new element (a character, object, problem, or event) that connects directly to what came before. The new element should be surprising or funny.
+- Middle pages: The chain grows. Each page should briefly reference or callback to earlier elements before adding the new one. The list gets longer and more delightful each time.
+- ~75% through: The chain reaches its peak — everything is tangled, stacked, or connected in the most complex, absurd, or wonderful way possible.
+- Final pages: The chain either resolves in a satisfying cascade (everything untangles in a pleasing way) or a gentle, humorous collapse (it all comes tumbling down, but everyone is fine and laughing).
+
+KEY RULES:
+- The chain must have a clear PATTERN or RHYTHM. Each addition should follow a recognizable format that children can anticipate and join in on.
+- Use a recurring phrase or sentence structure that grows with each page ("And THEN..." / "Because of the [X], the [Y]...").
+- Each new element should be more unexpected or funnier than the last — escalate the absurdity.
+- Never lose track of earlier elements — the whole point is that everything stays connected.
+- The resolution should reference the very first element, bringing the chain full circle.
+- Keep each individual addition simple enough to remember — the complexity comes from the accumulation, not from any single event.`,
 
   "circular": `STORY STRUCTURE — Circular:
-The story ends where it began — but the character has changed.
-- Open with the protagonist in a specific place, doing a specific thing, feeling a specific way.
-- The adventure takes them away from that starting point.
-- By the end, they return to the same place and same situation — but they see it differently because of what they experienced.
-- The contrast between the opening and closing should be subtle but meaningful.`,
+The story ends where it began — same place, same situation — but the protagonist sees it completely differently because of what they experienced. Think: "Where the Wild Things Are" (bedroom → wild things → bedroom, but Max has processed his anger), "Owl Moon" (goes out → experience → returns home, transformed by wonder).
+
+PACING:
+- Pages 1-2 (short) / 1-4 (long): THE ANCHOR SCENE. Describe the protagonist in a very specific place, doing a specific thing, feeling a specific way. Make this scene rich with sensory detail — the reader must REMEMBER it vividly because they will see it again at the end. Include a specific object, phrase, or sensory detail that will return later with new meaning.
+- Early pages: Something disrupts the anchor scene or calls the protagonist away. They leave — physically or emotionally — driven by a want, a curiosity, or an event.
+- Middle pages: The adventure. New places, encounters, challenges. The protagonist experiences things that gradually shift how they feel or what they understand. Plant at least 2-3 moments that will echo or contrast with the opening.
+- ~75% through: The turning point. Something happens — a realization, a connection, a quiet moment — that changes the protagonist's perspective. This doesn't need to be dramatic. Sometimes the most powerful shift is subtle.
+- Final pages: THE RETURN. The protagonist is back in the anchor scene — same place, same situation. But now the specific details from the opening carry different weight. The object means something new. The familiar place feels different. Show the change through the protagonist's actions and body language, NOT through narration.
+
+KEY RULES:
+- The opening and closing scenes must MIRROR each other closely — same setting, similar actions, echoed phrases or details.
+- The difference between opening and closing should be FELT, not explained. Never write "and now they understood..." Show the change.
+- The middle journey must contain specific moments that recontextualize the opening.
+- At least one phrase, object, or sensory detail from page 1 must reappear on the final page with transformed meaning.
+- The emotional arc is: contentment/restlessness → departure → experience → quiet transformation → return with new eyes.`,
 
   "journey": `STORY STRUCTURE — Journey & Return:
-The protagonist leaves the familiar, ventures into the unknown, and returns home transformed.
-- Begin in the safe, known world. Establish what the character wants or what prompts them to leave.
-- The journey introduces new places, characters, and challenges.
-- The furthest point from home is where the biggest challenge or discovery happens.
-- The return home should feel satisfying — the character brings back something (knowledge, a friend, a new perspective).`,
+The protagonist leaves the safe and familiar, ventures into unknown territory, faces challenges that change them, and returns home transformed. This is the oldest story structure in human history. Think: "We're Going on a Bear Hunt," "The Snowy Day," "Rosie's Walk."
+
+PACING:
+- Pages 1-2 (short) / 1-4 (long): THE KNOWN WORLD. Establish the protagonist's home, routine, or comfort zone with warm, sensory detail. Show what they love about it — but also hint at what pulls them outward (curiosity, a sound, a discovery, a dare, a need).
+- Early pages: THE DEPARTURE. The protagonist crosses a threshold — leaves the familiar behind. This can be physical (crossing a river, entering a forest) or emotional (trying something new). Mark the moment clearly so the reader feels the shift.
+- Middle pages: THE UNKNOWN. Each new location or encounter should feel progressively MORE different from home. Introduce at least 3 distinct "waypoints" — places, characters, or challenges the protagonist passes through. Each waypoint should test a different quality of the protagonist and teach them something they didn't know.
+- ~65% through: THE FURTHEST POINT. This is the moment farthest from home — geographically, emotionally, or both. The biggest challenge or most important discovery happens here. The protagonist must face something that requires them to use everything they've gathered from the journey.
+- ~80% through: THE TURN HOMEWARD. The protagonist decides to return — or realizes they must. The return journey should feel different from the outward one. Things that seemed scary on the way out now feel familiar. The protagonist moves with more confidence.
+- Final pages: THE HOMECOMING. The protagonist arrives home, but they are not the same. They bring something back — a new friend, a treasure, a skill, a memory, or simply a new way of seeing their old world. Home feels both the same and different.
+
+KEY RULES:
+- The journey must have a clear DIRECTION — outward and then back. The reader should feel the distance from home growing and then shrinking.
+- Each waypoint should be vivid and distinct — different sights, sounds, smells, textures.
+- The furthest point must be the emotional climax, not just the geographical one.
+- The protagonist must be visibly changed by the journey — show it through their actions on the return, not through narration.
+- The homecoming should echo the opening but with subtle, meaningful differences.
+- What the protagonist brings back (literal or metaphorical) should connect to what they were missing or wanting at the start.`,
 
   "problem-solution": `STORY STRUCTURE — Problem & Solution:
-A clear problem is introduced early, and the protagonist works to solve it.
-- Introduce the problem within the first few pages — make it concrete and relatable.
-- The protagonist must solve the problem themselves — never rescued by an adult or outside force.
-- Show the protagonist thinking, trying, adjusting their approach.
-- The solution should come from the protagonist's unique qualities, skills, or personality traits.
-- The resolution should feel satisfying and complete.`,
+A clear, concrete problem is introduced early. The protagonist works through it with ingenuity, effort, and help from their unique qualities. The solution is earned, not given. Think: "Corduroy" (missing button), "Knuffle Bunny" (lost toy), "Dragons Love Tacos" (the wrong salsa).
+
+PACING:
+- Pages 1-2 (short) / 1-4 (long): THE WORLD BEFORE. Show the protagonist in their normal life. Establish their personality, their quirks, what they care about. Everything is fine — or almost fine. Plant a small detail that will become important later.
+- Early pages: THE PROBLEM ARRIVES. Something goes wrong, goes missing, shows up unexpectedly, or needs to be done. Make the problem concrete and visual — something the reader can picture and care about. The problem should feel urgent to the protagonist even if it seems small to an adult.
+- Middle pages: THE WORKING-THROUGH. This is the heart of the story. The protagonist tries to solve the problem. Show them:
+  * First noticing and reacting to the problem (body language, not labels)
+  * Thinking about what to do (show them looking around, gathering things, talking to friends)
+  * Making an attempt that partially works or doesn't work
+  * Adjusting their approach based on what they learned
+  * Possibly getting help from a friend — but the protagonist must drive the solution, not the helper
+- ~75% through: THE BREAKTHROUGH. The protagonist has an idea — or notices something — that changes everything. This moment should connect to their established personality traits or to a detail planted earlier. The reader should feel "of course!" not "where did that come from?"
+- Final pages: THE RESOLUTION. The problem is solved. Show the relief, the joy, the satisfaction through actions and reactions. Then show how things have settled into a new normal — slightly better than before because of what happened.
+
+KEY RULES:
+- The problem must be introduced clearly and early. The reader should be able to state in one sentence what the protagonist needs to do.
+- The protagonist must solve the problem using their OWN qualities, skills, or personality traits — never rescued by an adult or random luck.
+- Show the PROCESS of problem-solving, not just the result. Children learn from watching characters think, try, fail, and adapt.
+- The solution should connect to something established earlier in the story — a detail, a skill, a relationship. No deus ex machina.
+- Friends can help, but the protagonist must be the one who figures out the key insight or takes the decisive action.
+- The emotional arc is: normal → disruption → concern → effort → frustration → insight → triumph → new normal.`,
 };
 
 export function buildSystemPrompt(ageGroup: string): string {
