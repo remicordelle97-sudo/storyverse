@@ -60,6 +60,7 @@ router.post("/generate", async (req, res) => {
       language,
       length,
       parentPrompt,
+      generateImages,
     } = req.body;
 
     if (!universeId || !childId || !characterIds?.length) {
@@ -99,10 +100,10 @@ router.post("/generate", async (req, res) => {
       },
     });
 
-    // Save scenes and generate images
+    // Save scenes and optionally generate images
     for (const scene of generated.scenes) {
       let imageUrl = "";
-      if (scene.image_prompt) {
+      if (generateImages && scene.image_prompt) {
         try {
           imageUrl = await generateImage(scene.image_prompt);
         } catch (e) {
