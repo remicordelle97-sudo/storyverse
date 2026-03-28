@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getChildren, addChild, updateChild, deleteChild, getUniverses } from "../api/client";
+import { getChildren, addChild, updateChild, deleteChild } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
 
@@ -25,11 +25,6 @@ export default function FamilyPage() {
   const { data: children = [], isLoading } = useQuery({
     queryKey: ["children"],
     queryFn: getChildren,
-  });
-
-  const { data: universes = [] } = useQuery({
-    queryKey: ["universes"],
-    queryFn: getUniverses,
   });
 
   const [showForm, setShowForm] = useState(false);
@@ -84,15 +79,9 @@ export default function FamilyPage() {
   };
 
   const handleChildClick = (child: any) => {
-    // Find a universe belonging to this child
-    const childUniverse = universes.find((u: any) => u.childId === child.id);
     localStorage.setItem("childId", child.id);
-    if (childUniverse) {
-      localStorage.setItem("universeId", childUniverse.id);
-      navigate("/dashboard");
-    } else {
-      navigate("/onboarding");
-    }
+    localStorage.setItem("childName", child.name);
+    navigate("/universes");
   };
 
   return (

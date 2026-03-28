@@ -24,7 +24,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Create a character
+// Create a character (with optional relationship to hero)
 router.post("/", async (req, res) => {
   try {
     const {
@@ -35,6 +35,7 @@ router.post("/", async (req, res) => {
       appearance,
       specialDetail,
       role,
+      relationshipToHero,
     } = req.body;
 
     const character = await prisma.character.create({
@@ -51,6 +52,23 @@ router.post("/", async (req, res) => {
         role: role || "main",
       },
     });
+
+    // If a relationship description is provided, link to the hero
+    if (relationshipToHero) {
+      const hero = await prisma.character.findFirst({
+        where: { universeId, role: "main" },
+      });
+      if (hero) {
+        await prisma.relationship.create({
+          data: {
+            characterAId: hero.id,
+            characterBId: character.id,
+            description: relationshipToHero,
+          },
+        });
+      }
+    }
+
     res.status(201).json(character);
   } catch (e) {
     res.status(500).json({ error: "Failed to create character" });

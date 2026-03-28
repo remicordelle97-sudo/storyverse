@@ -44,8 +44,16 @@ export default function StoryBuilder() {
   const childId =
     localStorage.getItem("childId") || universe?.family?.children?.[0]?.id;
 
+  const hero = universe?.characters?.find((c: any) => c.role === "main");
+  const secondaryCharacters = (universe?.characters || []).filter(
+    (c: any) => c.role !== "main"
+  );
+
   const handleGenerate = async () => {
-    if (!selectedCharacters.length || !childId) return;
+    // Hero is always included
+    const heroId = hero?.id;
+    if (!heroId || !childId) return;
+    const allCharacterIds = [heroId, ...selectedCharacters];
     setLoading(true);
     setError("");
     setProgressStep("");
@@ -57,7 +65,7 @@ export default function StoryBuilder() {
         {
           universeId,
           childId,
-          characterIds: selectedCharacters,
+          characterIds: allCharacterIds,
           mood: mood.toLowerCase(),
           language: universe?.family?.preferredLanguage || "en",
           structure,
@@ -184,22 +192,37 @@ export default function StoryBuilder() {
 
       {!loading && (
         <>
-          {/* Characters */}
-          <section className="mb-8">
-            <label className="block text-sm font-medium text-stone-700 mb-3">
-              Characters
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {universe?.characters?.map((c: any) => (
-                <Chip
-                  key={c.id}
-                  label={c.name}
-                  selected={selectedCharacters.includes(c.id)}
-                  onClick={() => toggleCharacter(c.id)}
-                />
-              ))}
-            </div>
-          </section>
+          {/* Hero (always included) */}
+          {hero && (
+            <section className="mb-6">
+              <label className="block text-sm font-medium text-stone-700 mb-3">
+                Hero
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Chip label={hero.name} selected={true} onClick={() => {}} />
+              </div>
+              <p className="text-xs text-stone-400 mt-1">Always included in the story</p>
+            </section>
+          )}
+
+          {/* Secondary Characters (optional) */}
+          {secondaryCharacters.length > 0 && (
+            <section className="mb-8">
+              <label className="block text-sm font-medium text-stone-700 mb-3">
+                Supporting characters (optional)
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {secondaryCharacters.map((c: any) => (
+                  <Chip
+                    key={c.id}
+                    label={c.name}
+                    selected={selectedCharacters.includes(c.id)}
+                    onClick={() => toggleCharacter(c.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Mood */}
           <section className="mb-8">
@@ -315,7 +338,7 @@ export default function StoryBuilder() {
           {/* Generate */}
           <button
             onClick={handleGenerate}
-            disabled={selectedCharacters.length === 0}
+            disabled={!hero}
             className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Generate story

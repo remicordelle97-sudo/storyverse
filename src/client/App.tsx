@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import Login from "./pages/Login";
 import Family from "./pages/Family";
+import Universes from "./pages/Universes";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import StoryBuilder from "./pages/StoryBuilder";
@@ -45,6 +46,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Family />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/universes"
+        element={
+          <ProtectedRoute>
+            <Universes />
           </ProtectedRoute>
         }
       />
