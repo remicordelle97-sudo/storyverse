@@ -41,7 +41,11 @@ export async function generateStory(
     throw new Error("No text response from AI");
   }
 
-  const raw = textBlock.text.trim();
+  // Strip markdown fences if the model wraps the JSON
+  let raw = textBlock.text.trim();
+  if (raw.startsWith("```")) {
+    raw = raw.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+  }
 
   let parsed: GeneratedStory;
   try {
