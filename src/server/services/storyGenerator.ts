@@ -26,7 +26,7 @@ export async function generateStory(
   ageGroup: string,
   length: "short" | "long" = "long"
 ): Promise<GeneratedStory> {
-  const maxTokens = length === "short" ? 4000 : 8000;
+  const maxTokens = length === "short" ? 4000 : 16000;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
@@ -35,6 +35,11 @@ export async function generateStory(
     system: buildSystemPrompt(ageGroup),
     messages: [{ role: "user", content: userPrompt }],
   });
+
+  // Check if the response was truncated
+  if (message.stop_reason === "max_tokens") {
+    throw new Error("Story generation was truncated — the story was too long for the token limit. Try a shorter story.");
+  }
 
   const textBlock = message.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
