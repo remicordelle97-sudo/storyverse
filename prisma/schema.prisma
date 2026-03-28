@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Family {
+  id                String     @id @default(uuid())
+  name              String
+  email             String     @unique
+  preferredLanguage String     @default("en")
+  createdAt         DateTime   @default(now())
+  children          Child[]
+  universes         Universe[]
+}
+
+model Child {
+  id       String   @id @default(uuid())
+  familyId String
+  name     String
+  age      Int
+  ageGroup String
+  family   Family   @relation(fields: [familyId], references: [id])
+  stories  Story[]
+}
+
+model Universe {
+  id                   String          @id @default(uuid())
+  familyId             String
+  name                 String
+  settingDescription   String
+  themes               String
+  mood                 String
+  illustrationStyle    String          @default("storybook")
+  illustrationsEnabled Boolean         @default(true)
+  avoidThemes          String          @default("")
+  createdAt            DateTime        @default(now())
+  family               Family          @relation(fields: [familyId], references: [id])
+  characters           Character[]
+  stories              Story[]
+  timelineEvents       TimelineEvent[]
+}
+
+model Character {
+  id                String           @id @default(uuid())
+  universeId        String
+  name              String
+  speciesOrType     String
+  personalityTraits String
+  appearance        String
+  specialDetail     String           @default("")
+  role              String           @default("main")
+  createdAt         DateTime         @default(now())
+  universe          Universe         @relation(fields: [universeId], references: [id])
+  storyAppearances  StoryCharacter[]
+  timelineEvents    TimelineEvent[]
+  relationshipsA    Relationship[]   @relation("CharA")
+  relationshipsB    Relationship[]   @relation("CharB")
+}
+
+model Relationship {
+  id           String    @id @default(uuid())
+  characterAId String
+  characterBId String
+  description  String
+  characterA   Character @relation("CharA", fields: [characterAId], references: [id])
+  characterB   Character @relation("CharB", fields: [characterBId], references: [id])
+}
+
+model Story {
+  id               String           @id @default(uuid())
+  universeId       String
+  childId          String
+  title            String
+  mood             String
+  language         String           @default("en")
+  ageGroup         String
+  hasIllustrations Boolean          @default(false)
+  status           String           @default("draft")
+  createdAt        DateTime         @default(now())
+  universe         Universe         @relation(fields: [universeId], references: [id])
+  child            Child            @relation(fields: [childId], references: [id])
+  scenes           Scene[]
+  characters       StoryCharacter[]
+  timelineEvents   TimelineEvent[]
+}
+
+model Scene {
+  id          String @id @default(uuid())
+  storyId     String
+  sceneNumber Int
+  content     String
+  imageUrl    String @default("")
+  imagePrompt String @default("")
+  story       Story  @relation(fields: [storyId], references: [id])
+}
+
+model StoryCharacter {
+  storyId     String
+  characterId String
+  roleInStory String    @default("featured")
+  story       Story     @relation(fields: [storyId], references: [id])
+  character   Character @relation(fields: [characterId], references: [id])
+  @@id([storyId, characterId])
+}
+
+model TimelineEvent {
+  id           String    @id @default(uuid())
+  universeId   String
+  storyId      String
+  characterId  String
+  eventSummary String
+  significance String    @default("minor")
+  storyDate    DateTime  @default(now())
+  universe     Universe  @relation(fields: [universeId], references: [id])
+  story        Story     @relation(fields: [storyId], references: [id])
+  character    Character @relation(fields: [characterId], references: [id])
+}
