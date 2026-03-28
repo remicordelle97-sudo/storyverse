@@ -58,10 +58,13 @@ router.post("/generate", async (req, res) => {
       characterIds,
       mood,
       language,
-      structure,
       parentPrompt,
       generateImages,
     } = req.body;
+
+    // Pick a random story structure
+    const structures = ["problem-solution", "rule-of-three", "cumulative", "circular", "journey"];
+    const structure = structures[Math.floor(Math.random() * structures.length)];
 
     if (!universeId || !childId || !characterIds?.length) {
       return res.status(400).json({
