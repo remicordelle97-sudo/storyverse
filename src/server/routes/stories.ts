@@ -81,14 +81,17 @@ router.post("/generate", async (req, res) => {
       characterIds,
       mood,
       language,
+      structure: requestedStructure,
       length,
       parentPrompt,
       generateImages,
     } = req.body;
 
-    // Pick a random story structure
+    // Use requested structure, or pick randomly if not provided
     const structures = ["problem-solution", "rule-of-three", "cumulative", "circular", "journey"];
-    const structure = structures[Math.floor(Math.random() * structures.length)];
+    const structure = requestedStructure && structures.includes(requestedStructure)
+      ? requestedStructure
+      : structures[Math.floor(Math.random() * structures.length)];
 
     if (!universeId || !childId || !characterIds?.length) {
       return sendError("universeId, childId, and characterIds are required");

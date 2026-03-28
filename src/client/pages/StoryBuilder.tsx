@@ -26,6 +26,7 @@ export default function StoryBuilder() {
 
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
   const [mood, setMood] = useState("Exciting");
+  const [structure, setStructure] = useState("problem-solution");
   const [length, setLength] = useState<"short" | "long">("long");
   const [parentPrompt, setParentPrompt] = useState("");
   const [generateImages, setGenerateImages] = useState(false);
@@ -59,6 +60,7 @@ export default function StoryBuilder() {
           characterIds: selectedCharacters,
           mood: mood.toLowerCase(),
           language: universe?.family?.preferredLanguage || "en",
+          structure,
           length,
           parentPrompt,
           generateImages,
@@ -212,6 +214,36 @@ export default function StoryBuilder() {
                   selected={mood === m}
                   onClick={() => setMood(m)}
                 />
+              ))}
+            </div>
+          </section>
+
+          {/* Story structure (testing) */}
+          <section className="mb-8">
+            <label className="block text-sm font-medium text-stone-700 mb-1">
+              Story structure
+            </label>
+            <p className="text-xs text-stone-400 mb-3">For testing — will be randomized in production</p>
+            <div className="space-y-2">
+              {[
+                { value: "problem-solution", label: "Problem & Solution", desc: "A clear problem the hero works to solve" },
+                { value: "rule-of-three", label: "Rule of Three", desc: "Three attempts — fail, fail, succeed!" },
+                { value: "cumulative", label: "Cumulative", desc: "Each event builds on the last, snowball style" },
+                { value: "circular", label: "Circular", desc: "Ends where it began, but the hero has changed" },
+                { value: "journey", label: "Journey & Return", desc: "Leave home, adventure, return transformed" },
+              ].map((s) => (
+                <button
+                  key={s.value}
+                  onClick={() => setStructure(s.value)}
+                  className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                    structure === s.value
+                      ? "border-primary bg-primary/5 text-stone-800"
+                      : "border-stone-200 bg-white text-stone-600 hover:border-primary/30"
+                  }`}
+                >
+                  <span className="font-medium text-sm">{s.label}</span>
+                  <p className="text-xs text-stone-400 mt-0.5">{s.desc}</p>
+                </button>
               ))}
             </div>
           </section>
