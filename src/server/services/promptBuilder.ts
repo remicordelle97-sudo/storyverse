@@ -162,6 +162,7 @@ CRITICAL RULES:
 - Be bold, surprising, and imaginative. The more inventive and unexpected the details, the more memorable the story.
 - NEVER state a moral or lesson. Do NOT write "and Leo learned that..." or "the moral of the story is..." Let the reader draw their own conclusions from the characters' experiences and choices.
 - NEVER use the em dash character (—). Use commas, periods, or "and" instead.
+- Use exclamation marks sparingly. Most sentences should end with periods. Reserve ! for genuine surprise, outcries, or single emphatic moments (like "Help!" or "Look!"). Never use more than one ! per page. Let word choice and sentence rhythm convey excitement, not punctuation.
 - Return ONLY valid JSON. No markdown fences, no preamble, no explanation.
 
 ${guidelines}`;
