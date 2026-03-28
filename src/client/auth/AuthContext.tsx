@@ -49,14 +49,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshUser = useCallback(async () => {
-    if (!currentAccessToken) return;
     try {
-      const res = await fetch("/api/auth/me", {
-        headers: { Authorization: `Bearer ${currentAccessToken}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data);
+      // Refresh the JWT to pick up any changes (e.g. new familyId)
+      const tokenRes = await fetch("/api/auth/refresh", { method: "POST" });
+      if (tokenRes.ok) {
+        const { accessToken: newToken } = await tokenRes.json();
+        updateToken(newToken);
+
+        const res = await fetch("/api/auth/me", {
+          headers: { Authorization: `Bearer ${newToken}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data);
+        }
       }
     } catch {
       // ignore

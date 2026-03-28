@@ -70,6 +70,7 @@ export default function Onboarding() {
   const { user, refreshUser } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   // Step 1
   const [childName, setChildName] = useState("");
@@ -160,8 +161,9 @@ export default function Onboarding() {
 
       localStorage.setItem("universeId", universe.id);
       navigate("/dashboard");
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      setError(e.message || "Something went wrong. Please try again.");
       setSaving(false);
     }
   };
@@ -357,6 +359,11 @@ export default function Onboarding() {
                 )}
               </div>
             </div>
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-4 text-sm">
+                {error}
+              </div>
+            )}
             <p className="text-sm text-stone-500 mb-4">
               Stories for <strong>{childName}</strong> ({ageGroup} years) ·{" "}
               {mood}
