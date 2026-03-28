@@ -191,17 +191,18 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
 
   const pageCount = input.length === "short" ? 10 : 32;
 
-  // Fetch timeline: all major events + last 8 overall, deduplicated
+  // Fetch timeline: last 4 events + 5 most recent major events, deduplicated
   const recentEvents = await prisma.timelineEvent.findMany({
     where: { universeId: input.universeId },
     orderBy: { storyDate: "desc" },
-    take: 8,
+    take: 4,
     include: { character: true },
   });
 
   const majorEvents = await prisma.timelineEvent.findMany({
     where: { universeId: input.universeId, significance: "major" },
     orderBy: { storyDate: "desc" },
+    take: 5,
     include: { character: true },
   });
 
@@ -263,7 +264,8 @@ Role: ${char.role}
   }
 
   if (allEvents.length > 0) {
-    prompt += `=== RECENT HISTORY (do not contradict these events) ===\n`;
+    prompt += `=== RECENT HISTORY ===
+These events have happened in previous stories. You may reference them briefly for continuity, but do NOT build the new story around them. Focus on a fresh, new adventure with new situations and discoveries. Avoid revisiting the same locations or plot points.\n`;
     for (const event of allEvents) {
       prompt += `[${event.character.name}] ${event.eventSummary} (${event.significance})\n`;
     }
