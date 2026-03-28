@@ -148,7 +148,7 @@ router.post("/generate", async (req, res) => {
           `Creating illustration ${i + 1} of ${totalPages}...`
         );
         try {
-          imageUrl = await generateImage(page.image_prompt);
+          imageUrl = await generateImage(page.image_prompt, universeId, characterIds);
         } catch (e) {
           console.error(`Image generation failed for page ${page.page_number}:`, e);
         }

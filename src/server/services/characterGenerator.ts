@@ -49,7 +49,11 @@ export async function generateSecondaryCharacters(
     model: "claude-sonnet-4-6",
     max_tokens: 2000,
     temperature: 0.85,
-    system: `You create supporting characters for children's story universes. Each character should be distinct, memorable, and complement the hero. Return ONLY valid JSON. No markdown fences.`,
+    system: `You create supporting characters for children's story universes. Each character should be distinct, memorable, and complement the hero.
+
+IMPORTANT: The "appearance" field must be detailed enough for an illustrator to draw the character consistently across many images. Include: body size/build, primary colors, distinguishing physical features (spots, stripes, scars, markings), eye color, and any clothing or accessories they always wear. Be specific, not vague.
+
+Return ONLY valid JSON. No markdown fences.`,
     messages: [
       {
         role: "user",
@@ -84,7 +88,7 @@ Return exactly this JSON:
       "name": "Full name like Zuri the Zebra",
       "species_or_type": "Zebra",
       "personality_traits": ["funny", "loyal", "cautious"],
-      "appearance": "A small zebra with bright eyes and an expressive face",
+      "appearance": "A small, slender zebra with bright hazel eyes, an expressive face, black and white stripes with one distinctive zigzag stripe on the left shoulder, and a short fluffy mane that sticks up at the front",
       "special_detail": "Has one stripe that zigzags differently from all the others",
       "relationship_to_hero": "Best friends since they were young. Zuri is the cautious voice when Leo gets too adventurous."
     }

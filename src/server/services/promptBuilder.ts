@@ -286,13 +286,22 @@ Parent's request: "${input.parentPrompt}"
 === OUTPUT FORMAT ===
 Return exactly this JSON structure and nothing else.
 The "pages" array must contain exactly ${pageCount} page objects.
+
+CRITICAL IMAGE PROMPT RULES:
+Every image_prompt MUST include the FULL visual description of every character who appears on that page. Do NOT use just names. Always describe:
+- Species/type and physical features (size, color, distinguishing marks)
+- What they are wearing or carrying (especially special details like Leo's blue backpack)
+- Their expression and body language matching the scene's emotion
+- The setting/environment for that specific moment
+Characters must look IDENTICAL across all pages. Use the exact same descriptors every time a character appears.
+
 {
   "title": "Story title",
   "pages": [
     {
       "page_number": 1,
       "content": "Page text here...",
-      "image_prompt": "Detailed visual description for illustration generation"
+      "image_prompt": "A young lion with a golden mane and warm amber eyes, carrying a tiny blue backpack, standing under a baobab tree on a golden savanna at sunset, looking curiously at a glowing object in the grass. Storybook illustration style, warm colors."
     }
   ],
   "timeline_events": [
