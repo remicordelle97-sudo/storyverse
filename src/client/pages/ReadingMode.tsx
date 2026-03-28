@@ -56,10 +56,18 @@ export default function ReadingMode() {
           {story.title}
         </h1>
 
-        {/* Illustration placeholder */}
-        <div className="bg-stone-200 rounded-xl h-48 mb-8 flex items-center justify-center">
-          <p className="text-stone-400 text-sm">Illustration</p>
-        </div>
+        {/* Illustration */}
+        {scene?.imageUrl ? (
+          <img
+            src={scene.imageUrl}
+            alt={`Illustration for scene ${sceneIndex + 1}`}
+            className="w-full rounded-xl mb-8 shadow-sm"
+          />
+        ) : (
+          <div className="bg-stone-200 rounded-xl h-48 mb-8 flex items-center justify-center">
+            <p className="text-stone-400 text-sm">Illustration</p>
+          </div>
+        )}
 
         {/* Scene content */}
         {scene && (

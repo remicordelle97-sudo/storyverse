@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { writeTimelineEvents } from "../services/timelineWriter.js";
+import { generateImage } from "../services/imageGenerator.js";
 
 const router = Router();
 
@@ -98,14 +99,24 @@ router.post("/generate", async (req, res) => {
       },
     });
 
-    // Save scenes
+    // Save scenes and generate images
     for (const scene of generated.scenes) {
+      let imageUrl = "";
+      if (scene.image_prompt) {
+        try {
+          imageUrl = await generateImage(scene.image_prompt);
+        } catch (e) {
+          console.error(`Image generation failed for scene ${scene.scene_number}:`, e);
+        }
+      }
+
       await prisma.scene.create({
         data: {
           storyId: story.id,
           sceneNumber: scene.scene_number,
           content: scene.content,
           imagePrompt: scene.image_prompt || "",
+          imageUrl,
         },
       });
     }
