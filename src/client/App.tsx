@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import Login from "./pages/Login";
+import Family from "./pages/Family";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import StoryBuilder from "./pages/StoryBuilder";
@@ -27,7 +28,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   const { user, loading } = useAuth();
-  const universeId = localStorage.getItem("universeId");
 
   if (loading) {
     return (
@@ -40,6 +40,14 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route
+        path="/family"
+        element={
+          <ProtectedRoute>
+            <Family />
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/onboarding"
         element={
@@ -87,10 +95,8 @@ function AppRoutes() {
             <Navigate to="/login" replace />
           ) : !user.familyId ? (
             <Navigate to="/onboarding" replace />
-          ) : universeId ? (
-            <Navigate to="/dashboard" replace />
           ) : (
-            <Navigate to="/onboarding" replace />
+            <Navigate to="/family" replace />
           )
         }
       />

@@ -26,6 +26,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const createFamily = (data: any) =>
   request<any>("/auth/family", { method: "POST", body: JSON.stringify(data) });
 
+// Children
+export const getChildren = () => request<any[]>("/children");
+export const addChild = (data: any) =>
+  request<any>("/children", { method: "POST", body: JSON.stringify(data) });
+export const updateChild = (id: string, data: any) =>
+  request<any>(`/children/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export const deleteChild = (id: string) =>
+  request<any>(`/children/${id}`, { method: "DELETE" });
+
 // Universes
 export const getUniverses = () => request<any[]>("/universes");
 export const getUniverse = (id: string) => request<any>(`/universes/${id}`);

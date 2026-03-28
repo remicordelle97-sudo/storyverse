@@ -41,6 +41,12 @@ export default function Dashboard() {
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* User bar */}
       <div className="flex items-center justify-end gap-3 mb-6">
+        <button
+          onClick={() => navigate("/family")}
+          className="text-sm text-stone-500 hover:text-stone-700 mr-auto"
+        >
+          &larr; Family
+        </button>
         {user?.picture && (
           <img
             src={user.picture}
