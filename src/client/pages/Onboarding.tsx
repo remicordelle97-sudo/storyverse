@@ -4,7 +4,7 @@ import Chip from "../components/Chip";
 import { createUniverse, createCharacter, createFamily } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
-const AGE_GROUPS = ["2-4", "5-7", "8-10"];
+const AGE_GROUPS = ["2-3", "4-5", "6-8"];
 
 const INTERESTS = [
   "Lions & big cats",
@@ -110,7 +110,7 @@ export default function Onboarding() {
   };
 
   const ageFromGroup = (group: string) => {
-    const map: Record<string, number> = { "2-4": 3, "5-7": 5, "8-10": 8 };
+    const map: Record<string, number> = { "2-3": 2, "4-5": 4, "6-8": 6 };
     return map[group] || 5;
   };
 

@@ -47,7 +47,7 @@ export default function ReadingMode() {
             &larr; Back to library
           </button>
           <span className="text-sm text-stone-400">
-            Scene {sceneIndex + 1} of {scenes.length}
+            Page {sceneIndex + 1} of {scenes.length}
           </span>
         </div>
 

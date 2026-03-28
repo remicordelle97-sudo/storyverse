@@ -5,10 +5,33 @@ import { getUniverse, generateStory } from "../api/client";
 import Chip from "../components/Chip";
 
 const MOODS = ["Gentle", "Funny", "Exciting", "Mysterious"];
-const LENGTHS: { label: string; value: string }[] = [
-  { label: "Short (3 scenes)", value: "short" },
-  { label: "Medium (5 scenes)", value: "medium" },
-  { label: "Long (7 scenes)", value: "long" },
+
+const STRUCTURES: { label: string; value: string; description: string }[] = [
+  {
+    label: "Problem & Solution",
+    value: "problem-solution",
+    description: "A clear problem the hero works to solve",
+  },
+  {
+    label: "Rule of Three",
+    value: "rule-of-three",
+    description: "Three attempts — fail, fail, succeed!",
+  },
+  {
+    label: "Cumulative",
+    value: "cumulative",
+    description: "Each event builds on the last, snowball style",
+  },
+  {
+    label: "Circular",
+    value: "circular",
+    description: "Ends where it began, but the hero has changed",
+  },
+  {
+    label: "Journey & Return",
+    value: "journey",
+    description: "Leave home, adventure, return transformed",
+  },
 ];
 
 export default function StoryBuilder() {
@@ -23,7 +46,7 @@ export default function StoryBuilder() {
 
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
   const [mood, setMood] = useState("Exciting");
-  const [length, setLength] = useState("medium");
+  const [structure, setStructure] = useState("problem-solution");
   const [parentPrompt, setParentPrompt] = useState("");
   const [generateImages, setGenerateImages] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -34,7 +57,8 @@ export default function StoryBuilder() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
-  const childId = localStorage.getItem("childId") || universe?.family?.children?.[0]?.id;
+  const childId =
+    localStorage.getItem("childId") || universe?.family?.children?.[0]?.id;
 
   const handleGenerate = async () => {
     if (!selectedCharacters.length || !childId) return;
@@ -48,7 +72,7 @@ export default function StoryBuilder() {
         characterIds: selectedCharacters,
         mood: mood.toLowerCase(),
         language: universe?.family?.preferredLanguage || "en",
-        length,
+        structure,
         parentPrompt,
         generateImages,
       });
@@ -106,19 +130,25 @@ export default function StoryBuilder() {
         </div>
       </section>
 
-      {/* Length */}
+      {/* Story structure */}
       <section className="mb-8">
         <label className="block text-sm font-medium text-stone-700 mb-3">
-          Length
+          Story structure
         </label>
-        <div className="flex flex-wrap gap-2">
-          {LENGTHS.map((l) => (
-            <Chip
-              key={l.value}
-              label={l.label}
-              selected={length === l.value}
-              onClick={() => setLength(l.value)}
-            />
+        <div className="space-y-2">
+          {STRUCTURES.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setStructure(s.value)}
+              className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
+                structure === s.value
+                  ? "border-primary bg-primary/5 text-stone-800"
+                  : "border-stone-200 bg-white text-stone-600 hover:border-primary/30"
+              }`}
+            >
+              <span className="font-medium text-sm">{s.label}</span>
+              <p className="text-xs text-stone-400 mt-0.5">{s.description}</p>
+            </button>
           ))}
         </div>
       </section>
@@ -143,7 +173,7 @@ export default function StoryBuilder() {
           </span>
         </label>
         <p className="text-xs text-stone-400 mt-1 ml-14">
-          ~$0.04 per scene. Leave off to save credits during testing.
+          ~$0.04 per page. Leave off to save credits during testing.
         </p>
       </section>
 

@@ -58,7 +58,7 @@ router.post("/generate", async (req, res) => {
       characterIds,
       mood,
       language,
-      length,
+      structure,
       parentPrompt,
       generateImages,
     } = req.body;
@@ -81,7 +81,7 @@ router.post("/generate", async (req, res) => {
       characterIds,
       mood: mood || "exciting adventures",
       language: language || "en",
-      length: length || "medium",
+      structure: structure || "problem-solution",
       parentPrompt: parentPrompt || "",
     });
 
@@ -100,23 +100,23 @@ router.post("/generate", async (req, res) => {
       },
     });
 
-    // Save scenes and optionally generate images
-    for (const scene of generated.scenes) {
+    // Save pages and optionally generate images
+    for (const page of generated.pages) {
       let imageUrl = "";
-      if (generateImages && scene.image_prompt) {
+      if (generateImages && page.image_prompt) {
         try {
-          imageUrl = await generateImage(scene.image_prompt);
+          imageUrl = await generateImage(page.image_prompt);
         } catch (e) {
-          console.error(`Image generation failed for scene ${scene.scene_number}:`, e);
+          console.error(`Image generation failed for page ${page.page_number}:`, e);
         }
       }
 
       await prisma.scene.create({
         data: {
           storyId: story.id,
-          sceneNumber: scene.scene_number,
-          content: scene.content,
-          imagePrompt: scene.image_prompt || "",
+          sceneNumber: page.page_number,
+          content: page.content,
+          imagePrompt: page.image_prompt || "",
           imageUrl,
         },
       });
