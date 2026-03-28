@@ -3,10 +3,14 @@ import prisma from "../lib/prisma.js";
 
 const router = Router();
 
-// List all universes for the hardcoded family
-router.get("/", async (_req, res) => {
+// List all universes for the authenticated user's family
+router.get("/", async (req, res) => {
   try {
+    if (!req.familyId) {
+      return res.json([]);
+    }
     const universes = await prisma.universe.findMany({
+      where: { familyId: req.familyId },
       include: { characters: true },
       orderBy: { createdAt: "desc" },
     });
@@ -39,6 +43,9 @@ router.get("/:id", async (req, res) => {
     if (!universe) {
       return res.status(404).json({ error: "Universe not found" });
     }
+    if (universe.familyId !== req.familyId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     res.json(universe);
   } catch (e) {
     res.status(500).json({ error: "Failed to fetch universe" });
@@ -49,7 +56,6 @@ router.get("/:id", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const {
-      familyId,
       name,
       settingDescription,
       themes,
@@ -61,21 +67,15 @@ router.post("/", async (req, res) => {
       childAgeGroup,
     } = req.body;
 
-    // If no familyId provided, use the first family
-    let resolvedFamilyId = familyId;
-    if (!resolvedFamilyId) {
-      const family = await prisma.family.findFirst();
-      if (!family) {
-        return res.status(400).json({ error: "No family found" });
-      }
-      resolvedFamilyId = family.id;
+    if (!req.familyId) {
+      return res.status(400).json({ error: "Set up your family first" });
     }
 
     // Create child if provided
     if (childName && childAge && childAgeGroup) {
       await prisma.child.create({
         data: {
-          familyId: resolvedFamilyId,
+          familyId: req.familyId,
           name: childName,
           age: childAge,
           ageGroup: childAgeGroup,
@@ -85,7 +85,7 @@ router.post("/", async (req, res) => {
 
     const universe = await prisma.universe.create({
       data: {
-        familyId: resolvedFamilyId,
+        familyId: req.familyId,
         name,
         settingDescription,
         themes: typeof themes === "string" ? themes : JSON.stringify(themes),

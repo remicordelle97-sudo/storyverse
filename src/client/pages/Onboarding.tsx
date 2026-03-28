@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Chip from "../components/Chip";
-import { createUniverse, createCharacter } from "../api/client";
+import { createUniverse, createCharacter, createFamily } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 const AGE_GROUPS = ["2-4", "5-7", "8-10"];
 
@@ -66,6 +67,7 @@ const UNIVERSE_MAP: Record<string, { name: string; setting: string }> = {
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const { user, refreshUser } = useAuth();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
@@ -114,6 +116,12 @@ export default function Onboarding() {
   const handleFinish = async () => {
     setSaving(true);
     try {
+      // Create family if user doesn't have one yet
+      if (!user?.familyId) {
+        await createFamily({ name: `${childName}'s Family` });
+        await refreshUser();
+      }
+
       const derived = deriveUniverse();
       const allThemes = [
         ...interests.filter((i) => i !== "Something else"),

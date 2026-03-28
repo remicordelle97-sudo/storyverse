@@ -3,9 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import { getUniverse, getStories } from "../api/client";
 import CharacterCard from "../components/CharacterCard";
 import StoryCard from "../components/StoryCard";
+import { useAuth } from "../auth/AuthContext";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const universeId = localStorage.getItem("universeId");
 
   const { data: universe, isLoading: loadingUniverse } = useQuery({
@@ -37,6 +39,28 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* User bar */}
+      <div className="flex items-center justify-end gap-3 mb-6">
+        {user?.picture && (
+          <img
+            src={user.picture}
+            alt=""
+            className="w-8 h-8 rounded-full"
+            referrerPolicy="no-referrer"
+          />
+        )}
+        <span className="text-sm text-stone-600">{user?.name}</span>
+        <button
+          onClick={async () => {
+            await logout();
+            navigate("/login");
+          }}
+          className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
+        >
+          Sign out
+        </button>
+      </div>
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
