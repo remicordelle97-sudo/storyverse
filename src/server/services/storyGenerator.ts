@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { SYSTEM_PROMPT } from "./promptBuilder.js";
+import { buildSystemPrompt } from "./promptBuilder.js";
 
 const anthropic = new Anthropic();
 
@@ -22,12 +22,13 @@ export interface GeneratedStory {
 }
 
 export async function generateStory(
-  userPrompt: string
+  userPrompt: string,
+  ageGroup: string
 ): Promise<GeneratedStory> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 4000,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(ageGroup),
     messages: [{ role: "user", content: userPrompt }],
   });
 

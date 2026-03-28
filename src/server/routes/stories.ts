@@ -74,7 +74,7 @@ router.post("/generate", async (req, res) => {
     }
 
     // Build prompt and generate story
-    const prompt = await buildPrompt({
+    const { userMessage, ageGroup } = await buildPrompt({
       universeId,
       childId,
       characterIds,
@@ -84,7 +84,7 @@ router.post("/generate", async (req, res) => {
       parentPrompt: parentPrompt || "",
     });
 
-    const generated = await generateStory(prompt);
+    const generated = await generateStory(userMessage, ageGroup);
 
     // Save story
     const story = await prisma.story.create({
