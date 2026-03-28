@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUniverses, createUniverse, createCharacter } from "../api/client";
+import { getUniverses, createUniverse, createCharacter, generateCharacters } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
 
@@ -117,6 +117,7 @@ export default function Universes() {
   const [heroDetail, setHeroDetail] = useState("");
 
   const [saving, setSaving] = useState(false);
+  const [savingStep, setSavingStep] = useState("");
 
   const toggleInterest = (i: string) =>
     setInterests((prev) =>
@@ -151,6 +152,7 @@ export default function Universes() {
     setSaving(true);
 
     try {
+      setSavingStep("Creating world...");
       const derived = deriveUniverse(interests, childName);
       const allThemes = [
         ...interests.filter((i) => i !== "Something else"),
@@ -166,6 +168,7 @@ export default function Universes() {
         avoidThemes,
       });
 
+      setSavingStep("Creating hero...");
       const species = deriveSpecies(derived.name);
       await createCharacter({
         universeId: universe.id,
@@ -177,11 +180,15 @@ export default function Universes() {
         role: "main",
       });
 
+      setSavingStep("Populating world with characters...");
+      await generateCharacters(universe.id);
+
       queryClient.invalidateQueries({ queryKey: ["universes"] });
       resetForm();
     } catch (e) {
       console.error(e);
       setSaving(false);
+      setSavingStep("");
     }
   };
 
@@ -393,7 +400,15 @@ export default function Universes() {
                 disabled={saving || !canNext()}
                 className="px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-60 transition-colors"
               >
-                {saving ? "Creating..." : "Create world"}
+                {saving ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    {savingStep}
+                  </span>
+                ) : "Create world"}
               </button>
             )}
           </div>

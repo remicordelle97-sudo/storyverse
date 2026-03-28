@@ -46,6 +46,11 @@ export const getCharacters = (universeId: string) =>
   request<any[]>(`/characters?universeId=${universeId}`);
 export const createCharacter = (data: any) =>
   request<any>("/characters", { method: "POST", body: JSON.stringify(data) });
+export const generateCharacters = (universeId: string) =>
+  request<any[]>("/characters/generate", {
+    method: "POST",
+    body: JSON.stringify({ universeId }),
+  });
 
 // Stories
 export const getStories = (universeId: string) =>

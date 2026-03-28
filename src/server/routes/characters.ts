@@ -1,5 +1,6 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
+import { generateSecondaryCharacters } from "../services/characterGenerator.js";
 
 const router = Router();
 
@@ -72,6 +73,28 @@ router.post("/", async (req, res) => {
     res.status(201).json(character);
   } catch (e) {
     res.status(500).json({ error: "Failed to create character" });
+  }
+});
+
+// Auto-generate secondary characters for a universe
+router.post("/generate", async (req, res) => {
+  try {
+    const { universeId } = req.body;
+    if (!universeId) {
+      return res.status(400).json({ error: "universeId is required" });
+    }
+    await generateSecondaryCharacters(universeId);
+    const characters = await prisma.character.findMany({
+      where: { universeId },
+      include: {
+        relationshipsA: { include: { characterB: true } },
+        relationshipsB: { include: { characterA: true } },
+      },
+    });
+    res.status(201).json(characters);
+  } catch (e) {
+    console.error("Character generation failed:", e);
+    res.status(500).json({ error: "Failed to generate characters" });
   }
 });
 
