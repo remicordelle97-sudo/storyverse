@@ -67,6 +67,7 @@ model Character {
   personalityTraits String
   appearance        String
   specialDetail     String           @default("")
+  referenceImageUrl String           @default("")
   role              String           @default("main")
   createdAt         DateTime         @default(now())
   universe          Universe         @relation(fields: [universeId], references: [id])
