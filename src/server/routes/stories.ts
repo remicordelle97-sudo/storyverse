@@ -49,8 +49,31 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Trigger AI generation
+// Trigger AI generation with SSE progress
 router.post("/generate", async (req, res) => {
+  // Set up SSE headers
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  function sendProgress(step: string, detail?: string) {
+    const data = JSON.stringify({ type: "progress", step, detail });
+    res.write(`data: ${data}\n\n`);
+  }
+
+  function sendError(message: string) {
+    const data = JSON.stringify({ type: "error", error: message });
+    res.write(`data: ${data}\n\n`);
+    res.end();
+  }
+
+  function sendComplete(story: any) {
+    const data = JSON.stringify({ type: "complete", story });
+    res.write(`data: ${data}\n\n`);
+    res.end();
+  }
+
   try {
     const {
       universeId,
@@ -67,30 +90,35 @@ router.post("/generate", async (req, res) => {
     const structure = structures[Math.floor(Math.random() * structures.length)];
 
     if (!universeId || !childId || !characterIds?.length) {
-      return res.status(400).json({
-        error: "universeId, childId, and characterIds are required",
-      });
+      return sendError("universeId, childId, and characterIds are required");
     }
 
     const child = await prisma.child.findUnique({ where: { id: childId } });
     if (!child) {
-      return res.status(404).json({ error: "Child not found" });
+      return sendError("Child not found");
     }
 
-    // Build prompt and generate story
+    // Step 1: Build prompt
+    sendProgress("building", "Building your story world...");
+
     const { userMessage, ageGroup } = await buildPrompt({
       universeId,
       childId,
       characterIds,
       mood: mood || "exciting adventures",
       language: language || "en",
-      structure: structure || "problem-solution",
+      structure,
       parentPrompt: parentPrompt || "",
     });
 
+    // Step 2: Generate story
+    sendProgress("writing", "Writing the story...");
+
     const generated = await generateStory(userMessage, ageGroup);
 
-    // Save story
+    // Step 3: Save to database
+    sendProgress("saving", `"${generated.title}" — saving ${generated.pages.length} pages...`);
+
     const story = await prisma.story.create({
       data: {
         universeId,
@@ -104,9 +132,16 @@ router.post("/generate", async (req, res) => {
     });
 
     // Save pages and optionally generate images
-    for (const page of generated.pages) {
+    const totalPages = generated.pages.length;
+    for (let i = 0; i < totalPages; i++) {
+      const page = generated.pages[i];
       let imageUrl = "";
+
       if (generateImages && page.image_prompt) {
+        sendProgress(
+          "illustrating",
+          `Creating illustration ${i + 1} of ${totalPages}...`
+        );
         try {
           imageUrl = await generateImage(page.image_prompt);
         } catch (e) {
@@ -137,6 +172,7 @@ router.post("/generate", async (req, res) => {
     }
 
     // Write timeline events
+    sendProgress("finishing", "Adding to the timeline...");
     await writeTimelineEvents(story.id, universeId, generated);
 
     // Fetch the full story to return
@@ -148,10 +184,10 @@ router.post("/generate", async (req, res) => {
       },
     });
 
-    res.status(201).json({ story: fullStory });
+    sendComplete(fullStory);
   } catch (e) {
     console.error("Story generation failed:", e);
-    res.status(500).json({ error: "Story generation failed. Please try again." });
+    sendError("Story generation failed. Please try again.");
   }
 });
 
