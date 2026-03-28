@@ -30,18 +30,20 @@ model Family {
 }
 
 model Child {
-  id       String   @id @default(uuid())
-  familyId String
-  name     String
-  age      Int
-  ageGroup String
-  family   Family   @relation(fields: [familyId], references: [id])
-  stories  Story[]
+  id        String     @id @default(uuid())
+  familyId  String
+  name      String
+  age       Int
+  ageGroup  String
+  family    Family     @relation(fields: [familyId], references: [id])
+  stories   Story[]
+  universes Universe[]
 }
 
 model Universe {
   id                   String          @id @default(uuid())
   familyId             String
+  childId              String?
   name                 String
   settingDescription   String
   themes               String
@@ -51,6 +53,7 @@ model Universe {
   avoidThemes          String          @default("")
   createdAt            DateTime        @default(now())
   family               Family          @relation(fields: [familyId], references: [id])
+  child                Child?          @relation(fields: [childId], references: [id])
   characters           Character[]
   stories              Story[]
   timelineEvents       TimelineEvent[]

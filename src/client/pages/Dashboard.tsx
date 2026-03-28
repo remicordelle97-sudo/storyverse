@@ -9,6 +9,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const universeId = localStorage.getItem("universeId");
+  const childId = localStorage.getItem("childId");
 
   const { data: universe, isLoading: loadingUniverse } = useQuery({
     queryKey: ["universe", universeId],
@@ -74,6 +75,7 @@ export default function Dashboard() {
             {universe?.name}
           </h1>
           <p className="text-stone-500 mt-1">
+            {universe?.child?.name ? `${universe.child.name}'s world · ` : ""}
             {universe?.mood}
           </p>
         </div>

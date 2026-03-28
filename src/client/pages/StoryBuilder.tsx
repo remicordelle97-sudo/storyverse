@@ -34,7 +34,7 @@ export default function StoryBuilder() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
-  const childId = universe?.family?.children?.[0]?.id;
+  const childId = localStorage.getItem("childId") || universe?.family?.children?.[0]?.id;
 
   const handleGenerate = async () => {
     if (!selectedCharacters.length || !childId) return;

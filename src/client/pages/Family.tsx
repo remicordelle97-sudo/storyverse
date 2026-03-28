@@ -84,14 +84,13 @@ export default function FamilyPage() {
   };
 
   const handleChildClick = (child: any) => {
-    // Find universes for this child or go to onboarding
-    const hasUniverse = universes.length > 0;
-    if (hasUniverse) {
-      localStorage.setItem("universeId", universes[0].id);
-      localStorage.setItem("childId", child.id);
+    // Find a universe belonging to this child
+    const childUniverse = universes.find((u: any) => u.childId === child.id);
+    localStorage.setItem("childId", child.id);
+    if (childUniverse) {
+      localStorage.setItem("universeId", childUniverse.id);
       navigate("/dashboard");
     } else {
-      localStorage.setItem("childId", child.id);
       navigate("/onboarding");
     }
   };

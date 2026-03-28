@@ -11,7 +11,7 @@ router.get("/", async (req, res) => {
     }
     const universes = await prisma.universe.findMany({
       where: { familyId: req.familyId },
-      include: { characters: true },
+      include: { characters: true, child: true },
       orderBy: { createdAt: "desc" },
     });
     res.json(universes);
@@ -37,6 +37,7 @@ router.get("/:id", async (req, res) => {
           take: 20,
           include: { character: true },
         },
+        child: true,
         family: { include: { children: true } },
       },
     });
@@ -62,6 +63,7 @@ router.post("/", async (req, res) => {
       mood,
       avoidThemes,
       illustrationStyle,
+      childId,
       childName,
       childAge,
       childAgeGroup,
@@ -71,9 +73,10 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Set up your family first" });
     }
 
-    // Create child if provided
-    if (childName && childAge && childAgeGroup) {
-      await prisma.child.create({
+    // Create child if provided and no childId given
+    let resolvedChildId = childId;
+    if (!resolvedChildId && childName && childAge && childAgeGroup) {
+      const child = await prisma.child.create({
         data: {
           familyId: req.familyId,
           name: childName,
@@ -81,11 +84,13 @@ router.post("/", async (req, res) => {
           ageGroup: childAgeGroup,
         },
       });
+      resolvedChildId = child.id;
     }
 
     const universe = await prisma.universe.create({
       data: {
         familyId: req.familyId,
+        childId: resolvedChildId || null,
         name,
         settingDescription,
         themes: typeof themes === "string" ? themes : JSON.stringify(themes),

@@ -129,15 +129,22 @@ export default function Onboarding() {
         ...(customInterest ? [customInterest] : []),
       ];
 
+      // If coming from Family page, childId is already set
+      const existingChildId = localStorage.getItem("childId");
+
       const universe = await createUniverse({
         name: derived.name,
         settingDescription: derived.setting,
         themes: JSON.stringify(allThemes),
         mood: mood || "exciting adventures",
         avoidThemes,
-        childName,
-        childAge: ageFromGroup(ageGroup),
-        childAgeGroup: ageGroup,
+        ...(existingChildId
+          ? { childId: existingChildId }
+          : {
+              childName,
+              childAge: ageFromGroup(ageGroup),
+              childAgeGroup: ageGroup,
+            }),
       });
 
       // Derive species from universe name
