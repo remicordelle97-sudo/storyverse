@@ -161,6 +161,7 @@ CRITICAL RULES:
 - Write for read-aloud. The text must sound natural and musical when spoken. Use rhythm, natural pauses, and flow.
 - Be bold, surprising, and imaginative. The more inventive and unexpected the details, the more memorable the story.
 - NEVER state a moral or lesson. Do NOT write "and Leo learned that..." or "the moral of the story is..." Let the reader draw their own conclusions from the characters' experiences and choices.
+- NEVER use the em dash character (—). Use commas, periods, or "and" instead.
 - Return ONLY valid JSON. No markdown fences, no preamble, no explanation.
 
 ${guidelines}`;
