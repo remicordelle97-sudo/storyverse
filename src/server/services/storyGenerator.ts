@@ -23,10 +23,10 @@ export interface GeneratedStory {
 
 export async function generateStory(
   userPrompt: string,
-  ageGroup: string
+  ageGroup: string,
+  length: "short" | "long" = "long"
 ): Promise<GeneratedStory> {
-  // 32-page stories need more tokens
-  const maxTokens = ageGroup === "2-3" ? 4000 : 8000;
+  const maxTokens = length === "short" ? 4000 : 8000;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",

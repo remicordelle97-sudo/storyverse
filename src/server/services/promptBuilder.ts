@@ -7,12 +7,13 @@ interface PromptInput {
   mood: string;
   language: string;
   structure: string;
+  length: "short" | "long";
   parentPrompt: string;
 }
 
 const AGE_GUIDELINES: Record<string, string> = {
   "2-3": `WRITING LEVEL — Ages 2-3 (Toddler):
-- Total length: exactly 10 pages. Each page has 1-2 short sentences (5-8 words each).
+- Each page has 1-2 short sentences (5-8 words each).
 - Only use words a toddler would know — no abstract concepts.
 - Repeat key phrases throughout the story as a refrain the child can anticipate and join in on. For example: "And off they went, step by step!" should appear at least 3 times.
 - No conflict, tension, or scary moments — everything is gentle and safe.
@@ -22,7 +23,7 @@ const AGE_GUIDELINES: Record<string, string> = {
 - End with warmth, hugs, or bedtime cues.`,
 
   "4-5": `WRITING LEVEL — Ages 4-5 (Early Reader):
-- Total length: exactly 32 pages. Each page has 2-4 sentences.
+- Each page has 2-4 sentences.
 - Use clear, vivid sentences (8-15 words). Introduce some new vocabulary but explain through context ("a lantern — a special light you can carry").
 - Include a recurring phrase or refrain that appears at key moments — something the child can predict and say along with the reader.
 - Gentle tension is OK (a lost item, a small misunderstanding) but resolve it within a few pages.
@@ -34,7 +35,7 @@ const AGE_GUIDELINES: Record<string, string> = {
 - Always resolve uncertainty before the story ends.`,
 
   "6-8": `WRITING LEVEL — Ages 6-8 (Confident Reader):
-- Total length: exactly 32 pages. Each page has 3-5 sentences with richer descriptive detail.
+- Each page has 3-5 sentences with richer descriptive detail.
 - Use varied sentence structure and ambitious vocabulary. Trust children with words like "magnificent" or "reluctant" when context makes them clear.
 - SHOW every emotion through actions, body language, and dialogue — never state them directly. Write "Leo clenched his paws and stared at the ground" not "Leo felt frustrated."
 - Real stakes and challenges are OK — characters can struggle, fail, and try again.
@@ -130,8 +131,7 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
     where: { id: input.childId },
   });
 
-  // Determine page count from age group
-  const pageCount = child.ageGroup === "2-3" ? 10 : 32;
+  const pageCount = input.length === "short" ? 10 : 32;
 
   // Fetch timeline: all major events + last 8 overall, deduplicated
   const recentEvents = await prisma.timelineEvent.findMany({

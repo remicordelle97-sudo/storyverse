@@ -26,6 +26,7 @@ export default function StoryBuilder() {
 
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
   const [mood, setMood] = useState("Exciting");
+  const [length, setLength] = useState<"short" | "long">("long");
   const [parentPrompt, setParentPrompt] = useState("");
   const [generateImages, setGenerateImages] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -58,6 +59,7 @@ export default function StoryBuilder() {
           characterIds: selectedCharacters,
           mood: mood.toLowerCase(),
           language: universe?.family?.preferredLanguage || "en",
+          length,
           parentPrompt,
           generateImages,
         },
@@ -211,6 +213,25 @@ export default function StoryBuilder() {
                   onClick={() => setMood(m)}
                 />
               ))}
+            </div>
+          </section>
+
+          {/* Length */}
+          <section className="mb-8">
+            <label className="block text-sm font-medium text-stone-700 mb-3">
+              Length
+            </label>
+            <div className="flex gap-2">
+              <Chip
+                label="Short (10 pages)"
+                selected={length === "short"}
+                onClick={() => setLength("short")}
+              />
+              <Chip
+                label="Long (32 pages)"
+                selected={length === "long"}
+                onClick={() => setLength("long")}
+              />
             </div>
           </section>
 

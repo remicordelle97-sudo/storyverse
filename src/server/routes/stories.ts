@@ -81,6 +81,7 @@ router.post("/generate", async (req, res) => {
       characterIds,
       mood,
       language,
+      length,
       parentPrompt,
       generateImages,
     } = req.body;
@@ -108,13 +109,14 @@ router.post("/generate", async (req, res) => {
       mood: mood || "exciting adventures",
       language: language || "en",
       structure,
+      length: length || "long",
       parentPrompt: parentPrompt || "",
     });
 
     // Step 2: Generate story
     sendProgress("writing", "Writing the story...");
 
-    const generated = await generateStory(userMessage, ageGroup);
+    const generated = await generateStory(userMessage, ageGroup, length || "long");
 
     // Step 3: Save to database
     sendProgress("saving", `"${generated.title}" — saving ${generated.pages.length} pages...`);
