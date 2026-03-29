@@ -200,12 +200,13 @@ ROW 1 — TURNAROUND (4 views, same pose):
 - Side view (profile, facing right)
 - Back view
 
-ROW 2 — EXPRESSIONS (5 faces, head and shoulders only):
+ROW 2 — EXPRESSIONS (5 views, head to mid-chest, INCLUDE the full top of the head with plenty of space above):
 - Happy (big smile, bright eyes)
 - Sad (drooping features, downcast eyes)
 - Surprised (wide eyes, open mouth)
 - Determined (focused eyes, set jaw)
 - Laughing (eyes squeezed, mouth open)
+IMPORTANT: Do NOT crop the top of the head in the expression views. Show the COMPLETE head from chin to the very top, including any features on top of the head (antennas, hats, ears, horns, crests, hair). Leave generous space above the head in each expression view.
 
 ROW 3 — ACTION POSES (4 full body poses):
 - Running/moving quickly
@@ -214,8 +215,9 @@ ROW 3 — ACTION POSES (4 full body poses):
 - Interacting with a friend (gesturing, talking)
 
 CRITICAL RULES:
-- The character must look IDENTICAL in every pose and expression — same proportions, same colors, same markings, same accessories.
-- The special detail (${character.specialDetail}) must be visible in every single view.
+- The character must look IDENTICAL in every single view — same proportions, same colors, same markings, same accessories. No exceptions.
+- EVERY distinguishing feature must appear in EVERY view, including expression close-ups. This includes: ${character.specialDetail}. If the character has something on top of their head (antenna, hat, horns, crest), it MUST be visible in the expression views too — do not crop it.
+- ALL accessories, clothing items, and special markings must be present in every view. If they wear a scarf, every view has the scarf. If they have a backpack, every view has the backpack.
 - Plain white background. No scenery, no props, no other characters.
 - Label each view with small text underneath (e.g., "FRONT", "SIDE", "HAPPY", "RUNNING").
 - Use clean, consistent line work throughout.
