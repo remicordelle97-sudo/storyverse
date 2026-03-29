@@ -14,6 +14,31 @@ if (!fs.existsSync(IMAGES_DIR)) {
 }
 
 /**
+ * Run a Replicate model with retry on rate limit (429).
+ * Waits for the retry-after period and retries up to 3 times.
+ */
+async function runWithRetry(
+  model: string,
+  input: Record<string, any>,
+  maxRetries: number = 3
+): Promise<any> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await replicate.run(model as `${string}/${string}`, { input });
+    } catch (e: any) {
+      const isRateLimit = e?.response?.status === 429 || e?.status === 429;
+      if (!isRateLimit || attempt === maxRetries) throw e;
+
+      // Parse retry-after or default to 10 seconds
+      const retryAfter = parseInt(e?.response?.headers?.get?.("retry-after") || "10", 10);
+      const waitMs = (retryAfter + 1) * 1000;
+      console.log(`Rate limited. Waiting ${retryAfter + 1}s before retry ${attempt + 1}/${maxRetries}...`);
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+  }
+}
+
+/**
  * Download an image from a URL and save locally.
  */
 async function saveImageFromUrl(url: string): Promise<string> {
@@ -63,10 +88,7 @@ async function buildFluxPrompt(
   characterIds: string[],
   mood: string,
   ageGroup: string
-): Promise<{
-  prompt: string;
-  characterRefUrls: string[];
-}> {
+): Promise<{ prompt: string }> {
   const characters = await prisma.character.findMany({
     where: { universeId, id: { in: characterIds } },
   });
@@ -75,33 +97,14 @@ async function buildFluxPrompt(
     where: { id: universeId },
   });
 
-  // Build style guide (same one used by GPT-4o)
-  const styleGuide = buildImageStyleGuide(
-    mood,
-    ageGroup,
-    universe?.illustrationStyle
-  );
-
-  // Build character descriptions
+  // Build character descriptions from exact DB text
   let charDesc = "";
-  const characterRefUrls: string[] = [];
-
   for (const char of characters) {
     charDesc += `${char.name} (${char.speciesOrType}): ${char.appearance}`;
     if (char.specialDetail) {
       charDesc += `. ${char.specialDetail}`;
     }
     charDesc += ". ";
-
-    // Upload character reference image to Replicate if available
-    if (char.referenceImageUrl) {
-      try {
-        const url = await uploadToReplicate(char.referenceImageUrl);
-        if (url) characterRefUrls.push(url);
-      } catch (e) {
-        console.error(`Failed to upload ref image for ${char.name}:`, e);
-      }
-    }
   }
 
   // Flux works best with focused prompts. Extract the key style directives
@@ -130,14 +133,13 @@ async function buildFluxPrompt(
     `Shadows use cool blues and purples, never black. Highlights use warm yellows and pinks. Consistent art style throughout.`,
   ].join(". ");
 
-  return { prompt, characterRefUrls };
+  return { prompt };
 }
 
 /**
  * Generate a scene illustration using Flux via Replicate.
- *
- * Uses IP-Adapter for character reference images when available,
- * and Redux for style continuity from previous pages.
+ * Model priority: LoRA (if trained) > Flux Pro (default) > Flux Schnell (low quality)
+ * Includes retry logic for rate limits.
  */
 export async function generateFluxImage(
   scenePrompt: string,
@@ -149,7 +151,7 @@ export async function generateFluxImage(
   quality: "low" | "medium" | "high" = "high",
   seed?: number
 ): Promise<{ imageUrl: string; seed: number }> {
-  const { prompt, characterRefUrls } = await buildFluxPrompt(
+  const { prompt } = await buildFluxPrompt(
     scenePrompt,
     universeId,
     characterIds,
@@ -159,7 +161,7 @@ export async function generateFluxImage(
 
   const loraModel = await getLoraModel(universeId);
 
-  // Choose model and build input based on what's available
+  // Choose model and build input
   let model: string;
   let input: Record<string, any>;
   const usedSeed = seed || Math.floor(Math.random() * 2147483647);
@@ -173,22 +175,6 @@ export async function generateFluxImage(
       guidance: 3.5,
       output_format: "webp",
       output_quality: quality === "low" ? 80 : 90,
-      seed: usedSeed,
-    };
-  } else if (
-    characterRefUrls.length > 0 &&
-    quality !== "low"
-  ) {
-    // Use IP-Adapter with character reference images
-    model = "xlabs-ai/flux-ip-adapter";
-    input = {
-      prompt,
-      image: characterRefUrls[0], // primary character reference
-      ip_adapter_strength: 0.6,
-      steps: quality === "medium" ? 25 : 35,
-      guidance: 3.5,
-      output_format: "webp",
-      output_quality: 90,
       seed: usedSeed,
     };
   } else if (quality === "low") {
@@ -205,7 +191,7 @@ export async function generateFluxImage(
       seed: usedSeed,
     };
   } else {
-    // Flux 1.1 Pro for production quality (no character refs available)
+    // Flux 1.1 Pro for production quality
     model = "black-forest-labs/flux-1.1-pro";
     input = {
       prompt,
@@ -218,37 +204,10 @@ export async function generateFluxImage(
     };
   }
 
-  // For non-LoRA, non-Schnell: if we have previous pages, try Redux for style continuity
-  if (
-    !loraModel &&
-    quality !== "low" &&
-    !input.image && // not already using IP-Adapter
-    previousPageImageUrls.length > 0
-  ) {
-    const lastPageUrl = previousPageImageUrls[previousPageImageUrls.length - 1];
-    try {
-      const replicateUrl = await uploadToReplicate(lastPageUrl);
-      if (replicateUrl) {
-        model = "black-forest-labs/flux-redux-dev";
-        input = {
-          prompt,
-          redux_image: replicateUrl,
-          guidance: 3.5,
-          num_inference_steps: quality === "medium" ? 25 : 35,
-          output_format: "webp",
-          output_quality: 90,
-          seed: usedSeed,
-        };
-      }
-    } catch (e) {
-      console.error("Failed to upload previous page for Redux:", e);
-      // Fall through to non-Redux generation
-    }
-  }
-
   console.log(`Flux generating with model: ${model}, seed: ${usedSeed}`);
 
-  const output = await replicate.run(model as `${string}/${string}`, { input });
+  // Run with retry on rate limit (429)
+  const output = await runWithRetry(model, input);
 
   // Handle different output formats from different models
   let outputUrl: string;
