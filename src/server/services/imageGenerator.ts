@@ -88,7 +88,7 @@ export async function generateImage(
   characterIds: string[],
   mood: string,
   ageGroup: string,
-  previousPageImageUrl?: string,
+  previousPageImageUrls: string[] = [],
   quality: "low" | "medium" | "high" = "high"
 ): Promise<string> {
   const context = await buildImageContext(universeId, characterIds, mood, ageGroup);
@@ -106,19 +106,22 @@ export async function generateImage(
     });
   }
 
-  // Previous page image for scenery/style continuity
-  if (previousPageImageUrl) {
-    const prevImgData = readImageAsBase64(previousPageImageUrl);
-    if (prevImgData) {
-      content.push({
-        type: "input_image",
-        image_url: `data:image/png;base64,${prevImgData}`,
-      });
-      content.push({
-        type: "input_text",
-        text: "The image above is the previous page's illustration. Match its art style, color palette, lighting, and character appearances exactly. The new scene should feel like the next page of the same book.",
-      });
+  // Previous page images for scenery/style/character continuity (last 3 max)
+  const recentPages = previousPageImageUrls.slice(-3);
+  if (recentPages.length > 0) {
+    for (const pageUrl of recentPages) {
+      const imgData = readImageAsBase64(pageUrl);
+      if (imgData) {
+        content.push({
+          type: "input_image",
+          image_url: `data:image/png;base64,${imgData}`,
+        });
+      }
     }
+    content.push({
+      type: "input_text",
+      text: `The ${recentPages.length} image(s) above are illustrations from the previous pages of this same book. You MUST match them exactly in: art style, color palette, lighting direction, character appearances and proportions, and scenery/environment details. If the scene takes place in the same location as a previous page, the environment must look the same (same trees, same buildings, same colors, same sky). The new illustration should feel like the next page of the same book by the same illustrator.`,
+    });
   }
 
   content.push({

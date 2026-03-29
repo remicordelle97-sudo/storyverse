@@ -147,9 +147,9 @@ router.post("/generate", async (req, res) => {
     if (generateImages) {
       sendProgress("illustrating", `Creating ${totalPages} illustrations...`);
 
-      // Generate images sequentially, passing each page's image to the next
-      // for scenery and style continuity
-      let previousImageUrl: string | undefined;
+      // Generate images sequentially, passing previous pages' images
+      // for scenery, style, and character continuity
+      const generatedImageUrls: string[] = [];
 
       for (let i = 0; i < totalPages; i++) {
         const page = generated.pages[i];
@@ -168,10 +168,10 @@ router.post("/generate", async (req, res) => {
               characterIds,
               mood || "exciting adventures",
               ageGroup,
-              previousImageUrl,
+              generatedImageUrls,
               imageQuality || "high"
             );
-            previousImageUrl = imageUrl;
+            generatedImageUrls.push(imageUrl);
           } catch (e) {
             console.error(`Image generation failed for page ${page.page_number}:`, e);
           }
