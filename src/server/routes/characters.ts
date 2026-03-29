@@ -100,24 +100,20 @@ router.post("/generate", async (req, res) => {
       where: { universeId },
       orderBy: { role: "asc" }, // "main" first, then "supporting"
     });
-    debug.character(`Found ${characters.length} characters, generating model sheets (chained)...`);
-
-    const completedSheetUrls: string[] = [];
+    debug.character(`Found ${characters.length} characters, generating model sheets...`);
 
     for (const char of characters) {
       if (!char.referenceImageUrl) {
         try {
-          debug.image(`Generating model sheet for "${char.name}" (with ${completedSheetUrls.length} previous sheets as style reference)...`);
+          debug.image(`Generating model sheet for "${char.name}"...`);
           const startImg = Date.now();
-          const sheetUrl = await generateCharacterSheet(char.id, completedSheetUrls);
-          completedSheetUrls.push(sheetUrl);
+          await generateCharacterSheet(char.id);
           debug.image(`Model sheet for "${char.name}" done in ${Date.now() - startImg}ms`);
         } catch (e: any) {
           debug.error(`Model sheet failed for "${char.name}": ${e.message}`);
         }
       } else {
-        debug.image(`"${char.name}" already has model sheet, using as reference`);
-        completedSheetUrls.push(char.referenceImageUrl);
+        debug.image(`"${char.name}" already has model sheet, skipping`);
       }
     }
 
@@ -146,18 +142,7 @@ router.post("/:id/regenerate-sheet", async (req, res) => {
       return res.status(404).json({ error: "Character not found" });
     }
 
-    // Get previously generated sheets from other characters in the same universe
-    // to maintain style consistency
-    const otherCharacters = await prisma.character.findMany({
-      where: {
-        universeId: character.universeId,
-        id: { not: character.id },
-        referenceImageUrl: { not: "" },
-      },
-    });
-    const previousSheetUrls = otherCharacters.map((c) => c.referenceImageUrl);
-
-    debug.image(`Regenerating sheet for "${character.name}" (with ${previousSheetUrls.length} style references)`);
+    debug.image(`Regenerating sheet for "${character.name}"`);
     const startTime = Date.now();
 
     // Clear the old reference
@@ -166,7 +151,7 @@ router.post("/:id/regenerate-sheet", async (req, res) => {
       data: { referenceImageUrl: "" },
     });
 
-    const sheetUrl = await generateCharacterSheet(req.params.id, previousSheetUrls);
+    const sheetUrl = await generateCharacterSheet(req.params.id);
 
     debug.image(`Sheet regenerated for "${character.name}" in ${Date.now() - startTime}ms`);
 

@@ -99,8 +99,7 @@ async function buildReferenceParts(
  * Generate a character model sheet using Gemini.
  */
 export async function generateCharacterSheet(
-  characterId: string,
-  previousSheetUrls: string[] = []
+  characterId: string
 ): Promise<string> {
   const character = await prisma.character.findUniqueOrThrow({
     where: { id: characterId },
@@ -142,28 +141,9 @@ CONSISTENCY: The character must look identical in every view. Same proportions, 
 
 ONE character drawn many times. NOT multiple characters.`;
 
-  // Build input parts
-  const parts: any[] = [];
-
-  // Pass previous sheets as style reference
-  for (const sheetUrl of previousSheetUrls) {
-    const img = readImageAsBase64(sheetUrl);
-    if (img) {
-      parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
-    }
-  }
-
-  if (previousSheetUrls.length > 0) {
-    parts.push({
-      text: `The images above are character sheets of OTHER characters from the same book.
-
-MATCH from these images: the art style, line quality, color rendering technique, level of detail, and illustration aesthetic. The new character should look like it was drawn by the same illustrator.
-
-DO NOT COPY from these images: the character's body shape, species, colors, clothing, accessories, or any physical features. The new character described below is a COMPLETELY DIFFERENT individual with a DIFFERENT body, DIFFERENT colors, DIFFERENT clothing, and DIFFERENT features. They should look nothing alike except for the illustration style.`,
-    });
-  }
-
-  parts.push({ text: prompt });
+  // Build input parts — no reference images for character sheets
+  // (Gemini copies the character design instead of just the style)
+  const parts: any[] = [{ text: prompt }];
 
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash-image",
