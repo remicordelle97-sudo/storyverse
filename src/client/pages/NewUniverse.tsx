@@ -82,6 +82,8 @@ export default function NewUniverse() {
         heroName,
       });
 
+      console.log("Universe concept:", JSON.stringify(concept, null, 2));
+
       setSavingStep(`Creating "${concept.name}"...`);
       const universe = await createUniverse({
         name: concept.name,
@@ -92,6 +94,8 @@ export default function NewUniverse() {
       });
 
       setSavingStep("Creating hero...");
+      console.log("Creating hero with:", { heroName, species: concept.heroSpecies, hasAppearance: !!concept.heroAppearance, hasOutfit: !!concept.heroOutfit });
+
       await createCharacter({
         universeId: universe.id,
         name: heroName,
@@ -103,6 +107,7 @@ export default function NewUniverse() {
         role: "main",
       });
 
+      console.log("Hero created, navigating to universe manager");
       queryClient.invalidateQueries({ queryKey: ["universes"] });
       localStorage.setItem("universeId", universe.id);
       navigate("/universe-manager");

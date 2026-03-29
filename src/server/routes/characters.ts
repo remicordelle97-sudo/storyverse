@@ -43,6 +43,8 @@ router.post("/", async (req, res) => {
       relationshipToHero,
     } = req.body;
 
+    debug.character("Creating character", { name, speciesOrType: speciesOrType, role, hasOutfit: !!outfit, hasAppearance: !!appearance });
+
     const character = await prisma.character.create({
       data: {
         universeId,
