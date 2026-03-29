@@ -331,11 +331,19 @@ export async function trainUniverseLora(
 
   console.log(`Starting LoRA training: ${destination} with ${imageFiles.length} images`);
 
+  // Fetch the latest version of the trainer model dynamically so we
+  // never hardcode a stale version hash.
+  const trainerModel = await replicate.models.get("ostris", "flux-dev-lora-trainer");
+  const trainerVersion = trainerModel.latest_version?.id;
+  if (!trainerVersion) {
+    throw new Error("Could not resolve latest version of ostris/flux-dev-lora-trainer");
+  }
+
   // Start training
   const training = await replicate.trainings.create(
     "ostris",
     "flux-dev-lora-trainer",
-    "v1",
+    trainerVersion,
     {
       destination: destination as `${string}/${string}`,
       input: {
