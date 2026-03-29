@@ -122,12 +122,15 @@ export async function generateCharacterSheet(
 
   const prompt = `Create a CHARACTER MODEL SHEET. Show this character 12-15 times on a plain white background in a natural grid layout. Mix of full body views and close-up head/upper body views.
 
+IMPORTANT: This character is a ${character.speciesOrType}. Follow the body description below EXACTLY. Do NOT reuse any design elements from reference images of other characters. This character has its own unique body shape, colors, proportions, and clothing.
+
 ${styleGuide}
 
 CHARACTER: ${character.name}
 SPECIES: ${character.speciesOrType}
 
-BODY: ${character.appearance}
+BODY (follow this description precisely — this defines what the character looks like):
+${character.appearance}
 ${outfitSection}
 SPECIAL DETAIL: ${character.specialDetail}
 
@@ -152,7 +155,11 @@ ONE character drawn many times. NOT multiple characters.`;
 
   if (previousSheetUrls.length > 0) {
     parts.push({
-      text: `The images above are character sheets from the same book. Match their exact art style, line quality, and color approach. The new character should look like it was drawn by the same illustrator.`,
+      text: `The images above are character sheets of OTHER characters from the same book.
+
+MATCH from these images: the art style, line quality, color rendering technique, level of detail, and illustration aesthetic. The new character should look like it was drawn by the same illustrator.
+
+DO NOT COPY from these images: the character's body shape, species, colors, clothing, accessories, or any physical features. The new character described below is a COMPLETELY DIFFERENT individual with a DIFFERENT body, DIFFERENT colors, DIFFERENT clothing, and DIFFERENT features. They should look nothing alike except for the illustration style.`,
     });
   }
 
