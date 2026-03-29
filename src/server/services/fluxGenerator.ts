@@ -103,6 +103,9 @@ async function buildFluxPrompt(
   let charDesc = "";
   for (const char of characters) {
     charDesc += `${char.name} (${char.speciesOrType}): ${char.appearance}`;
+    if (char.outfit) {
+      charDesc += `. Outfit: ${char.outfit}`;
+    }
     if (char.specialDetail) {
       charDesc += `. ${char.specialDetail}`;
     }

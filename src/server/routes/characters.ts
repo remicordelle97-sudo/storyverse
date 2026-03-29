@@ -37,6 +37,7 @@ router.post("/", async (req, res) => {
       speciesOrType,
       personalityTraits,
       appearance,
+      outfit,
       specialDetail,
       role,
       relationshipToHero,
@@ -52,6 +53,7 @@ router.post("/", async (req, res) => {
             ? personalityTraits
             : JSON.stringify(personalityTraits),
         appearance,
+        outfit: outfit || "",
         specialDetail: specialDetail || "",
         role: role || "main",
       },

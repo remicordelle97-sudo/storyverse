@@ -254,7 +254,7 @@ export default function UniverseManager() {
                       name={char.name}
                       subtitle={`${char.speciesOrType} · ${char.role}`}
                       description={char.appearance}
-                      detail={char.specialDetail}
+                      detail={[char.outfit, char.specialDetail].filter(Boolean).join(" | ")}
                       imageUrl={char.referenceImageUrl}
                       onPreview={() => setSheetPreview(char.referenceImageUrl)}
                       onGenerate={() =>

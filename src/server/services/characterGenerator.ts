@@ -9,6 +9,7 @@ interface GeneratedCharacter {
   species_or_type: string;
   personality_traits: string[];
   appearance: string;
+  outfit: string;
   special_detail: string;
   relationship_to_hero: string;
 }
@@ -57,23 +58,35 @@ export async function generateSecondaryCharacters(
     temperature: 0.85,
     system: `You create supporting characters for children's story universes. Each character should be distinct, memorable, and complement the hero.
 
-CRITICAL: The "appearance" field must be a COMPLETE VISUAL SPECIFICATION — detailed enough for an illustrator to draw the character identically across 50 different images without any ambiguity. You must include ALL of the following:
+CRITICAL: You must provide TWO separate visual fields:
 
-BODY: Overall body shape and size (tall/short, thin/stocky/round), posture, primary body color
-HEAD: Shape (round, elongated, angular), size relative to body, color
-EYES: Count (how many), shape, size, color, pupil style (round, slit, compound)
-NOSE/MOUTH/BEAK/SNOUT: Type and shape. If a beak: short/long, color. If a snout: pointed/flat, length
-EARS: Count, shape (pointed, round, floppy, none), size, position on head
-LIMBS - ARMS: Count (how many), length, thickness, color, what's at the end (hands with how many fingers, paws, claws, pincers)
-LIMBS - LEGS: Count (how many), length, thickness, color, what's at the end (feet, hooves, claws, pads)
-WINGS: If any — count, size relative to body, shape, color, transparency, attachment point (upper back, shoulders)
-TAIL: If any — length, thickness, shape (bushy, thin, curled), color
-ANTENNAE/HORNS: If any — count, shape, length, color, anything on the tips
-MARKINGS: Stripes, spots, patches, scars, unique patterns and their exact locations on the body
-CLOTHING: What they always wear — garment type, color, fit. This never changes between images
-ACCESSORIES: Items they always carry or wear — bags, hats, scarves, goggles, jewelry
+1. "appearance" — the CHARACTER'S BODY only (no clothing, no accessories, no carried items). This is what the character looks like naked/bare. Include ALL of the following:
+  BODY: Overall body shape and size (tall/short, thin/stocky/round), posture, primary body color
+  HEAD: Shape (round, elongated, angular), size relative to body, color
+  EYES: Count, shape, size, color, pupil style (round, slit, compound)
+  NOSE/MOUTH/BEAK/SNOUT: Type, shape, color
+  EARS: Count, shape, size, position (or "none")
+  ARMS: Count, length, thickness, color, ending (hands/paws/claws, finger count)
+  LEGS: Count, length, thickness, color, ending (feet/hooves/claws)
+  WINGS: Count, size, shape, color, transparency, attachment point (or "none")
+  TAIL: Length, thickness, shape, color (or "none")
+  ANTENNAE/HORNS: Count, shape, length, tip details (or "none")
+  MARKINGS: Stripes, spots, patches, scars, unique patterns, locations on body
+  Be SPECIFIC with numbers: "2 large translucent teal wings" not "wings"
 
-Be SPECIFIC with numbers: "2 large translucent teal wings" not just "wings". "4 short stubby legs with round orange feet" not just "legs".
+2. "outfit" — EVERYTHING the character wears, carries, or has on them. This is SEPARATE from their body. List each item with:
+  - The item name
+  - Its EXACT color as a hex code (e.g., "#2A7A6B teal")
+  - Where on the body it sits
+  - Any distinguishing details (buckles, patterns, patches, logos)
+  Format as a bulleted list starting with "ALWAYS WEARS AND CARRIES (never remove any item):"
+  Example:
+  "ALWAYS WEARS AND CARRIES (never remove any item):
+  - #E85C33 orange-red bandana tied around forehead
+  - #2A7A6B teal sleeveless vest with #1D5C4F darker trim at edges
+  - #4A4A3A dark olive shorts reaching just above the knees
+  - Small #C9A84C gold circular pendant on a #5C3A1E brown cord around neck
+  - #6B4226 brown leather satchel with a shoulder strap, worn on left side, with a small brass buckle"
 
 Return ONLY valid JSON. No markdown fences.`,
     messages: [
@@ -110,7 +123,8 @@ Return exactly this JSON:
       "name": "Full name like Zuri the Zebra",
       "species_or_type": "Zebra",
       "personality_traits": ["funny", "loyal", "cautious"],
-      "appearance": "A small, slender zebra about half the height of a lion. Round head with 2 large bright hazel eyes with round pupils, a short flat snout with a dark nose, and 2 tall pointed ears on top. 2 thin arms with 3-fingered dark gray hooves. 2 slightly longer legs with rounded dark gray hooves. Short bushy black tail. Black and white striped body with one distinctive zigzag stripe on the left shoulder. Short fluffy black mane that sticks up at the front. Wears a small tan satchel bag across the chest on a brown strap",
+      "appearance": "A small, slender zebra about half the height of a lion. Round head with 2 large bright hazel eyes with round pupils, a short flat snout with a dark nose, 3 whiskers on each side of the snout, and 2 tall pointed ears on top. 2 thin arms with 3-fingered dark gray hooves. 2 slightly longer legs with rounded dark gray hooves. Short bushy black tail. Black and white striped body with one distinctive zigzag stripe on the left shoulder. Short fluffy black mane that sticks up at the front",
+      "outfit": "ALWAYS WEARS AND CARRIES (never remove any item):\n- #C4A882 tan canvas satchel bag worn across the chest on a #5C3A1E brown leather strap with a small brass buckle\n- #8B7355 woven grass bracelet on right wrist",
       "special_detail": "Has one stripe that zigzags differently from all the others",
       "relationship_to_hero": "Best friends since they were young. Zuri is the cautious voice when Leo gets too adventurous."
     }
@@ -154,6 +168,7 @@ Return exactly this JSON:
         speciesOrType: char.species_or_type,
         personalityTraits: JSON.stringify(char.personality_traits),
         appearance: char.appearance,
+        outfit: char.outfit || "",
         specialDetail: char.special_detail || "",
         role: "supporting",
       },

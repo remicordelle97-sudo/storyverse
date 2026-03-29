@@ -96,13 +96,17 @@ Generate a COMPLETE VISUAL SPECIFICATION for the hero's appearance — detailed 
 - MARKINGS: stripes, spots, patterns, locations on body
 - CLOTHING: what they always wear
 Be SPECIFIC with numbers: "2 large translucent teal wings" not just "wings".
+If the character has WHISKERS, specify: count per side, length, color.
+
+Also generate the hero's OUTFIT separately — everything they wear, carry, or have on them. List each item with its EXACT color as a hex code. Format as a bulleted list starting with "ALWAYS WEARS AND CARRIES (never remove any item):".
 
 Return exactly this JSON:
 {
   "name": "A unique universe name",
   "settingDescription": "2-3 sentences describing this world vividly",
   "heroSpecies": "The suggested species or type for the hero",
-  "heroAppearance": "Complete visual specification of the hero"
+  "heroAppearance": "Complete BODY-ONLY visual specification (no clothing)",
+  "heroOutfit": "ALWAYS WEARS AND CARRIES (never remove any item):\\n- #hexcode color item description\\n- #hexcode color item description"
 }`,
         },
       ],

@@ -61,7 +61,10 @@ async function buildImageContext(
   for (const char of characters) {
     prompt += `${char.name}:\n`;
     prompt += `  Species: ${char.speciesOrType}\n`;
-    prompt += `  Appearance: ${char.appearance}\n`;
+    prompt += `  Body: ${char.appearance}\n`;
+    if (char.outfit) {
+      prompt += `  Outfit: ${char.outfit}\n`;
+    }
     if (char.specialDetail) {
       prompt += `  Key detail (MUST be visible): ${char.specialDetail}\n`;
     }
@@ -189,13 +192,21 @@ export async function generateCharacterReference(
     .filter(Boolean)
     .join(". ");
 
+  const outfitSection = character.outfit
+    ? `\n=== OUTFIT & CARRIED ITEMS (the character is ALWAYS wearing/carrying ALL of these — never remove any) ===\n${character.outfit}\n`
+    : "";
+
   const prompt = `Create a CHARACTER MODEL SHEET for a children's book character. Show the character 12-15 times on a plain white background in a natural, organic grid layout.
 
 ${styleGuide}
 
 CHARACTER: ${character.name}
 SPECIES: ${character.speciesOrType}
-APPEARANCE: ${character.appearance}
+
+=== BODY (physical features only) ===
+${character.appearance}
+
+${outfitSection}
 SPECIAL DETAIL: ${character.specialDetail}
 
 Include a MIX of the following — some full body, some close-up, at whatever scale feels natural:
@@ -216,17 +227,25 @@ CLOSE-UP HEAD/UPPER BODY:
 - Determined expression
 - Laughing expression
 
-CONSISTENCY RULES:
-The character must be INSTANTLY recognizable as the same individual in every single view. Specifically:
+=== CONSISTENCY RULES ===
+
+BODY CONSISTENCY — the character must be INSTANTLY recognizable in every view:
 - SAME body shape, proportions, and colors in every view
-- SAME number and placement of ALL features: eyes (${character.appearance.match(/\d+\s*eye/i) ? "as specified" : "2"}), ears, arms, legs, wings, tail, antennae, horns — whatever this character has. The COUNT never changes.
-- If the character has WINGS: they are visible in every view including front-facing (peeking from behind) and close-ups (visible above/behind the head). Wings never disappear.
+- SAME number and placement of ALL features: eyes, ears, arms, legs, wings, tail, antennae, horns. The COUNT never changes.
+- If the character has WHISKERS: same count per side, same length, same color in every view including close-ups. Whiskers do not disappear.
+- If the character has WINGS: visible in every view including front-facing and close-ups. Wings never disappear.
 - If the character has a TAIL: visible in every view. Peeks from behind in front view.
 - If the character has ANTENNAE or HORNS: visible on top of head in every view including close-ups.
-- ALL clothing and accessories appear in every view. Nothing is ever removed.
-- The special detail "${character.specialDetail}" is visible in every view.
-- In close-up views, the HEAD SHAPE must match the full-body views exactly — same snout/beak/muzzle shape, same eye shape and size. Do not simplify the head into a circle.
+- In close-up views, the HEAD SHAPE must match the full-body views exactly — same snout/beak/muzzle shape, same eye shape and size. Do not simplify the head.
 - Every body part is the same exact color in all views. No lighter or darker variations.
+
+OUTFIT CONSISTENCY — every clothing item and accessory must appear in EVERY view:
+- Every item listed in the OUTFIT section above must be visible in ALL views — full body AND close-ups.
+- Colors must match the exact hex codes specified. A #2A7A6B teal vest is that exact shade in every view.
+- Clothing does not change fit, shape, or color between views. No wrinkles appearing or disappearing.
+- Carried items (bags, satchels, pouches) stay on the same side of the body in every view.
+- Headwear (hats, bandanas, goggles) must appear in EVERY view including close-ups. Never removed.
+- Jewelry and small accessories (necklaces, bracelets, pendants) must appear in every view.
 
 This is ONE character drawn many times. NOT multiple different characters.`;
 

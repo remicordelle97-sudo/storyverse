@@ -272,7 +272,7 @@ Avoid: ${universe.avoidThemes}
   for (const char of characters) {
     prompt += `Name: ${char.name} (${char.speciesOrType})
 Personality: ${char.personalityTraits}
-Appearance: ${char.appearance}
+Appearance: ${char.appearance}${char.outfit ? `\nOutfit: ${char.outfit}` : ""}
 Special detail: ${char.specialDetail}
 Role: ${char.role}
 
