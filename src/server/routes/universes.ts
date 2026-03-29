@@ -64,7 +64,7 @@ router.post("/generate-concept", async (req, res) => {
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 500,
+      max_tokens: 1000,
       temperature: 0.9,
       system: "You create unique, imaginative worlds for children's stories. Return ONLY valid JSON. No markdown fences.",
       messages: [
@@ -82,11 +82,27 @@ The setting description should be 2-3 sentences that paint a vivid picture of th
 
 Also suggest what species or type the hero "${heroName}" could be, based on the interests and world.
 
+Generate a COMPLETE VISUAL SPECIFICATION for the hero's appearance — detailed enough for an illustrator to draw the character identically across 50 different images. Include ALL of the following:
+- BODY: shape, size, posture, primary color
+- HEAD: shape, size relative to body, color
+- EYES: count, shape, size, color, pupil style
+- NOSE/MOUTH/BEAK/SNOUT: type, shape, color
+- EARS: count, shape, size, position (or "none")
+- ARMS: count, length, thickness, color, what's at the end (hands/paws/claws, finger count)
+- LEGS: count, length, thickness, color, what's at the end (feet/hooves/claws)
+- WINGS: count, size, shape, color, transparency, attachment point (or "none")
+- TAIL: length, shape, color (or "none")
+- ANTENNAE/HORNS: count, shape, length (or "none")
+- MARKINGS: stripes, spots, patterns, locations on body
+- CLOTHING: what they always wear
+Be SPECIFIC with numbers: "2 large translucent teal wings" not just "wings".
+
 Return exactly this JSON:
 {
   "name": "A unique universe name",
   "settingDescription": "2-3 sentences describing this world vividly",
-  "heroSpecies": "The suggested species or type for the hero"
+  "heroSpecies": "The suggested species or type for the hero",
+  "heroAppearance": "Complete visual specification of the hero"
 }`,
         },
       ],

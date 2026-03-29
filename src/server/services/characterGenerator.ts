@@ -57,7 +57,23 @@ export async function generateSecondaryCharacters(
     temperature: 0.85,
     system: `You create supporting characters for children's story universes. Each character should be distinct, memorable, and complement the hero.
 
-IMPORTANT: The "appearance" field must be detailed enough for an illustrator to draw the character consistently across many images. Include: body size/build, primary colors, distinguishing physical features (spots, stripes, scars, markings), eye color, and any clothing or accessories they always wear. Be specific, not vague.
+CRITICAL: The "appearance" field must be a COMPLETE VISUAL SPECIFICATION — detailed enough for an illustrator to draw the character identically across 50 different images without any ambiguity. You must include ALL of the following:
+
+BODY: Overall body shape and size (tall/short, thin/stocky/round), posture, primary body color
+HEAD: Shape (round, elongated, angular), size relative to body, color
+EYES: Count (how many), shape, size, color, pupil style (round, slit, compound)
+NOSE/MOUTH/BEAK/SNOUT: Type and shape. If a beak: short/long, color. If a snout: pointed/flat, length
+EARS: Count, shape (pointed, round, floppy, none), size, position on head
+LIMBS - ARMS: Count (how many), length, thickness, color, what's at the end (hands with how many fingers, paws, claws, pincers)
+LIMBS - LEGS: Count (how many), length, thickness, color, what's at the end (feet, hooves, claws, pads)
+WINGS: If any — count, size relative to body, shape, color, transparency, attachment point (upper back, shoulders)
+TAIL: If any — length, thickness, shape (bushy, thin, curled), color
+ANTENNAE/HORNS: If any — count, shape, length, color, anything on the tips
+MARKINGS: Stripes, spots, patches, scars, unique patterns and their exact locations on the body
+CLOTHING: What they always wear — garment type, color, fit. This never changes between images
+ACCESSORIES: Items they always carry or wear — bags, hats, scarves, goggles, jewelry
+
+Be SPECIFIC with numbers: "2 large translucent teal wings" not just "wings". "4 short stubby legs with round orange feet" not just "legs".
 
 Return ONLY valid JSON. No markdown fences.`,
     messages: [
@@ -94,7 +110,7 @@ Return exactly this JSON:
       "name": "Full name like Zuri the Zebra",
       "species_or_type": "Zebra",
       "personality_traits": ["funny", "loyal", "cautious"],
-      "appearance": "A small, slender zebra with bright hazel eyes, an expressive face, black and white stripes with one distinctive zigzag stripe on the left shoulder, and a short fluffy mane that sticks up at the front",
+      "appearance": "A small, slender zebra about half the height of a lion. Round head with 2 large bright hazel eyes with round pupils, a short flat snout with a dark nose, and 2 tall pointed ears on top. 2 thin arms with 3-fingered dark gray hooves. 2 slightly longer legs with rounded dark gray hooves. Short bushy black tail. Black and white striped body with one distinctive zigzag stripe on the left shoulder. Short fluffy black mane that sticks up at the front. Wears a small tan satchel bag across the chest on a brown strap",
       "special_detail": "Has one stripe that zigzags differently from all the others",
       "relationship_to_hero": "Best friends since they were young. Zuri is the cautious voice when Leo gets too adventurous."
     }

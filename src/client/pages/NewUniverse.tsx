@@ -97,7 +97,7 @@ export default function NewUniverse() {
         name: heroName,
         speciesOrType: concept.heroSpecies || "Adventurer",
         personalityTraits: JSON.stringify(heroTraits),
-        appearance: `A friendly ${(concept.heroSpecies || "character").toLowerCase()} with bright, curious eyes`,
+        appearance: concept.heroAppearance || `A friendly ${(concept.heroSpecies || "character").toLowerCase()} with bright, curious eyes`,
         specialDetail: heroDetail,
         role: "main",
       });
