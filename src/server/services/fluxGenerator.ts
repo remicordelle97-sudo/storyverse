@@ -161,7 +161,24 @@ export async function generateFluxImage(
     ageGroup
   );
 
-  const loraModel = await getLoraModel(universeId);
+  let loraModel = await getLoraModel(universeId);
+
+  // Verify the LoRA model actually exists and has a version on Replicate
+  if (loraModel) {
+    try {
+      const [owner, name] = loraModel.split("/");
+      const model = await replicate.models.get(owner, name);
+      if (!model.latest_version) {
+        debug.lora(`LoRA model ${loraModel} exists but has no published version yet — training may still be processing. Falling back to Flux Pro.`);
+        loraModel = null;
+      } else {
+        debug.lora(`LoRA model verified: ${loraModel}, version: ${model.latest_version.id.slice(0, 12)}...`);
+      }
+    } catch (e: any) {
+      debug.error(`LoRA model ${loraModel} not accessible: ${e.message}. Falling back to Flux Pro.`);
+      loraModel = null;
+    }
+  }
 
   // Choose model and build input
   let model: string;
