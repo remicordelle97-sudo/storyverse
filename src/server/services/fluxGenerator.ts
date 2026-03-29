@@ -292,12 +292,29 @@ export async function trainUniverseLora(
   debug.lora(`Starting training: ${destination} with ${imageFiles.length} images`);
 
   // Fetch the latest version of the trainer model dynamically so we
+  // Create the destination model on Replicate if it doesn't exist
+  try {
+    await replicate.models.get(replicateOwner, modelName);
+    debug.lora("Destination model already exists", { destination });
+  } catch {
+    debug.lora("Creating destination model on Replicate...", { destination });
+    await replicate.models.create(replicateOwner, modelName, {
+      visibility: "private",
+      hardware: "gpu-t4-nano",
+      description: `Storyverse LoRA for universe ${universeId}`,
+    });
+    debug.lora("Destination model created");
+  }
+
+  // Get the latest version of the trainer model. We fetch dynamically so we
   // never hardcode a stale version hash.
   const trainerModel = await replicate.models.get("ostris", "flux-dev-lora-trainer");
   const trainerVersion = trainerModel.latest_version?.id;
   if (!trainerVersion) {
     throw new Error("Could not resolve latest version of ostris/flux-dev-lora-trainer");
   }
+
+  debug.lora("Using trainer version", { trainerVersion: trainerVersion.slice(0, 12) + "..." });
 
   // Start training
   const training = await replicate.trainings.create(
