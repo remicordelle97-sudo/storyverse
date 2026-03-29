@@ -210,21 +210,57 @@ export async function generateFluxImage(
   // Run with retry on rate limit (429)
   const output = await runWithRetry(model, input);
 
+  debug.image("Flux raw output type", { type: typeof output, isArray: Array.isArray(output), constructor: output?.constructor?.name });
+
   // Handle different output formats from different models
   let outputUrl: string;
   if (typeof output === "string") {
     outputUrl = output;
+  } else if (output instanceof ReadableStream || (output && typeof output === "object" && "getReader" in output)) {
+    // Flux 1.1 Pro returns a ReadableStream — read it into a buffer and save directly
+    debug.image("Output is a ReadableStream, reading...");
+    const reader = (output as ReadableStream).getReader();
+    const chunks: Uint8Array[] = [];
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) chunks.push(value);
+    }
+    const buffer = Buffer.concat(chunks);
+    const filename = `${randomUUID()}.webp`;
+    const filepath = path.join(IMAGES_DIR, filename);
+    fs.writeFileSync(filepath, buffer);
+    return { imageUrl: `/images/${filename}`, seed: usedSeed };
   } else if (Array.isArray(output) && output.length > 0) {
     const item = output[0];
-    outputUrl = typeof item === "string" ? item : (item as any)?.url || "";
+    if (typeof item === "string") {
+      outputUrl = item;
+    } else if (item instanceof ReadableStream || (item && typeof item === "object" && "getReader" in item)) {
+      debug.image("Array item is a ReadableStream, reading...");
+      const reader = (item as ReadableStream).getReader();
+      const chunks: Uint8Array[] = [];
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) chunks.push(value);
+      }
+      const buffer = Buffer.concat(chunks);
+      const filename = `${randomUUID()}.webp`;
+      const filepath = path.join(IMAGES_DIR, filename);
+      fs.writeFileSync(filepath, buffer);
+      return { imageUrl: `/images/${filename}`, seed: usedSeed };
+    } else {
+      outputUrl = (item as any)?.url || String(item);
+    }
   } else if (output && typeof output === "object" && "url" in output) {
     outputUrl = (output as any).url;
   } else {
-    throw new Error(`Unexpected Flux output format: ${JSON.stringify(output).slice(0, 200)}`);
+    throw new Error(`Unexpected Flux output format: ${typeof output} — ${JSON.stringify(output)?.slice(0, 200)}`);
   }
 
   if (!outputUrl) throw new Error("No image URL in Flux output");
 
+  debug.image("Downloading from URL", { url: outputUrl.slice(0, 80) });
   const imageUrl = await saveImageFromUrl(outputUrl);
   return { imageUrl, seed: usedSeed };
 }
