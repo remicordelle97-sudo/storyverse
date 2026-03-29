@@ -1,5 +1,6 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
+import { debug } from "../lib/debug.js";
 import { generateSecondaryCharacters } from "../services/characterGenerator.js";
 import { generateCharacterReference } from "../services/imageGenerator.js";
 import { trainUniverseLora } from "../services/fluxGenerator.js";
@@ -85,34 +86,45 @@ router.post("/generate", async (req, res) => {
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
     }
+    debug.character("Generating secondary characters via Claude...", { universeId });
+    const startGen = Date.now();
     await generateSecondaryCharacters(universeId);
+    debug.character(`Secondary characters generated in ${Date.now() - startGen}ms`);
 
     // Generate reference images for all characters in the universe
     const characters = await prisma.character.findMany({
       where: { universeId },
     });
+    debug.character(`Found ${characters.length} characters, generating reference images...`);
+
     for (const char of characters) {
       if (!char.referenceImageUrl) {
         try {
+          debug.image(`Generating reference sheet for "${char.name}"...`);
+          const startImg = Date.now();
           await generateCharacterReference(char.id);
-        } catch (e) {
-          console.error(`Reference image failed for ${char.name}:`, e);
+          debug.image(`Reference sheet for "${char.name}" done in ${Date.now() - startImg}ms`);
+        } catch (e: any) {
+          debug.error(`Reference image failed for "${char.name}": ${e.message}`);
         }
+      } else {
+        debug.image(`"${char.name}" already has reference image, skipping`);
       }
     }
 
-    // Train a LoRA if requested and we have a Replicate owner configured
+    // Train a LoRA if requested
     if (trainLora) {
       const replicateOwner = process.env.REPLICATE_OWNER;
       if (replicateOwner) {
         try {
+          debug.lora("Starting LoRA training...", { universeId, replicateOwner });
           const modelId = await trainUniverseLora(universeId, replicateOwner);
-          console.log(`LoRA training started: ${modelId}`);
-        } catch (e) {
-          console.error("LoRA training failed:", e);
+          debug.lora("LoRA training started", { modelId });
+        } catch (e: any) {
+          debug.error(`LoRA training failed: ${e.message}`);
         }
       } else {
-        console.warn("LoRA training requested but REPLICATE_OWNER not set in .env");
+        debug.error("LoRA training requested but REPLICATE_OWNER not set in .env");
       }
     }
 

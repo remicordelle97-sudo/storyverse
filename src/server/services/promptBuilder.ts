@@ -1,4 +1,5 @@
 import prisma from "../lib/prisma.js";
+import { debug } from "../lib/debug.js";
 
 interface PromptInput {
   universeId: string;
@@ -327,6 +328,17 @@ Characters must look IDENTICAL across all pages. Use the exact same descriptors 
     }
   ]
 }`;
+
+  debug.prompt("Prompt assembled", {
+    universe: universe.name,
+    characters: characters.map((c) => c.name).join(", "),
+    relationships: relationships.length,
+    timelineEvents: allEvents.length,
+    structure: input.structure,
+    ageGroup: input.ageGroup,
+    pageCount,
+    promptChars: prompt.length,
+  });
 
   return { userMessage: prompt, ageGroup: input.ageGroup };
 }

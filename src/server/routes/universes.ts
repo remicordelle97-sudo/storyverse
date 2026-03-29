@@ -1,5 +1,6 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
+import { debug } from "../lib/debug.js";
 
 const router = Router();
 
@@ -60,6 +61,8 @@ router.post("/", async (req, res) => {
       illustrationStyle,
     } = req.body;
 
+    debug.universe("Creating universe", { name, mood, themes: typeof themes === "string" ? themes : JSON.stringify(themes) });
+
     const universe = await prisma.universe.create({
       data: {
         userId: req.userId!,
@@ -72,6 +75,8 @@ router.post("/", async (req, res) => {
       },
       include: { characters: true },
     });
+
+    debug.universe("Universe created", { id: universe.id, name: universe.name });
     res.status(201).json(universe);
   } catch (e) {
     res.status(500).json({ error: "Failed to create universe" });

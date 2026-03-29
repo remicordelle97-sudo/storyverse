@@ -1,5 +1,6 @@
 import Replicate from "replicate";
 import prisma from "../lib/prisma.js";
+import { debug } from "../lib/debug.js";
 import { buildImageStyleGuide } from "./imageStyleGuide.js";
 import fs from "fs";
 import path from "path";
@@ -32,7 +33,7 @@ async function runWithRetry(
       // Parse retry-after or default to 10 seconds
       const retryAfter = parseInt(e?.response?.headers?.get?.("retry-after") || "10", 10);
       const waitMs = (retryAfter + 1) * 1000;
-      console.log(`Rate limited. Waiting ${retryAfter + 1}s before retry ${attempt + 1}/${maxRetries}...`);
+      debug.image(`Rate limited. Waiting ${retryAfter + 1}s before retry ${attempt + 1}/${maxRetries}...`);
       await new Promise((resolve) => setTimeout(resolve, waitMs));
     }
   }
@@ -204,7 +205,7 @@ export async function generateFluxImage(
     };
   }
 
-  console.log(`Flux generating with model: ${model}, seed: ${usedSeed}`);
+  debug.image(`Flux: model=${model}, seed=${usedSeed}, promptLength=${prompt.length}`);
 
   // Run with retry on rate limit (429)
   const output = await runWithRetry(model, input);
@@ -288,7 +289,7 @@ export async function trainUniverseLora(
   const modelName = `storyverse-${universeId.slice(0, 8)}`;
   const destination = `${replicateOwner}/${modelName}`;
 
-  console.log(`Starting LoRA training: ${destination} with ${imageFiles.length} images`);
+  debug.lora(`Starting training: ${destination} with ${imageFiles.length} images`);
 
   // Fetch the latest version of the trainer model dynamically so we
   // never hardcode a stale version hash.
@@ -315,7 +316,7 @@ export async function trainUniverseLora(
     }
   );
 
-  console.log(`LoRA training started: ${training.id}, status: ${training.status}`);
+  debug.lora(`Training started`, { trainingId: training.id, status: training.status });
 
   // Store the model ID in the universe
   await prisma.universe.update({

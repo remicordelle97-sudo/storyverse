@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import prisma from "../lib/prisma.js";
+import { debug } from "../lib/debug.js";
 
 const anthropic = new Anthropic();
 
@@ -30,6 +31,11 @@ export async function generateSecondaryCharacters(
   if (!hero) {
     throw new Error("No hero found in universe");
   }
+
+  debug.character("Generating secondary characters", {
+    universe: universe.name,
+    hero: hero.name,
+  });
 
   let heroTraits: string[];
   try {
@@ -114,7 +120,13 @@ Return exactly this JSON:
     throw new Error("Invalid character generation response");
   }
 
+  debug.character(`Claude returned ${parsed.characters.length} characters`);
+
   for (const char of parsed.characters) {
+    debug.character(`Creating: ${char.name} (${char.species_or_type})`, {
+      traits: char.personality_traits.join(", "),
+      relationship: char.relationship_to_hero,
+    });
     const created = await prisma.character.create({
       data: {
         universeId,

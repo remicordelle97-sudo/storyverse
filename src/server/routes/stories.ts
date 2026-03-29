@@ -1,5 +1,6 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
+import { debug } from "../lib/debug.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { writeTimelineEvents } from "../services/timelineWriter.js";
@@ -110,8 +111,23 @@ router.post("/generate", async (req, res) => {
       return sendError("universeId, characterIds, and ageGroup are required");
     }
 
+    debug.story("=== STORY GENERATION START ===");
+    debug.story("Parameters", {
+      universeId,
+      characters: characterIds.length,
+      mood,
+      ageGroup,
+      structure,
+      length: length || "long",
+      generateImages: !!generateImages,
+      imageEngine: imageEngine || "flux",
+      imageQuality: imageQuality || "high",
+    });
+
     // Step 1: Build prompt
     sendProgress("building", "Building your story world...");
+    debug.prompt("Building prompt...");
+    const promptStart = Date.now();
 
     const { userMessage, ageGroup: resolvedAgeGroup } = await buildPrompt({
       universeId,
@@ -124,10 +140,23 @@ router.post("/generate", async (req, res) => {
       parentPrompt: parentPrompt || "",
     });
 
+    debug.prompt(`Prompt built in ${Date.now() - promptStart}ms`, {
+      promptLength: userMessage.length,
+      ageGroup: resolvedAgeGroup,
+    });
+
     // Step 2: Generate story
     sendProgress("writing", "Writing the story...");
+    debug.story("Calling Claude for story generation...");
+    const storyStart = Date.now();
 
     const generated = await generateStory(userMessage, resolvedAgeGroup, length || "long");
+
+    debug.story(`Story generated in ${Date.now() - storyStart}ms`, {
+      title: generated.title,
+      pages: generated.pages.length,
+      timelineEvents: generated.timeline_events?.length || 0,
+    });
 
     // Step 3: Save to database
     sendProgress("saving", `"${generated.title}" — saving ${generated.pages.length} pages...`);
@@ -150,11 +179,12 @@ router.post("/generate", async (req, res) => {
 
     if (generateImages) {
       const engineLabel = engine === "flux" ? "Flux" : "GPT-4o";
+      debug.image(`=== IMAGE GENERATION START (${engineLabel}, quality=${imageQuality || "high"}) ===`);
+      debug.image(`Generating ${totalPages} illustrations sequentially`);
       sendProgress("illustrating", `Creating ${totalPages} illustrations with ${engineLabel}...`);
 
-      // Generate images sequentially, passing previous pages' images
-      // for scenery, style, and character continuity
       const generatedImageUrls: string[] = [];
+      const imageStartTotal = Date.now();
 
       for (let i = 0; i < totalPages; i++) {
         const page = generated.pages[i];
@@ -167,6 +197,12 @@ router.post("/generate", async (req, res) => {
         );
 
         if (page.image_prompt) {
+          debug.image(`Page ${i + 1}/${totalPages}: generating...`, {
+            promptPreview: page.image_prompt.slice(0, 80),
+            previousPages: generatedImageUrls.length,
+          });
+          const pageImgStart = Date.now();
+
           try {
             if (engine === "gpt4o") {
               imageUrl = await generateImage(
@@ -192,8 +228,12 @@ router.post("/generate", async (req, res) => {
               imageSeed = result.seed;
             }
             if (imageUrl) generatedImageUrls.push(imageUrl);
-          } catch (e) {
-            console.error(`Image generation failed for page ${page.page_number}:`, e);
+            debug.image(`Page ${i + 1}/${totalPages}: done in ${Date.now() - pageImgStart}ms`, {
+              imageUrl,
+              seed: imageSeed || "n/a",
+            });
+          } catch (e: any) {
+            debug.error(`Page ${i + 1}/${totalPages}: image generation failed: ${e.message}`);
           }
         }
 
@@ -248,9 +288,16 @@ router.post("/generate", async (req, res) => {
       },
     });
 
+    debug.story("=== STORY GENERATION COMPLETE ===", {
+      storyId: fullStory?.id,
+      title: fullStory?.title,
+      pages: fullStory?.scenes?.length,
+      images: fullStory?.scenes?.filter((s: any) => s.imageUrl).length,
+    });
+
     sendComplete(fullStory);
-  } catch (e) {
-    console.error("Story generation failed:", e);
+  } catch (e: any) {
+    debug.error(`Story generation failed: ${e.message}`);
     sendError("Story generation failed. Please try again.");
   }
 });
