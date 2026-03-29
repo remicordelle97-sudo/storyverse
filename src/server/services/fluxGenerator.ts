@@ -167,12 +167,14 @@ export async function generateFluxImage(
   if (loraModel) {
     try {
       const [owner, name] = loraModel.split("/");
-      const model = await replicate.models.get(owner, name);
-      if (!model.latest_version) {
+      const modelInfo = await replicate.models.get(owner, name);
+      if (!modelInfo.latest_version) {
         debug.lora(`LoRA model ${loraModel} exists but has no published version yet — training may still be processing. Falling back to Flux Pro.`);
         loraModel = null;
       } else {
-        debug.lora(`LoRA model verified: ${loraModel}, version: ${model.latest_version.id.slice(0, 12)}...`);
+        // Replicate.run() needs "owner/name:version_hash" format
+        loraModel = `${loraModel}:${modelInfo.latest_version.id}`;
+        debug.lora(`LoRA model verified: ${loraModel}`);
       }
     } catch (e: any) {
       debug.error(`LoRA model ${loraModel} not accessible: ${e.message}. Falling back to Flux Pro.`);
