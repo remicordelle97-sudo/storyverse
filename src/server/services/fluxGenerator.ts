@@ -1,4 +1,5 @@
 import Replicate from "replicate";
+import archiver from "archiver";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { buildImageStyleGuide } from "./imageStyleGuide.js";
@@ -320,102 +321,199 @@ async function getLoraModel(universeId: string): Promise<string | null> {
 }
 
 /**
+ * Create a zip file from image files and return the path.
+ */
+async function createTrainingZip(
+  imageFiles: { path: string; caption: string }[]
+): Promise<string> {
+  const zipPath = path.join(IMAGES_DIR, `training-${randomUUID()}.zip`);
+
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipPath);
+    const archive = archiver("zip", { zlib: { level: 9 } });
+
+    output.on("close", () => {
+      debug.lora(`Training zip created: ${archive.pointer()} bytes, ${imageFiles.length} images`);
+      resolve(zipPath);
+    });
+
+    archive.on("error", (err) => {
+      debug.error(`Failed to create training zip: ${err.message}`);
+      reject(err);
+    });
+
+    archive.pipe(output);
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const img = imageFiles[i];
+      const ext = path.extname(img.path) || ".png";
+      archive.file(img.path, { name: `image_${i}${ext}` });
+      debug.lora(`  Added to zip: image_${i}${ext} (${img.caption.slice(0, 50)}...)`);
+    }
+
+    archive.finalize();
+  });
+}
+
+/**
  * Train a LoRA on character reference images for a universe.
- * Uploads images to Replicate, starts training, and stores the model ID.
+ *
+ * Flow:
+ * 1. Collect all character reference sheet images
+ * 2. Package them into a zip file
+ * 3. Upload the zip to Replicate's file hosting
+ * 4. Create the destination model on Replicate (if needed)
+ * 5. Start the training job
+ * 6. Store the training ID for status polling
  */
 export async function trainUniverseLora(
   universeId: string,
   replicateOwner: string
 ): Promise<string> {
+  debug.lora("=== LORA TRAINING START ===", { universeId, replicateOwner });
+
+  // Step 1: Collect character reference images
   const characters = await prisma.character.findMany({
     where: { universeId },
   });
 
-  // Collect character reference images
+  debug.lora(`Found ${characters.length} characters in universe`);
+
   const imageFiles: { path: string; caption: string }[] = [];
   for (const char of characters) {
     if (char.referenceImageUrl) {
       const fullPath = path.join("public", char.referenceImageUrl);
       if (fs.existsSync(fullPath)) {
+        const stats = fs.statSync(fullPath);
+        debug.lora(`  ${char.name}: ${char.referenceImageUrl} (${Math.round(stats.size / 1024)}KB)`);
         imageFiles.push({
           path: fullPath,
           caption: `SVCHAR ${char.name}, ${char.speciesOrType}, ${char.appearance}`,
         });
+      } else {
+        debug.error(`  ${char.name}: file NOT FOUND at ${fullPath}`);
       }
+    } else {
+      debug.error(`  ${char.name}: no referenceImageUrl set`);
     }
   }
 
   if (imageFiles.length < 2) {
     throw new Error(
-      `Need at least 2 character reference images to train a LoRA (have ${imageFiles.length})`
+      `Need at least 2 character reference images to train a LoRA (have ${imageFiles.length}). ` +
+      `Characters without images: ${characters.filter(c => !c.referenceImageUrl).map(c => c.name).join(", ")}`
     );
   }
 
-  // Upload each image to Replicate
-  const uploadedUrls: string[] = [];
-  for (const img of imageFiles) {
-    const data = fs.readFileSync(img.path);
-    const file = await replicate.files.create(
-      new Blob([data], { type: "image/png" }),
-      { filename: path.basename(img.path) }
+  // Step 2: Create zip file
+  debug.lora("Creating training zip file...");
+  const zipPath = await createTrainingZip(imageFiles);
+
+  // Step 3: Upload zip to Replicate
+  debug.lora("Uploading zip to Replicate...");
+  const zipData = fs.readFileSync(zipPath);
+  debug.lora(`  Zip size: ${Math.round(zipData.length / 1024)}KB`);
+
+  let uploadedFile;
+  try {
+    uploadedFile = await replicate.files.create(
+      new Blob([zipData], { type: "application/zip" }),
+      { filename: `training-${universeId.slice(0, 8)}.zip` }
     );
-    uploadedUrls.push(file.urls.get);
+    debug.lora("Zip uploaded to Replicate", { url: uploadedFile.urls.get });
+  } catch (e: any) {
+    debug.error(`Failed to upload zip: ${e.message}`);
+    fs.unlinkSync(zipPath); // Clean up
+    throw e;
   }
 
-  // Create a model destination
+  // Clean up local zip file
+  fs.unlinkSync(zipPath);
+  debug.lora("Local zip cleaned up");
+
+  // Step 4: Create destination model on Replicate
   const modelName = `storyverse-${universeId.slice(0, 8)}`;
   const destination = `${replicateOwner}/${modelName}`;
 
-  debug.lora(`Starting training: ${destination} with ${imageFiles.length} images`);
-
-  // Fetch the latest version of the trainer model dynamically so we
-  // Create the destination model on Replicate if it doesn't exist
   try {
     await replicate.models.get(replicateOwner, modelName);
     debug.lora("Destination model already exists", { destination });
   } catch {
     debug.lora("Creating destination model on Replicate...", { destination });
-    await replicate.models.create(replicateOwner, modelName, {
-      visibility: "private",
-      hardware: "gpu-t4",
-      description: `Storyverse LoRA for universe ${universeId}`,
-    });
-    debug.lora("Destination model created");
-  }
-
-  // Get the latest version of the trainer model. We fetch dynamically so we
-  // never hardcode a stale version hash.
-  const trainerModel = await replicate.models.get("ostris", "flux-dev-lora-trainer");
-  const trainerVersion = trainerModel.latest_version?.id;
-  if (!trainerVersion) {
-    throw new Error("Could not resolve latest version of ostris/flux-dev-lora-trainer");
-  }
-
-  debug.lora("Using trainer version", { trainerVersion: trainerVersion.slice(0, 12) + "..." });
-
-  // Start training
-  const training = await replicate.trainings.create(
-    "ostris",
-    "flux-dev-lora-trainer",
-    trainerVersion,
-    {
-      destination: destination as `${string}/${string}`,
-      input: {
-        input_images: uploadedUrls[0], // Replicate expects a zip URL or single URL
-        trigger_word: "SVCHAR",
-        steps: 1000,
-        lora_rank: 16,
-        learning_rate: 0.0004,
-      },
+    try {
+      await replicate.models.create(replicateOwner, modelName, {
+        visibility: "private",
+        hardware: "gpu-t4",
+        description: `Storyverse LoRA for universe ${universeId}`,
+      });
+      debug.lora("Destination model created");
+    } catch (e: any) {
+      debug.error(`Failed to create destination model: ${e.message}`);
+      throw e;
     }
-  );
+  }
 
-  debug.lora(`Training started`, { trainingId: training.id, status: training.status });
+  // Step 5: Get trainer version and start training
+  debug.lora("Fetching trainer model version...");
+  let trainerVersion: string;
+  try {
+    const trainerModel = await replicate.models.get("ostris", "flux-dev-lora-trainer");
+    trainerVersion = trainerModel.latest_version?.id || "";
+    if (!trainerVersion) {
+      throw new Error("No latest version found");
+    }
+    debug.lora("Trainer version resolved", { version: trainerVersion.slice(0, 12) + "..." });
+  } catch (e: any) {
+    debug.error(`Failed to get trainer model: ${e.message}`);
+    throw e;
+  }
 
-  // Mark as training-in-progress (not ready to use yet)
+  debug.lora("Starting training job...", {
+    destination,
+    inputImages: uploadedFile.urls.get,
+    triggerWord: "SVCHAR",
+    steps: 1000,
+  });
+
+  let training;
+  try {
+    training = await replicate.trainings.create(
+      "ostris",
+      "flux-dev-lora-trainer",
+      trainerVersion,
+      {
+        destination: destination as `${string}/${string}`,
+        input: {
+          input_images: uploadedFile.urls.get,
+          trigger_word: "SVCHAR",
+          steps: 1000,
+          lora_rank: 16,
+          learning_rate: 0.0004,
+        },
+      }
+    );
+    debug.lora("Training job created", {
+      trainingId: training.id,
+      status: training.status,
+    });
+  } catch (e: any) {
+    debug.error(`Failed to start training: ${e.message}`);
+    if (e.response) {
+      debug.error(`Response status: ${e.response.status}`);
+    }
+    throw e;
+  }
+
+  // Step 6: Store training state
   await prisma.universe.update({
     where: { id: universeId },
     data: { illustrationStyle: `lora-training:${destination}:${training.id}` },
+  });
+
+  debug.lora("=== LORA TRAINING SUBMITTED ===", {
+    destination,
+    trainingId: training.id,
+    estimatedTime: "~20 minutes",
   });
 
   return destination;
