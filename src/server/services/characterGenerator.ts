@@ -53,7 +53,7 @@ export async function generateSecondaryCharacters(
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 2000,
+    max_tokens: 4000,
     temperature: 0.85,
     system: `You create supporting characters for children's story universes. Each character should be distinct, memorable, and complement the hero.
 
@@ -119,6 +119,10 @@ Return exactly this JSON:
       },
     ],
   });
+
+  if (message.stop_reason === "max_tokens") {
+    throw new Error("Character generation was truncated — response exceeded token limit. This may indicate the appearance descriptions are too long.");
+  }
 
   const textBlock = message.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {

@@ -189,7 +189,7 @@ export async function generateCharacterReference(
     .filter(Boolean)
     .join(". ");
 
-  const prompt = `Create a CHARACTER MODEL SHEET for a children's book character.
+  const prompt = `Create a CHARACTER MODEL SHEET for a children's book character. Show the character 12-15 times on a plain white background in a natural, organic grid layout.
 
 ${styleGuide}
 
@@ -198,68 +198,37 @@ SPECIES: ${character.speciesOrType}
 APPEARANCE: ${character.appearance}
 SPECIAL DETAIL: ${character.specialDetail}
 
-=== MANDATORY FEATURE CHECKLIST ===
-The following features MUST be visible in ALL 13 views. Before finalizing each view, verify every item on this list is present:
-${featureChecklist.split(/[.,;]/).filter(s => s.trim().length > 3).map(s => `  CHECK: ${s.trim()}`).join("\n")}
+Include a MIX of the following — some full body, some close-up, at whatever scale feels natural:
 
-=== LAYOUT: Exactly 3 rows, exactly 13 views total ===
+FULL BODY VIEWS:
+- Standing front view
+- Standing side view (profile)
+- Standing back view
+- Standing 3/4 view
+- Running
+- Sitting
+- Reaching up
 
-ROW 1 — TURNAROUND — exactly 4 views, all the same size, neutral standing pose:
-  View 1: FRONT — facing the camera directly, arms at sides
-  View 2: THREE-QUARTER — body turned 45 degrees to the left
-  View 3: SIDE — full profile facing right
-  View 4: BACK — facing away from camera
-  Labels underneath: "FRONT" "3/4" "SIDE" "BACK"
+CLOSE-UP HEAD/UPPER BODY:
+- Happy expression
+- Sad expression
+- Surprised expression
+- Determined expression
+- Laughing expression
 
-ROW 2 — EMOTIONS — exactly 5 views, same size as Row 1, full body head-to-toe:
-  View 5: HAPPY — smiling, open posture, arms slightly out
-  View 6: SAD — shoulders slumped, head down, arms hanging
-  View 7: SURPRISED — leaning back, hands up, eyes wide
-  View 8: DETERMINED — leaning forward, fists clenched, brow focused
-  View 9: LAUGHING — body bent forward, hands on belly
-  Labels underneath: "HAPPY" "SAD" "SURPRISED" "DETERMINED" "LAUGHING"
+CONSISTENCY RULES:
+The character must be INSTANTLY recognizable as the same individual in every single view. Specifically:
+- SAME body shape, proportions, and colors in every view
+- SAME number and placement of ALL features: eyes (${character.appearance.match(/\d+\s*eye/i) ? "as specified" : "2"}), ears, arms, legs, wings, tail, antennae, horns — whatever this character has. The COUNT never changes.
+- If the character has WINGS: they are visible in every view including front-facing (peeking from behind) and close-ups (visible above/behind the head). Wings never disappear.
+- If the character has a TAIL: visible in every view. Peeks from behind in front view.
+- If the character has ANTENNAE or HORNS: visible on top of head in every view including close-ups.
+- ALL clothing and accessories appear in every view. Nothing is ever removed.
+- The special detail "${character.specialDetail}" is visible in every view.
+- In close-up views, the HEAD SHAPE must match the full-body views exactly — same snout/beak/muzzle shape, same eye shape and size. Do not simplify the head into a circle.
+- Every body part is the same exact color in all views. No lighter or darker variations.
 
-ROW 3 — ACTIONS — exactly 4 views, same size as Row 1, full body:
-  View 10: RUNNING — mid-stride, one foot off ground, arms pumping
-  View 11: SITTING — seated on the ground, legs crossed or extended
-  View 12: REACHING — standing on tiptoes, one arm stretched up high
-  View 13: TALKING — turned slightly toward an invisible friend, one hand gesturing
-  Labels underneath: "RUNNING" "SITTING" "REACHING" "TALKING"
-
-=== STRICT RULES ===
-
-LAYOUT RULES:
-- Exactly 3 rows. Exactly 13 views total (4 + 5 + 4).
-- All views are FULL BODY — head to feet. Same scale. Same size.
-- NO merging rows. Row 1 is turnaround ONLY. Row 2 is emotions ONLY. Row 3 is actions ONLY.
-- NO skipping views. All 13 must be present. NO duplicates.
-- Each view has a text label underneath it. Labels must match the ones specified above exactly.
-- Clear visual separation between the 3 rows (a thin line or extra spacing).
-
-FEATURE RULES:
-- The character must look IDENTICAL in all 13 views. Same body shape, same proportions, same colors.
-- If the character wears CLOTHING or ACCESSORIES (cloaks, scarves, backpacks, goggles, hats), they appear in all 13 views. Clothing does not disappear in action poses.
-- The special detail "${character.specialDetail}" must be clearly visible in all 13 views.
-
-APPENDAGE & PAIRED FEATURE RULES (critical for consistency):
-- WINGS: If the character has wings, specify: how many wings total? Where are they attached (upper back, shoulder blades, lower back)? How large are they relative to the body? In the FRONT view, wings peek out from behind the body on both sides symmetrically. In the SIDE view, the near wing is fully visible and the far wing peeks from behind the body. In the BACK view, both wings are fully spread and visible. The NUMBER of wings NEVER changes between views. Wings do not fold away or disappear in any pose. If running, wings are still visible. If sitting, wings are still visible behind/above the character.
-- TAIL: If the character has a tail, it appears in all 13 views. In the FRONT view it peeks from behind one side. In the SIDE view it extends behind. In the BACK view it hangs down or extends outward. Same length, same thickness, same color in all views.
-- ANTENNAE: If the character has antennae, specify: how many? What shape (straight, curved, clubbed)? What's on the tips? They appear on TOP of the head in all 13 views. Same count, same shape, same length in every view. They do not disappear in action poses.
-- HORNS/CRESTS: Same count, position, size, and shape in all 13 views.
-
-BODY CONSISTENCY (verify across all 13 views):
-- EYES: Same shape, same size, same color, same pupil style in every view. If compound eyes, they are compound in all views. If round eyes, they are round in all views. The number of eyes never changes. Eye SIZE relative to head stays the same.
-- EARS: Same shape, same size, same position on the head in every view. If no ears, then no ears in any view. Ears do not appear or disappear between views.
-- NOSE/MOUTH/BEAK/SNOUT: Same shape and size in every view. If the character has a beak, it is a beak in all 13 views, never a flat mouth. If the character has a snout, it protrudes in all views, including front-facing views.
-- ARMS: Same number in all views. Same length, thickness, and color. If the character has 2 arms, all views show 2 arms. If 4 arms, all views show 4 arms. Hands/paws/claws must be consistent in shape and number of fingers.
-- LEGS: Same number in all views. Same length, thickness, and color. If the character has 2 legs, all views show 2 legs. If 4 legs, all views show 4 legs. Feet/hooves/claws must be consistent.
-- HEAD SHAPE: The head is the same shape in every view. If round, always round. If elongated, always elongated. The head does not become a simple circle in some views and a detailed shape in others.
-- BODY PROPORTIONS: The ratio of head-to-body stays the same. If the head is large relative to the body in View 1, it is large in all views.
-- COLOR CONSISTENCY: Each body part is the same exact color in all views. No view has a lighter or darker version of any body part.
-
-BACKGROUND: Plain white. No scenery. No props. No other characters (except in View 13 "TALKING" which may show a simple silhouette outline of a friend, but NOT a fully drawn second character).
-
-This is ONE character drawn 13 times in different poses. NOT 13 different characters.`;
+This is ONE character drawn many times. NOT multiple different characters.`;
 
   // Build input content with optional previous character sheets
   const content: any[] = [];
