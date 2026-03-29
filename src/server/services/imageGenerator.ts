@@ -181,47 +181,72 @@ export async function generateCharacterReference(
     character.universe.illustrationStyle
   );
 
-  const prompt = `Create a CHARACTER MODEL SHEET for a children's book character. This is a reference sheet that an illustrator would use to draw this character consistently across many pages.
+  // Build a detailed feature checklist from the character's description
+  const featureChecklist = [
+    character.appearance,
+    character.specialDetail,
+  ]
+    .filter(Boolean)
+    .join(". ");
+
+  const prompt = `Create a CHARACTER MODEL SHEET for a children's book character.
 
 ${styleGuide}
 
-CHARACTER DETAILS:
-Name: ${character.name}
-Species: ${character.speciesOrType}
-Appearance: ${character.appearance}
-Special detail that must ALWAYS be visible: ${character.specialDetail}
-Role: ${character.role}
+CHARACTER: ${character.name}
+SPECIES: ${character.speciesOrType}
+APPEARANCE: ${character.appearance}
+SPECIAL DETAIL: ${character.specialDetail}
 
-LAYOUT — Show ALL of the following on a single sheet, arranged in a clear grid on a plain white background:
+=== MANDATORY FEATURE CHECKLIST ===
+The following features MUST be visible in ALL 13 views. Before finalizing each view, verify every item on this list is present:
+${featureChecklist.split(/[.,;]/).filter(s => s.trim().length > 3).map(s => `  CHECK: ${s.trim()}`).join("\n")}
 
-ROW 1 — TURNAROUND (4 full-body views, same neutral standing pose):
-- Front view (facing camera)
-- 3/4 view (turned slightly left)
-- Side view (profile, facing right)
-- Back view
+=== LAYOUT: Exactly 3 rows, exactly 13 views total ===
 
-ROW 2 — EMOTIONS (5 full-body views, same size as turnaround, showing the whole character from head to feet with different emotions expressed through BOTH face AND body language):
-- Happy (smiling, open posture, maybe arms out or hands together)
-- Sad (slumped shoulders, looking down, arms hanging)
-- Surprised (leaning back slightly, hands up, wide eyes)
-- Determined (leaning forward, fists clenched, focused eyes)
-- Laughing (body bent slightly, hands on belly or covering mouth)
-IMPORTANT: These are FULL BODY drawings at the SAME SCALE as the turnaround row. NOT close-ups. NOT heads only. NOT circles. NOT emoji. Show the complete character head-to-toe in each emotion.
+ROW 1 — TURNAROUND — exactly 4 views, all the same size, neutral standing pose:
+  View 1: FRONT — facing the camera directly, arms at sides
+  View 2: THREE-QUARTER — body turned 45 degrees to the left
+  View 3: SIDE — full profile facing right
+  View 4: BACK — facing away from camera
+  Labels underneath: "FRONT" "3/4" "SIDE" "BACK"
 
-ROW 3 — ACTION POSES (4 full-body views):
-- Running/moving quickly
-- Sitting down, relaxed
-- Reaching up for something
-- Interacting with a friend (gesturing, talking)
+ROW 2 — EMOTIONS — exactly 5 views, same size as Row 1, full body head-to-toe:
+  View 5: HAPPY — smiling, open posture, arms slightly out
+  View 6: SAD — shoulders slumped, head down, arms hanging
+  View 7: SURPRISED — leaning back, hands up, eyes wide
+  View 8: DETERMINED — leaning forward, fists clenched, brow focused
+  View 9: LAUGHING — body bent forward, hands on belly
+  Labels underneath: "HAPPY" "SAD" "SURPRISED" "DETERMINED" "LAUGHING"
 
-CRITICAL RULES:
-- The character must look IDENTICAL in every single view — same proportions, same colors, same markings, same accessories. No exceptions.
-- EVERY distinguishing feature must appear in EVERY view, including expression close-ups. This includes: ${character.specialDetail}. If the character has something on top of their head (antenna, hat, horns, crest), it MUST be visible in the expression views too — do not crop it.
-- ALL accessories, clothing items, and special markings must be present in every view. If they wear a scarf, every view has the scarf. If they have a backpack, every view has the backpack.
-- Plain white background. No scenery, no props, no other characters.
-- Label each view with small text underneath (e.g., "FRONT", "SIDE", "HAPPY", "RUNNING").
-- Use clean, consistent line work throughout.
-- This is ONE character shown many times, NOT multiple characters.`;
+ROW 3 — ACTIONS — exactly 4 views, same size as Row 1, full body:
+  View 10: RUNNING — mid-stride, one foot off ground, arms pumping
+  View 11: SITTING — seated on the ground, legs crossed or extended
+  View 12: REACHING — standing on tiptoes, one arm stretched up high
+  View 13: TALKING — turned slightly toward an invisible friend, one hand gesturing
+  Labels underneath: "RUNNING" "SITTING" "REACHING" "TALKING"
+
+=== STRICT RULES ===
+
+LAYOUT RULES:
+- Exactly 3 rows. Exactly 13 views total (4 + 5 + 4).
+- All views are FULL BODY — head to feet. Same scale. Same size.
+- NO merging rows. Row 1 is turnaround ONLY. Row 2 is emotions ONLY. Row 3 is actions ONLY.
+- NO skipping views. All 13 must be present. NO duplicates.
+- Each view has a text label underneath it. Labels must match the ones specified above exactly.
+- Clear visual separation between the 3 rows (a thin line or extra spacing).
+
+FEATURE RULES:
+- The character must look IDENTICAL in all 13 views. Same body shape, same proportions, same colors.
+- If the character has WINGS, they must be visible in all 13 views — including from the front (where wings peek out from behind the body). Wings do not disappear when the character sits or runs.
+- If the character has a TAIL, it must be visible in all 13 views.
+- If the character has ANTENNAE, HORNS, EARS, or any HEAD FEATURES, they appear in all 13 views.
+- If the character wears CLOTHING or ACCESSORIES (cloaks, scarves, backpacks, goggles, hats), they appear in all 13 views. Clothing does not disappear in action poses.
+- The special detail "${character.specialDetail}" must be clearly visible in all 13 views.
+
+BACKGROUND: Plain white. No scenery. No props. No other characters (except in View 13 "TALKING" which may show a simple silhouette outline of a friend, but NOT a fully drawn second character).
+
+This is ONE character drawn 13 times in different poses. NOT 13 different characters.`;
 
   // Build input content with optional previous character sheets
   const content: any[] = [];
