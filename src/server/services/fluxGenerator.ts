@@ -109,6 +109,19 @@ async function buildFluxPrompt(
     charDesc += ". ";
   }
 
+  // Build location descriptions
+  const dbLocations = await prisma.location.findMany({
+    where: { universeId },
+  });
+  let locDesc = "";
+  for (const loc of dbLocations) {
+    locDesc += `${loc.name}: ${loc.description}`;
+    if (loc.landmarks) {
+      locDesc += ` Landmarks: ${loc.landmarks}`;
+    }
+    locDesc += ". ";
+  }
+
   // Flux works best with focused prompts. Extract the key style directives
   // rather than sending the entire multi-page guide.
   const moodKey = mood.toLowerCase().split(" ")[0];
@@ -130,6 +143,7 @@ async function buildFluxPrompt(
     moodStyles[moodKey] || moodStyles["exciting"],
     ageStyles[ageGroup] || ageStyles["4-5"],
     `Characters: ${charDesc}`,
+    locDesc ? `Locations: ${locDesc}` : "",
     `Scene: ${scenePrompt}`,
     `Rule of thirds composition. Characters looking or moving right. Large expressive eyes. No text or letters in the image. Leave open space for text placement.`,
     `Shadows use cool blues and purples, never black. Highlights use warm yellows and pinks. Consistent art style throughout.`,
@@ -417,12 +431,39 @@ export async function trainUniverseLora(
     }
   }
 
+  // Also collect location reference images
+  const dbLocations = await prisma.location.findMany({
+    where: { universeId },
+  });
+
+  debug.lora(`Found ${dbLocations.length} locations in universe`);
+
+  for (const loc of dbLocations) {
+    if (loc.referenceImageUrl) {
+      const fullPath = path.join("public", loc.referenceImageUrl);
+      if (fs.existsSync(fullPath)) {
+        const stats = fs.statSync(fullPath);
+        debug.lora(`  ${loc.name}: ${loc.referenceImageUrl} (${Math.round(stats.size / 1024)}KB)`);
+        imageFiles.push({
+          path: fullPath,
+          caption: `SVLOC ${loc.name}, ${loc.description}`,
+        });
+      } else {
+        debug.error(`  ${loc.name}: file NOT FOUND at ${fullPath}`);
+      }
+    } else {
+      debug.lora(`  ${loc.name}: no reference sheet (skipping)`);
+    }
+  }
+
   if (imageFiles.length < 2) {
     throw new Error(
-      `Need at least 2 character reference images to train a LoRA (have ${imageFiles.length}). ` +
-      `Characters without images: ${characters.filter(c => !c.referenceImageUrl).map(c => c.name).join(", ")}`
+      `Need at least 2 reference images to train a LoRA (have ${imageFiles.length}). ` +
+      `Generate character and location sheets first.`
     );
   }
+
+  debug.lora(`Total training images: ${imageFiles.length} (${characters.filter(c => c.referenceImageUrl).length} characters + ${dbLocations.filter(l => l.referenceImageUrl).length} locations)`);
 
   // Step 2: Create zip file
   debug.lora("Creating training zip file...");

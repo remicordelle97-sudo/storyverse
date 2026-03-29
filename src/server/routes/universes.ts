@@ -33,6 +33,9 @@ router.get("/:id", async (req, res) => {
             relationshipsB: { include: { characterA: true } },
           },
         },
+        locations: {
+          orderBy: { createdAt: "asc" },
+        },
         timelineEvents: {
           orderBy: { storyDate: "desc" },
           take: 20,

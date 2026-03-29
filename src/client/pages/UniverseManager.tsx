@@ -1,7 +1,55 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUniverses, getUniverse, getLoraStatus, regenerateCharacterSheet } from "../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getUniverses,
+  getUniverse,
+  getLoraStatus,
+  getLocations,
+  regenerateCharacterSheet,
+  generateCharacters,
+  generateLocations,
+  generateLocationReferenceSheet,
+} from "../api/client";
+
+function ActionButton({
+  onClick,
+  loading,
+  loadingText,
+  children,
+  variant = "default",
+}: {
+  onClick: () => void;
+  loading: boolean;
+  loadingText: string;
+  children: React.ReactNode;
+  variant?: "default" | "primary" | "danger";
+}) {
+  const colors = {
+    default: "border-stone-200 text-stone-600 hover:border-primary hover:text-primary",
+    primary: "border-primary bg-primary text-white hover:bg-primary/90",
+    danger: "border-red-200 text-red-600 hover:border-red-400",
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className={`px-3 py-1.5 text-xs rounded-lg border transition-colors disabled:opacity-50 ${colors[variant]}`}
+    >
+      {loading ? (
+        <span className="flex items-center gap-1">
+          <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+          {loadingText}
+        </span>
+      ) : (
+        children
+      )}
+    </button>
+  );
+}
 
 export default function UniverseManager() {
   const navigate = useNavigate();
@@ -12,248 +60,275 @@ export default function UniverseManager() {
     queryFn: getUniverses,
   });
 
-  const [selectedUniverseId, setSelectedUniverseId] = useState<string | null>(null);
-  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetPreview, setSheetPreview] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const { data: selectedUniverse } = useQuery({
-    queryKey: ["universe", selectedUniverseId],
-    queryFn: () => getUniverse(selectedUniverseId!),
-    enabled: !!selectedUniverseId,
+  const { data: universe } = useQuery({
+    queryKey: ["universe", selectedId],
+    queryFn: () => getUniverse(selectedId!),
+    enabled: !!selectedId,
+  });
+
+  const { data: locations = [] } = useQuery({
+    queryKey: ["locations", selectedId],
+    queryFn: () => getLocations(selectedId!),
+    enabled: !!selectedId,
   });
 
   const { data: loraStatus } = useQuery({
-    queryKey: ["lora-status", selectedUniverseId],
-    queryFn: () => getLoraStatus(selectedUniverseId!),
-    enabled: !!selectedUniverseId,
+    queryKey: ["lora-status", selectedId],
+    queryFn: () => getLoraStatus(selectedId!),
+    enabled: !!selectedId,
     refetchInterval: (query) => {
-      const data = query.state.data;
-      return data?.status === "training" ? 15000 : false;
+      return query.state.data?.status === "training" ? 15000 : false;
     },
   });
 
-  const regenerateMutation = useMutation({
-    mutationFn: (characterId: string) => regenerateCharacterSheet(characterId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["universe", selectedUniverseId] });
-    },
-  });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["universe", selectedId] });
+    queryClient.invalidateQueries({ queryKey: ["locations", selectedId] });
+    queryClient.invalidateQueries({ queryKey: ["lora-status", selectedId] });
+  };
 
-  const handleRegenerate = async (characterId: string, characterName: string) => {
-    setRegeneratingId(characterId);
+  const doAction = async (id: string, fn: () => Promise<any>) => {
+    setActionLoading(id);
     try {
-      await regenerateMutation.mutateAsync(characterId);
+      await fn();
+      invalidate();
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Action failed");
     } finally {
-      setRegeneratingId(null);
+      setActionLoading(null);
     }
   };
 
-  const hero = selectedUniverse?.characters?.find((c: any) => c.role === "main");
-  const supporting = (selectedUniverse?.characters || []).filter((c: any) => c.role !== "main");
+  const hero = universe?.characters?.find((c: any) => c.role === "main");
+  const supporting = (universe?.characters || []).filter((c: any) => c.role !== "main");
 
   let themes: string[] = [];
-  try {
-    themes = selectedUniverse ? JSON.parse(selectedUniverse.themes) : [];
-  } catch {
-    themes = selectedUniverse?.themes ? [selectedUniverse.themes] : [];
-  }
+  try { themes = universe ? JSON.parse(universe.themes) : []; } catch { themes = []; }
+
+  // Collect all existing sheet URLs for style reference
+  const allSheetUrls = [
+    ...(universe?.characters || []).filter((c: any) => c.referenceImageUrl).map((c: any) => c.referenceImageUrl),
+    ...locations.filter((l: any) => l.referenceImageUrl).map((l: any) => l.referenceImageUrl),
+  ];
+
+  const handleTrainLora = async () => {
+    const res = await fetch("/api/characters/train-lora", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${(await import("../auth/AuthContext")).getAccessToken()}`,
+      },
+      body: JSON.stringify({
+        universeId: selectedId,
+        replicateOwner: prompt("Enter your Replicate username:") || "",
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.json();
+      throw new Error(body.error || "Training failed");
+    }
+    invalidate();
+  };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <button
-        onClick={() => navigate("/library")}
-        className="text-sm text-stone-500 hover:text-stone-700 mb-6 block"
-      >
+    <div className="max-w-6xl mx-auto px-4 py-8">
+      <button onClick={() => navigate("/library")} className="text-sm text-stone-500 hover:text-stone-700 mb-6 block">
         &larr; Back to library
       </button>
-
       <h1 className="text-2xl font-bold text-stone-800 mb-6">Universe Manager</h1>
 
       <div className="flex gap-6">
-        {/* Universe list */}
-        <div className="w-64 flex-shrink-0">
-          <h2 className="text-sm font-medium text-stone-500 mb-3 uppercase tracking-wider">Universes</h2>
+        {/* Sidebar */}
+        <div className="w-56 flex-shrink-0 space-y-2">
+          <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Universes</p>
           {isLoading ? (
             <p className="text-stone-400 text-sm">Loading...</p>
           ) : (
-            <div className="space-y-2">
-              {universes.map((u: any) => (
-                <button
-                  key={u.id}
-                  onClick={() => setSelectedUniverseId(u.id)}
-                  className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
-                    selectedUniverseId === u.id
-                      ? "border-primary bg-primary/5 text-stone-800"
-                      : "border-stone-200 bg-white text-stone-600 hover:border-primary/30"
-                  }`}
-                >
-                  <p className="font-medium text-sm">{u.name}</p>
-                  <p className="text-xs text-stone-400 mt-0.5">
-                    {u.characters?.length || 0} characters
-                  </p>
-                </button>
-              ))}
-              {universes.length === 0 && (
-                <p className="text-stone-400 text-sm">No universes yet</p>
-              )}
-            </div>
+            universes.map((u: any) => (
+              <button
+                key={u.id}
+                onClick={() => setSelectedId(u.id)}
+                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                  selectedId === u.id
+                    ? "border-primary bg-primary/5 text-stone-800"
+                    : "border-stone-200 bg-white text-stone-600 hover:border-primary/30"
+                }`}
+              >
+                <p className="font-medium">{u.name}</p>
+                <p className="text-[11px] text-stone-400">{u.characters?.length || 0} chars</p>
+              </button>
+            ))
           )}
         </div>
 
-        {/* Universe details */}
-        <div className="flex-1">
-          {!selectedUniverseId ? (
+        {/* Main content */}
+        <div className="flex-1 space-y-5">
+          {!selectedId ? (
             <div className="bg-white rounded-xl border border-stone-200 p-8 text-center">
-              <p className="text-stone-400">Select a universe to manage</p>
+              <p className="text-stone-400">Select a universe</p>
             </div>
-          ) : !selectedUniverse ? (
+          ) : !universe ? (
             <div className="bg-white rounded-xl border border-stone-200 p-8 text-center">
               <p className="text-stone-400">Loading...</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <>
               {/* Universe info */}
-              <div className="bg-white rounded-xl border border-stone-200 p-6">
-                <h2 className="text-xl font-bold text-stone-800 mb-1">{selectedUniverse.name}</h2>
-                <p className="text-sm text-stone-500 mb-4">{selectedUniverse.settingDescription}</p>
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-stone-400">Mood:</span>{" "}
-                    <span className="text-stone-700">{selectedUniverse.mood}</span>
-                  </div>
-                  <div>
-                    <span className="text-stone-400">Themes:</span>{" "}
-                    <span className="text-stone-700">{themes.join(", ")}</span>
-                  </div>
-                  <div>
-                    <span className="text-stone-400">Avoid:</span>{" "}
-                    <span className="text-stone-700">{selectedUniverse.avoidThemes || "None"}</span>
-                  </div>
-                  <div>
-                    <span className="text-stone-400">Style:</span>{" "}
-                    <span className="text-stone-700">{selectedUniverse.illustrationStyle}</span>
-                  </div>
-                  <div>
-                    <span className="text-stone-400">ID:</span>{" "}
-                    <span className="text-stone-400 font-mono text-xs">{selectedUniverse.id}</span>
-                  </div>
+              <div className="bg-white rounded-xl border border-stone-200 p-5">
+                <h2 className="text-lg font-bold text-stone-800 mb-1">{universe.name}</h2>
+                <p className="text-sm text-stone-500 mb-3">{universe.settingDescription}</p>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div><span className="text-stone-400">Mood:</span> <span className="text-stone-600">{universe.mood}</span></div>
+                  <div><span className="text-stone-400">Themes:</span> <span className="text-stone-600">{themes.join(", ")}</span></div>
+                  <div><span className="text-stone-400">Avoid:</span> <span className="text-stone-600">{universe.avoidThemes || "None"}</span></div>
+                  <div><span className="text-stone-400">ID:</span> <span className="text-stone-400 font-mono">{universe.id.slice(0, 8)}</span></div>
                 </div>
               </div>
 
-              {/* LoRA status */}
-              <div className="bg-white rounded-xl border border-stone-200 p-6">
-                <h3 className="font-semibold text-stone-700 mb-3">LoRA Training</h3>
+              {/* LoRA Status */}
+              <div className="bg-white rounded-xl border border-stone-200 p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-stone-700 text-sm">LoRA Model</h3>
+                  <ActionButton
+                    onClick={() => doAction("lora", handleTrainLora)}
+                    loading={actionLoading === "lora"}
+                    loadingText="Starting..."
+                  >
+                    {loraStatus?.status === "ready" ? "Retrain LoRA" : "Train LoRA"}
+                  </ActionButton>
+                </div>
                 {loraStatus?.status === "ready" ? (
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                    <span className="text-sm text-emerald-700 font-medium">Model ready</span>
-                    <span className="text-xs text-stone-400 font-mono ml-2">{loraStatus.model}</span>
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span className="text-xs text-emerald-700">Ready</span>
+                    <span className="text-[10px] text-stone-400 font-mono ml-1">{loraStatus.model}</span>
                   </div>
                 ) : loraStatus?.status === "training" ? (
                   <div className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4 text-amber-600" viewBox="0 0 24 24" fill="none">
+                    <svg className="animate-spin h-3 w-3 text-amber-600" viewBox="0 0 24 24" fill="none">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
-                    <span className="text-sm text-amber-700">Training in progress...</span>
-                    <span className="text-xs text-stone-400">({loraStatus.replicateStatus})</span>
-                  </div>
-                ) : loraStatus?.status === "failed" ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500" />
-                    <span className="text-sm text-red-700">Training failed</span>
+                    <span className="text-xs text-amber-700">Training... ({loraStatus.replicateStatus})</span>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-stone-300" />
-                    <span className="text-sm text-stone-500">No LoRA trained</span>
+                    <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
+                    <span className="text-xs text-stone-500">Not trained</span>
                   </div>
                 )}
               </div>
 
               {/* Characters */}
-              <div className="bg-white rounded-xl border border-stone-200 p-6">
-                <h3 className="font-semibold text-stone-700 mb-4">Characters</h3>
-
-                {/* Hero */}
-                {hero && (
-                  <div className="mb-6">
-                    <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Hero</p>
-                    <CharacterDetail
-                      character={hero}
-                      isRegenerating={regeneratingId === hero.id}
-                      onRegenerate={() => handleRegenerate(hero.id, hero.name)}
-                      onPreviewSheet={() => setSheetPreview(hero.referenceImageUrl)}
+              <div className="bg-white rounded-xl border border-stone-200 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-stone-700 text-sm">
+                    Characters ({(universe.characters || []).length})
+                  </h3>
+                  {supporting.length === 0 && (
+                    <ActionButton
+                      onClick={() => doAction("gen-chars", () => generateCharacters(selectedId!, false))}
+                      loading={actionLoading === "gen-chars"}
+                      loadingText="Generating..."
+                    >
+                      Generate supporting characters
+                    </ActionButton>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  {(universe.characters || []).map((char: any) => (
+                    <SheetRow
+                      key={char.id}
+                      name={char.name}
+                      subtitle={`${char.speciesOrType} · ${char.role}`}
+                      description={char.appearance}
+                      detail={char.specialDetail}
+                      imageUrl={char.referenceImageUrl}
+                      onPreview={() => setSheetPreview(char.referenceImageUrl)}
+                      onGenerate={() =>
+                        doAction(`char-sheet-${char.id}`, () => regenerateCharacterSheet(char.id))
+                      }
+                      isGenerating={actionLoading === `char-sheet-${char.id}`}
                     />
-                  </div>
-                )}
+                  ))}
+                </div>
+              </div>
 
-                {/* Supporting */}
-                {supporting.length > 0 && (
-                  <div>
-                    <p className="text-xs text-stone-400 uppercase tracking-wider mb-2">Supporting</p>
-                    <div className="space-y-3">
-                      {supporting.map((c: any) => (
-                        <CharacterDetail
-                          key={c.id}
-                          character={c}
-                          isRegenerating={regeneratingId === c.id}
-                          onRegenerate={() => handleRegenerate(c.id, c.name)}
-                          onPreviewSheet={() => setSheetPreview(c.referenceImageUrl)}
-                        />
-                      ))}
-                    </div>
+              {/* Locations */}
+              <div className="bg-white rounded-xl border border-stone-200 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-stone-700 text-sm">
+                    Locations ({locations.length})
+                  </h3>
+                  {locations.length === 0 && (
+                    <ActionButton
+                      onClick={() => doAction("gen-locs", () => generateLocations(selectedId!))}
+                      loading={actionLoading === "gen-locs"}
+                      loadingText="Generating..."
+                    >
+                      Generate locations
+                    </ActionButton>
+                  )}
+                </div>
+                {locations.length === 0 ? (
+                  <p className="text-xs text-stone-400">No locations yet. Generate them to define your world's geography.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {locations.map((loc: any) => (
+                      <SheetRow
+                        key={loc.id}
+                        name={loc.name}
+                        subtitle={loc.role}
+                        description={loc.description}
+                        detail={`Lighting: ${loc.lighting}. Landmarks: ${loc.landmarks}`}
+                        imageUrl={loc.referenceImageUrl}
+                        onPreview={() => setSheetPreview(loc.referenceImageUrl)}
+                        onGenerate={() =>
+                          doAction(`loc-sheet-${loc.id}`, () => generateLocationReferenceSheet(loc.id))
+                        }
+                        isGenerating={actionLoading === `loc-sheet-${loc.id}`}
+                      />
+                    ))}
                   </div>
                 )}
               </div>
 
               {/* Timeline */}
-              {selectedUniverse.timelineEvents?.length > 0 && (
-                <div className="bg-white rounded-xl border border-stone-200 p-6">
-                  <h3 className="font-semibold text-stone-700 mb-3">
-                    Timeline ({selectedUniverse.timelineEvents.length} events)
+              {universe.timelineEvents?.length > 0 && (
+                <div className="bg-white rounded-xl border border-stone-200 p-5">
+                  <h3 className="font-semibold text-stone-700 text-sm mb-3">
+                    Timeline ({universe.timelineEvents.length} events)
                   </h3>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {selectedUniverse.timelineEvents.map((e: any) => (
-                      <div key={e.id} className="flex items-start gap-2 text-sm">
-                        <div
-                          className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${
-                            e.significance === "major" ? "bg-primary" : "bg-stone-300"
-                          }`}
-                        />
-                        <div>
-                          <span className="font-medium text-stone-600">{e.character?.name}: </span>
-                          <span className="text-stone-500">{e.eventSummary}</span>
-                        </div>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                    {universe.timelineEvents.map((e: any) => (
+                      <div key={e.id} className="flex items-start gap-2 text-xs">
+                        <div className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${e.significance === "major" ? "bg-primary" : "bg-stone-300"}`} />
+                        <span className="text-stone-500">
+                          <strong className="text-stone-600">{e.character?.name}</strong>: {e.eventSummary}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>
 
       {/* Sheet preview modal */}
       {sheetPreview && (
-        <div
-          className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
-          onClick={() => setSheetPreview(null)}
-        >
-          <div className="max-w-4xl max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setSheetPreview(null)}
-              className="absolute -top-10 right-0 text-white/70 hover:text-white text-sm"
-            >
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={() => setSheetPreview(null)}>
+          <div className="max-w-5xl max-h-[90vh] relative" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setSheetPreview(null)} className="absolute -top-10 right-0 text-white/70 hover:text-white text-sm">
               Close
             </button>
-            <img
-              src={sheetPreview}
-              alt="Character reference sheet"
-              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl"
-            />
+            <img src={sheetPreview} alt="Reference sheet" className="max-w-full max-h-[85vh] rounded-lg shadow-2xl" />
           </div>
         </div>
       )}
@@ -261,102 +336,63 @@ export default function UniverseManager() {
   );
 }
 
-function CharacterDetail({
-  character,
-  isRegenerating,
-  onRegenerate,
-  onPreviewSheet,
+function SheetRow({
+  name,
+  subtitle,
+  description,
+  detail,
+  imageUrl,
+  onPreview,
+  onGenerate,
+  isGenerating,
 }: {
-  character: any;
-  isRegenerating: boolean;
-  onRegenerate: () => void;
-  onPreviewSheet: () => void;
+  name: string;
+  subtitle: string;
+  description: string;
+  detail?: string;
+  imageUrl: string;
+  onPreview: () => void;
+  onGenerate: () => void;
+  isGenerating: boolean;
 }) {
-  let traits: string[] = [];
-  try {
-    traits = JSON.parse(character.personalityTraits);
-  } catch {
-    traits = [character.personalityTraits];
-  }
-
   return (
-    <div className="border border-stone-100 rounded-lg p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-semibold text-stone-800">{character.name}</h4>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-500">
-              {character.speciesOrType}
-            </span>
-          </div>
-          <p className="text-sm text-stone-500 mb-2">{character.appearance}</p>
-          {character.specialDetail && (
-            <p className="text-xs text-primary mb-2">Detail: {character.specialDetail}</p>
-          )}
-          <div className="flex flex-wrap gap-1">
-            {traits.map((t: string) => (
-              <span key={t} className="text-xs px-2 py-0.5 rounded-full bg-stone-50 text-stone-500">
-                {t}
-              </span>
-            ))}
-          </div>
-
-          {/* Relationships */}
-          {(character.relationshipsA?.length > 0 || character.relationshipsB?.length > 0) && (
-            <div className="mt-2">
-              {character.relationshipsA?.map((r: any) => (
-                <p key={r.id} className="text-xs text-stone-400">
-                  &rarr; {r.characterB?.name}: {r.description}
-                </p>
-              ))}
-              {character.relationshipsB?.map((r: any) => (
-                <p key={r.id} className="text-xs text-stone-400">
-                  &larr; {r.characterA?.name}: {r.description}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Reference sheet thumbnail + actions */}
-        <div className="flex flex-col items-center gap-2 flex-shrink-0">
-          {character.referenceImageUrl ? (
-            <button onClick={onPreviewSheet} className="group relative">
-              <img
-                src={character.referenceImageUrl}
-                alt={`${character.name} reference sheet`}
-                className="w-24 h-16 object-cover rounded-lg border border-stone-200 group-hover:border-primary transition-colors"
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-lg transition-colors flex items-center justify-center">
-                <span className="text-[10px] text-white opacity-0 group-hover:opacity-100 transition-opacity font-medium">
-                  View
-                </span>
-              </div>
-            </button>
-          ) : (
-            <div className="w-24 h-16 rounded-lg border border-dashed border-stone-300 flex items-center justify-center">
-              <span className="text-[10px] text-stone-300">No sheet</span>
-            </div>
-          )}
-          <button
-            onClick={onRegenerate}
-            disabled={isRegenerating}
-            className="text-[11px] text-stone-400 hover:text-primary transition-colors disabled:opacity-50"
-          >
-            {isRegenerating ? (
-              <span className="flex items-center gap-1">
-                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Regenerating...
-              </span>
-            ) : (
-              "Regenerate sheet"
-            )}
+    <div className="flex items-start gap-3 p-3 rounded-lg border border-stone-100">
+      {/* Thumbnail */}
+      <div className="flex-shrink-0">
+        {imageUrl ? (
+          <button onClick={onPreview} className="group relative">
+            <img
+              src={imageUrl}
+              alt={`${name} sheet`}
+              className="w-20 h-14 object-cover rounded-md border border-stone-200 group-hover:border-primary transition-colors"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-md transition-colors" />
           </button>
-        </div>
+        ) : (
+          <div className="w-20 h-14 rounded-md border border-dashed border-stone-300 flex items-center justify-center">
+            <span className="text-[9px] text-stone-300">No sheet</span>
+          </div>
+        )}
       </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-stone-800 truncate">{name}</p>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-400">{subtitle}</span>
+        </div>
+        <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{description}</p>
+        {detail && <p className="text-[10px] text-stone-400 mt-0.5 line-clamp-1">{detail}</p>}
+      </div>
+
+      {/* Generate button */}
+      <ActionButton
+        onClick={onGenerate}
+        loading={isGenerating}
+        loadingText="Generating..."
+      >
+        {imageUrl ? "Regenerate" : "Generate sheet"}
+      </ActionButton>
     </div>
   );
 }

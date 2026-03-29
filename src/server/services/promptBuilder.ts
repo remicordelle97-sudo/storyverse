@@ -209,6 +209,12 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
 
   const pageCount = input.length === "short" ? 10 : 32;
 
+  // Fetch locations for the universe
+  const locations = await prisma.location.findMany({
+    where: { universeId: input.universeId },
+    orderBy: { createdAt: "asc" },
+  });
+
   // Fetch timeline: last 4 events + 5 most recent major events, deduplicated
   const recentEvents = await prisma.timelineEvent.findMany({
     where: { universeId: input.universeId },
@@ -277,6 +283,19 @@ Role: ${char.role}
     prompt += `=== RELATIONSHIPS ===\n`;
     for (const rel of relationships) {
       prompt += `${rel}\n`;
+    }
+    prompt += `\n`;
+  }
+
+  if (locations.length > 0) {
+    prompt += `=== LOCATIONS ===
+Use ONLY these locations in the story. Do not invent new locations. Reference them by name in both the story text and the image_prompt fields so illustrations are consistent.\n\n`;
+    for (const loc of locations) {
+      prompt += `${loc.name} (${loc.role}): ${loc.description}`;
+      if (loc.landmarks) {
+        prompt += ` Key landmarks: ${loc.landmarks}`;
+      }
+      prompt += `\n`;
     }
     prompt += `\n`;
   }

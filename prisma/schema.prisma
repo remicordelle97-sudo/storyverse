@@ -30,8 +30,23 @@ model Universe {
   createdAt            DateTime        @default(now())
   user                 User            @relation(fields: [userId], references: [id])
   characters           Character[]
+  locations            Location[]
   stories              Story[]
   timelineEvents       TimelineEvent[]
+}
+
+model Location {
+  id                String   @id @default(uuid())
+  universeId        String
+  name              String
+  description       String
+  role              String   @default("discovery")
+  mood              String   @default("")
+  lighting          String   @default("")
+  landmarks         String   @default("")
+  referenceImageUrl String   @default("")
+  createdAt         DateTime @default(now())
+  universe          Universe @relation(fields: [universeId], references: [id])
 }
 
 model Character {

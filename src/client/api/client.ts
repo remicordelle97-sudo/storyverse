@@ -48,6 +48,17 @@ export const generateCharacters = (universeId: string, trainLora?: boolean) =>
     body: JSON.stringify({ universeId, trainLora }),
   });
 
+// Locations
+export const getLocations = (universeId: string) =>
+  request<any[]>(`/locations?universeId=${universeId}`);
+export const generateLocations = (universeId: string) =>
+  request<any[]>("/locations/generate", {
+    method: "POST",
+    body: JSON.stringify({ universeId }),
+  });
+export const generateLocationReferenceSheet = (locationId: string) =>
+  request<any>(`/locations/${locationId}/generate-sheet`, { method: "POST" });
+
 // Stories
 export const getStories = (universeId?: string) =>
   request<any[]>(universeId ? `/stories?universeId=${universeId}` : "/stories");
