@@ -81,7 +81,7 @@ router.post("/", async (req, res) => {
 // Auto-generate secondary characters for a universe
 router.post("/generate", async (req, res) => {
   try {
-    const { universeId } = req.body;
+    const { universeId, trainLora } = req.body;
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
     }
@@ -98,6 +98,21 @@ router.post("/generate", async (req, res) => {
         } catch (e) {
           console.error(`Reference image failed for ${char.name}:`, e);
         }
+      }
+    }
+
+    // Train a LoRA if requested and we have a Replicate owner configured
+    if (trainLora) {
+      const replicateOwner = process.env.REPLICATE_OWNER;
+      if (replicateOwner) {
+        try {
+          const modelId = await trainUniverseLora(universeId, replicateOwner);
+          console.log(`LoRA training started: ${modelId}`);
+        } catch (e) {
+          console.error("LoRA training failed:", e);
+        }
+      } else {
+        console.warn("LoRA training requested but REPLICATE_OWNER not set in .env");
       }
     }
 

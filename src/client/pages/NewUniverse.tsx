@@ -91,6 +91,7 @@ export default function NewUniverse() {
   const [heroName, setHeroName] = useState("");
   const [heroTraits, setHeroTraits] = useState<string[]>([]);
   const [heroDetail, setHeroDetail] = useState("");
+  const [trainLora, setTrainLora] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingStep, setSavingStep] = useState("");
 
@@ -140,8 +141,12 @@ export default function NewUniverse() {
         role: "main",
       });
 
-      setSavingStep("Populating world with characters and drawing them...");
-      await generateCharacters(universe.id);
+      setSavingStep(
+        trainLora
+          ? "Populating world, drawing characters, and training LoRA..."
+          : "Populating world with characters and drawing them..."
+      );
+      await generateCharacters(universe.id, trainLora);
 
       queryClient.invalidateQueries({ queryKey: ["universes"] });
       queryClient.invalidateQueries({ queryKey: ["stories-all"] });
@@ -272,6 +277,22 @@ export default function NewUniverse() {
               className="w-full border border-stone-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
               placeholder="e.g. Always carries a tiny blue backpack"
             />
+
+            {/* LoRA toggle */}
+            <div className="mt-6 pt-5 border-t border-stone-200">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div
+                  onClick={() => setTrainLora(!trainLora)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${trainLora ? "bg-primary" : "bg-stone-300"}`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${trainLora ? "translate-x-5" : ""}`} />
+                </div>
+                <span className="text-sm font-medium text-stone-700">Train character model (LoRA)</span>
+              </label>
+              <p className="text-xs text-stone-400 mt-1 ml-14">
+                Trains an AI model on your characters for better visual consistency across illustrations. Takes ~20 minutes, costs ~$3. Requires Replicate account.
+              </p>
+            </div>
           </div>
         )}
 
