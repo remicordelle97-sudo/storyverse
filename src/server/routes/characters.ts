@@ -2,7 +2,7 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { generateSecondaryCharacters } from "../services/characterGenerator.js";
-import { generateCharacterSheet } from "../services/geminiGenerator.js";
+import { generateCharacterSheet, generateAllCharacterSheets } from "../services/geminiGenerator.js";
 
 const router = Router();
 
@@ -94,28 +94,9 @@ router.post("/generate", async (req, res) => {
     await generateSecondaryCharacters(universeId);
     debug.character(`Secondary characters generated in ${Date.now() - startGen}ms`);
 
-    // Generate multi-pose character model sheets, chained so each
-    // character sees the previous sheets and matches the art style
-    const characters = await prisma.character.findMany({
-      where: { universeId },
-      orderBy: { role: "asc" }, // "main" first, then "supporting"
-    });
-    debug.character(`Found ${characters.length} characters, generating model sheets...`);
-
-    for (const char of characters) {
-      if (!char.referenceImageUrl) {
-        try {
-          debug.image(`Generating model sheet for "${char.name}"...`);
-          const startImg = Date.now();
-          await generateCharacterSheet(char.id);
-          debug.image(`Model sheet for "${char.name}" done in ${Date.now() - startImg}ms`);
-        } catch (e: any) {
-          debug.error(`Model sheet failed for "${char.name}": ${e.message}`);
-        }
-      } else {
-        debug.image(`"${char.name}" already has model sheet, skipping`);
-      }
-    }
+    // Generate all character sheets in a single multi-turn chat
+    // for art style consistency
+    await generateAllCharacterSheets(universeId);
 
 
     const fullCharacters = await prisma.character.findMany({
@@ -159,6 +140,25 @@ router.post("/:id/regenerate-sheet", async (req, res) => {
   } catch (e: any) {
     debug.error(`Sheet regeneration failed: ${e.message}`);
     res.status(500).json({ error: "Failed to regenerate character sheet" });
+  }
+});
+
+// Generate all character sheets via multi-turn chat (style consistent)
+router.post("/generate-all-sheets", async (req, res) => {
+  try {
+    const { universeId } = req.body;
+    if (!universeId) {
+      return res.status(400).json({ error: "universeId is required" });
+    }
+    debug.image("Generating all character sheets via multi-turn chat", { universeId });
+    await generateAllCharacterSheets(universeId);
+    const characters = await prisma.character.findMany({
+      where: { universeId },
+    });
+    res.json(characters);
+  } catch (e: any) {
+    debug.error(`All sheets generation failed: ${e.message}`);
+    res.status(500).json({ error: "Failed to generate character sheets" });
   }
 });
 

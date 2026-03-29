@@ -96,7 +96,7 @@ async function buildReferenceParts(
 }
 
 /**
- * Generate a character model sheet using Gemini.
+ * Generate a single character model sheet using Gemini (for regeneration).
  */
 export async function generateCharacterSheet(
   characterId: string
@@ -106,43 +106,10 @@ export async function generateCharacterSheet(
     include: { universe: true },
   });
 
-  const styleGuide = buildImageStyleGuide(
-    character.universe.mood,
-    "4-5",
-    character.universe.illustrationStyle
-  );
-
   debug.image(`Generating character sheet for "${character.name}" via Gemini`);
   const startTime = Date.now();
 
-  const outfitSection = character.outfit
-    ? `\nOUTFIT (character is ALWAYS wearing/carrying ALL of these):\n${character.outfit}`
-    : "";
-
-  const prompt = `ART STYLE: Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic.
-
-Create a CHARACTER MODEL SHEET. Show this character 12-15 times on a plain white background in a natural grid layout. Mix of full body views and close-up head/upper body views.
-
-IMPORTANT: This character is a ${character.speciesOrType}. Follow the body description below EXACTLY. Do NOT reuse any design elements from reference images of other characters. This character has its own unique body shape, colors, proportions, and clothing.
-
-CHARACTER: ${character.name}
-SPECIES: ${character.speciesOrType}
-
-BODY (follow this description precisely — this defines what the character looks like):
-${character.appearance}
-${outfitSection}
-SPECIAL DETAIL: ${character.specialDetail}
-
-Include:
-- Full body: front, side, back, 3/4, running, sitting, reaching
-- Close-up: happy, sad, surprised, determined, laughing
-
-CONSISTENCY: The character must look identical in every view. Same proportions, colors, features. All clothing/accessories visible in every view. Wings, tails, antennae never disappear. Head shape stays the same in close-ups.
-
-ONE character drawn many times. NOT multiple characters.`;
-
-  // Build input parts — no reference images for character sheets
-  // (Gemini copies the character design instead of just the style)
+  const prompt = buildCharacterSheetPrompt(character);
   const parts: any[] = [{ text: prompt }];
 
   const response = await ai.models.generateContent({
@@ -173,6 +140,111 @@ ONE character drawn many times. NOT multiple characters.`;
 
   debug.image(`Character sheet for "${character.name}" done in ${Date.now() - startTime}ms: ${imageUrl}`);
   return imageUrl;
+}
+
+/**
+ * Generate ALL character sheets for a universe in a single multi-turn
+ * chat session. Gemini maintains visual style consistency across turns.
+ */
+export async function generateAllCharacterSheets(
+  universeId: string
+): Promise<void> {
+  const characters = await prisma.character.findMany({
+    where: { universeId },
+    include: { universe: true },
+    orderBy: { role: "asc" }, // main first
+  });
+
+  if (characters.length === 0) return;
+
+  debug.image(`Generating ${characters.length} character sheets in multi-turn chat`);
+
+  const chat = ai.chats.create({
+    model: "gemini-2.5-flash-image",
+    config: {
+      responseModalities: ["Image", "Text"],
+    },
+  });
+
+  for (let i = 0; i < characters.length; i++) {
+    const character = characters[i];
+
+    if (character.referenceImageUrl) {
+      debug.image(`"${character.name}" already has sheet, skipping`);
+      continue;
+    }
+
+    debug.image(`Chat turn ${i + 1}/${characters.length}: generating sheet for "${character.name}"`);
+    const startTime = Date.now();
+
+    let prompt: string;
+    if (i === 0) {
+      // First character: establish the art style
+      prompt = buildCharacterSheetPrompt(character);
+    } else {
+      // Subsequent characters: reference the established style
+      prompt = `Now create a CHARACTER MODEL SHEET for a COMPLETELY DIFFERENT character. Use the EXACT SAME art style, line quality, and illustration technique as the previous sheet(s), but this is a totally different individual with different body, colors, and clothing.
+
+${buildCharacterSheetPrompt(character)}`;
+    }
+
+    try {
+      const response = await chat.sendMessage({ message: prompt });
+
+      debug.image("Gemini chat response:", {
+        parts: response?.candidates?.[0]?.content?.parts?.length || 0,
+        partTypes: response?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ? "text" : p.inlineData ? `image(${p.inlineData.mimeType})` : "unknown").join(", ") || "none",
+      });
+
+      const imageUrl = extractImage(response);
+      if (!imageUrl) {
+        debug.error(`No image in Gemini response for "${character.name}"`);
+        continue;
+      }
+
+      await prisma.character.update({
+        where: { id: character.id },
+        data: { referenceImageUrl: imageUrl },
+      });
+
+      debug.image(`Sheet for "${character.name}" done in ${Date.now() - startTime}ms: ${imageUrl}`);
+    } catch (e: any) {
+      debug.error(`Sheet failed for "${character.name}": ${e.message}`);
+    }
+  }
+
+  debug.image("All character sheets generated via multi-turn chat");
+}
+
+/**
+ * Build the prompt text for a character model sheet.
+ */
+function buildCharacterSheetPrompt(character: any): string {
+  const outfitSection = character.outfit
+    ? `\nOUTFIT (character is ALWAYS wearing/carrying ALL of these):\n${character.outfit}`
+    : "";
+
+  return `ART STYLE: Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic.
+
+Create a CHARACTER MODEL SHEET. Show this character 12-15 times on a plain white background in a natural grid layout. Mix of full body views and close-up head/upper body views.
+
+IMPORTANT: This character is a ${character.speciesOrType}. Follow the body description below EXACTLY. This character has its own unique body shape, colors, proportions, and clothing.
+
+CHARACTER: ${character.name}
+SPECIES: ${character.speciesOrType}
+
+BODY (follow this description precisely — this defines what the character looks like):
+${character.appearance}
+${outfitSection}
+SPECIAL DETAIL: ${character.specialDetail}
+
+Include:
+- Full body: front, side, back, 3/4, running, sitting, reaching
+- Close-up: happy, sad, surprised, determined, laughing
+
+CONSISTENCY: The character must look identical in every view. Same proportions, colors, features. All clothing/accessories visible in every view. Wings, tails, antennae never disappear. Head shape stays the same in close-ups.
+
+ONE character drawn many times. NOT multiple characters.`;
 }
 
 /**

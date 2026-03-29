@@ -39,6 +39,11 @@ export const createCharacter = (data: any) =>
   request<any>("/characters", { method: "POST", body: JSON.stringify(data) });
 export const regenerateCharacterSheet = (characterId: string) =>
   request<any>(`/characters/${characterId}/regenerate-sheet`, { method: "POST" });
+export const generateAllCharacterSheets = (universeId: string) =>
+  request<any>("/characters/generate-all-sheets", {
+    method: "POST",
+    body: JSON.stringify({ universeId }),
+  });
 export const generateCharacters = (universeId: string) =>
   request<any[]>("/characters/generate", {
     method: "POST",
