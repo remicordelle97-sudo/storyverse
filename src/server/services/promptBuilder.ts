@@ -52,7 +52,7 @@ const AGE_GUIDELINES: Record<string, string> = {
 
 const STRUCTURE_GUIDELINES: Record<string, string> = {
   "rule-of-three": `STORY STRUCTURE — Rule of Three:
-The protagonist must attempt to solve the central problem THREE times. This is one of the oldest and most satisfying patterns in children's storytelling.
+The protagonist must attempt to solve the central problem THREE times. This is one of the oldest and most satisfying patterns in children's storytelling. Think: "The Three Little Pigs" (straw, sticks, bricks), "Goldilocks and the Three Bears" (too hot, too cold, just right), "The Three Billy Goats Gruff" (small, medium, big).
 
 PACING:
 - Pages 1-2 (short) / 1-5 (long): Set the scene. Introduce the protagonist in their world. Establish the problem clearly — make it concrete and visual, not abstract.
@@ -144,6 +144,26 @@ KEY RULES:
 - The solution should connect to something established earlier in the story — a detail, a skill, a relationship. No deus ex machina.
 - Friends can help, but the protagonist must be the one who figures out the key insight or takes the decisive action.
 - The emotional arc is: normal → disruption → concern → effort → frustration → insight → triumph → new normal.`,
+
+  "unlikely-friendship": `STORY STRUCTURE — Unlikely Friendship:
+Two characters who seem incompatible, different, or even opposed discover a genuine connection. The story is about how they move from distance to closeness. Think: "Charlotte's Web" (a pig and a spider become inseparable), "The Fox and the Hound" (natural enemies become best friends), "Frog and Toad" (an adventurous frog and a cautious toad find balance), "Stellaluna" (a bat raised by birds discovers belonging), "Enemy Pie" (a boy tries to defeat his enemy and accidentally makes a friend).
+
+PACING:
+- Pages 1-2 (short) / 1-4 (long): THE TWO WORLDS. Introduce the two characters separately. Show how different they are — different habitats, different habits, different temperaments, different ways of seeing the world. Make each character vivid and sympathetic in their own right. The reader should like both of them individually before they meet.
+- Early pages: THE ENCOUNTER. The two characters meet — by accident, by necessity, or by circumstance. First impressions are wrong or awkward. There may be suspicion, confusion, a misunderstanding, or simply not knowing what to make of each other. Neither character is a villain — they are just different.
+- Middle pages: THE FRICTION AND THE FINDING. The characters are thrown together by circumstance (stuck in the same place, given the same task, caught in the same problem). Through spending time together, they discover surprising things they have in common, or they find that their differences complement each other. Show specific small moments of connection: a shared laugh, a moment of unexpected help, a discovery that the other is not what they assumed.
+- ~60% through: THE TEST. Something happens that threatens the budding friendship. A misunderstanding, an outside pressure, a moment where one character's instincts clash with the other's. One character may pull away or say something hurtful. This is the emotional low point.
+- ~75% through: THE CHOICE. One or both characters must actively choose the friendship. This is not automatic — it requires vulnerability, courage, or sacrifice. One character reaches out, apologizes, shows up when it matters, or puts the other's needs first. The choice must come from who the character IS, not from external pressure.
+- Final pages: THE NEW NORMAL. The two characters are together, and the world feels different because of it. They have not become the same — they are still different — but those differences now feel like strengths. End with a warm, specific moment that shows the friendship is real: a shared ritual, a private joke, a quiet comfort.
+
+KEY RULES:
+- Neither character should be wrong or bad for being who they are. The story is not about one character "fixing" the other. It is about two complete individuals finding unexpected connection.
+- The differences between the characters must be SPECIFIC and VISUAL, not abstract. Show it through behavior, habits, and reactions — not through narration.
+- The moments of connection must feel earned and organic. Do not rush from "strangers" to "best friends." Let the relationship develop through concrete shared experiences.
+- The emotional low point (The Test) must come from the characters' genuine differences, not from a contrived external villain or misunderstanding.
+- Show, don't tell, the growing closeness. Use proximity, mirroring behavior, and shared language to show the characters becoming friends without saying "they became friends."
+- The ending should honor both characters' identities. They do not merge — they complement. The frog is still a frog, the toad is still a toad, and that is what makes it beautiful.
+- The emotional arc is: separation → curiosity → friction → small connections → rupture → choice → belonging.`,
 };
 
 export function buildSystemPrompt(ageGroup: string): string {

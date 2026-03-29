@@ -278,6 +278,7 @@ export default function StoryBuilder() {
                 { value: "cumulative", label: "Cumulative", desc: "Each event builds on the last, snowball style" },
                 { value: "circular", label: "Circular", desc: "Ends where it began, but the hero has changed" },
                 { value: "journey", label: "Journey & Return", desc: "Leave home, adventure, return transformed" },
+                { value: "unlikely-friendship", label: "Unlikely Friendship", desc: "Two different characters discover an unexpected bond" },
               ].map((s) => (
                 <button
                   key={s.value}

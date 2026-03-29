@@ -99,7 +99,7 @@ router.post("/generate", async (req, res) => {
     } = req.body;
 
     // Use requested structure, or pick randomly if not provided
-    const structures = ["problem-solution", "rule-of-three", "cumulative", "circular", "journey"];
+    const structures = ["problem-solution", "rule-of-three", "cumulative", "circular", "journey", "unlikely-friendship"];
     const structure = requestedStructure && structures.includes(requestedStructure)
       ? requestedStructure
       : structures[Math.floor(Math.random() * structures.length)];
