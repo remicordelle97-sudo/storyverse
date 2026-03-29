@@ -159,7 +159,7 @@ ONE character drawn many times. NOT multiple characters.`;
   parts.push({ text: prompt });
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-2.0-flash-001",
     contents: [{ role: "user", parts }],
     config: {
       responseModalities: ["Image", "Text"],
@@ -244,7 +244,7 @@ ONE location shown from many angles and times of day. NOT multiple locations.`;
   parts.push({ text: prompt });
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-2.0-flash-001",
     contents: [{ role: "user", parts }],
     config: {
       responseModalities: ["Image", "Text"],
@@ -337,7 +337,7 @@ Draw the characters EXACTLY as shown in the reference sheets. Match the art styl
   const startTime = Date.now();
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash-exp",
+    model: "gemini-2.0-flash-001",
     contents: [{ role: "user", parts }],
     config: {
       responseModalities: ["Image", "Text"],
