@@ -2,8 +2,7 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { generateSecondaryCharacters } from "../services/characterGenerator.js";
-import { generateCharacterReference } from "../services/imageGenerator.js";
-import { trainUniverseLora } from "../services/fluxGenerator.js";
+import { generateCharacterSheet } from "../services/geminiGenerator.js";
 
 const router = Router();
 
@@ -86,7 +85,7 @@ router.post("/", async (req, res) => {
 // Auto-generate secondary characters for a universe
 router.post("/generate", async (req, res) => {
   try {
-    const { universeId, trainLora } = req.body;
+    const { universeId } = req.body;
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
     }
@@ -110,7 +109,7 @@ router.post("/generate", async (req, res) => {
         try {
           debug.image(`Generating model sheet for "${char.name}" (with ${completedSheetUrls.length} previous sheets as style reference)...`);
           const startImg = Date.now();
-          const sheetUrl = await generateCharacterReference(char.id, completedSheetUrls);
+          const sheetUrl = await generateCharacterSheet(char.id, completedSheetUrls);
           completedSheetUrls.push(sheetUrl);
           debug.image(`Model sheet for "${char.name}" done in ${Date.now() - startImg}ms`);
         } catch (e: any) {
@@ -122,21 +121,6 @@ router.post("/generate", async (req, res) => {
       }
     }
 
-    // Train a LoRA if requested
-    if (trainLora) {
-      const replicateOwner = process.env.REPLICATE_OWNER;
-      if (replicateOwner) {
-        try {
-          debug.lora("Starting LoRA training...", { universeId, replicateOwner });
-          const modelId = await trainUniverseLora(universeId, replicateOwner);
-          debug.lora("LoRA training started", { modelId });
-        } catch (e: any) {
-          debug.error(`LoRA training failed: ${e.message}`);
-        }
-      } else {
-        debug.error("LoRA training requested but REPLICATE_OWNER not set in .env");
-      }
-    }
 
     const fullCharacters = await prisma.character.findMany({
       where: { universeId },
@@ -149,23 +133,6 @@ router.post("/generate", async (req, res) => {
   } catch (e) {
     console.error("Character generation failed:", e);
     res.status(500).json({ error: "Failed to generate characters" });
-  }
-});
-
-// Train a LoRA model for a universe's characters
-router.post("/train-lora", async (req, res) => {
-  try {
-    const { universeId, replicateOwner } = req.body;
-    if (!universeId || !replicateOwner) {
-      return res.status(400).json({
-        error: "universeId and replicateOwner are required",
-      });
-    }
-    const modelId = await trainUniverseLora(universeId, replicateOwner);
-    res.status(201).json({ modelId, status: "training_started" });
-  } catch (e: any) {
-    console.error("LoRA training failed:", e);
-    res.status(500).json({ error: e.message || "Failed to start LoRA training" });
   }
 });
 
@@ -199,7 +166,7 @@ router.post("/:id/regenerate-sheet", async (req, res) => {
       data: { referenceImageUrl: "" },
     });
 
-    const sheetUrl = await generateCharacterReference(req.params.id, previousSheetUrls);
+    const sheetUrl = await generateCharacterSheet(req.params.id, previousSheetUrls);
 
     debug.image(`Sheet regenerated for "${character.name}" in ${Date.now() - startTime}ms`);
 

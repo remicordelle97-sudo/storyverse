@@ -46,8 +46,6 @@ export default function StoryBuilder() {
   const [length, setLength] = useState<"short" | "long">("long");
   const [parentPrompt, setParentPrompt] = useState("");
   const [generateImages, setGenerateImages] = useState(false);
-  const [imageEngine, setImageEngine] = useState<"flux" | "gpt4o">("gpt4o");
-  const [imageQuality, setImageQuality] = useState<"low" | "medium" | "high">("high");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progressStep, setProgressStep] = useState("");
@@ -87,8 +85,6 @@ export default function StoryBuilder() {
           length,
           parentPrompt,
           generateImages,
-          imageEngine,
-          imageQuality,
         },
         (step, detail) => {
           setCompletedSteps((prev) => {
@@ -305,39 +301,7 @@ export default function StoryBuilder() {
               </div>
               <span className="text-sm font-medium text-stone-700">Generate illustrations</span>
             </label>
-            <p className="text-xs text-stone-400 mt-1 ml-14">Uses GPT-4o. Leave off to save credits.</p>
-            {generateImages && (
-              <div className="ml-14 mt-3 space-y-3">
-                <div>
-                  <p className="text-xs text-stone-500 mb-1.5">Engine</p>
-                  <div className="flex gap-2">
-                    <Chip
-                      label="GPT-4o (consistent)"
-                      selected={imageEngine === "gpt4o"}
-                      onClick={() => setImageEngine("gpt4o")}
-                    />
-                    <Chip
-                      label="Flux (fast)"
-                      selected={imageEngine === "flux"}
-                      onClick={() => setImageEngine("flux")}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-stone-500 mb-1.5">Quality</p>
-                  <div className="flex gap-2">
-                    {(["low", "medium", "high"] as const).map((q) => (
-                      <Chip
-                        key={q}
-                        label={q.charAt(0).toUpperCase() + q.slice(1)}
-                        selected={imageQuality === q}
-                        onClick={() => setImageQuality(q)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            <p className="text-xs text-stone-400 mt-1 ml-14">Uses Gemini. Leave off to save credits.</p>
           </section>
 
           {/* Parent prompt */}

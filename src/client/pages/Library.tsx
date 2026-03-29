@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getStories, getUniverses, getLoraStatus } from "../api/client";
+import { getStories, getUniverses } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 // Generate a deterministic color from a string
@@ -145,37 +145,6 @@ export default function Library() {
     queryFn: getUniverses,
   });
 
-  // Track LoRA training status for universes
-  const [loraStatuses, setLoraStatuses] = useState<Record<string, any>>({});
-
-  useEffect(() => {
-    const trainingUniverses = universes.filter(
-      (u: any) => u.illustrationStyle?.startsWith("lora-training:")
-    );
-    if (trainingUniverses.length === 0) return;
-
-    // Check status immediately and then poll every 30 seconds
-    const checkAll = async () => {
-      for (const u of trainingUniverses) {
-        try {
-          const status = await getLoraStatus(u.id);
-          setLoraStatuses((prev) => ({ ...prev, [u.id]: status }));
-        } catch {}
-      }
-    };
-
-    checkAll();
-    const interval = setInterval(checkAll, 30000);
-    return () => clearInterval(interval);
-  }, [universes]);
-
-  const trainingUniverses = universes.filter(
-    (u: any) => u.illustrationStyle?.startsWith("lora-training:")
-  );
-  const readyUniverses = universes.filter(
-    (u: any) => u.illustrationStyle?.startsWith("lora:")
-  );
-
   const handleNewStory = () => {
     setShowMenu(false);
     if (universes.length === 0) {
@@ -297,47 +266,6 @@ export default function Library() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* LoRA training status banners */}
-      <div className="max-w-5xl mx-auto px-4">
-        {trainingUniverses.map((u: any) => {
-          const status = loraStatuses[u.id];
-          return (
-            <div
-              key={u.id}
-              className="mb-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center gap-3"
-            >
-              <svg className="animate-spin h-4 w-4 text-amber-600 flex-shrink-0" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <div>
-                <p className="text-sm text-amber-800 font-medium">
-                  Training character model for {u.name}...
-                </p>
-                <p className="text-xs text-amber-600">
-                  {status?.replicateStatus === "processing"
-                    ? "Processing on Replicate. This takes about 20 minutes."
-                    : "Checking status..."}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-        {readyUniverses.map((u: any) => (
-          <div
-            key={`ready-${u.id}`}
-            className="mb-3 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2 flex items-center gap-2"
-          >
-            <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
-            <p className="text-sm text-emerald-700">
-              Character model ready for <strong>{u.name}</strong>
-            </p>
-          </div>
-        ))}
       </div>
 
       {/* Bookshelf */}

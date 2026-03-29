@@ -32,9 +32,6 @@ export const generateUniverseConcept = (data: any) =>
     method: "POST",
     body: JSON.stringify(data),
   });
-export const getLoraStatus = (universeId: string) =>
-  request<any>(`/universes/${universeId}/lora-status`);
-
 // Characters
 export const getCharacters = (universeId: string) =>
   request<any[]>(`/characters?universeId=${universeId}`);
@@ -42,10 +39,10 @@ export const createCharacter = (data: any) =>
   request<any>("/characters", { method: "POST", body: JSON.stringify(data) });
 export const regenerateCharacterSheet = (characterId: string) =>
   request<any>(`/characters/${characterId}/regenerate-sheet`, { method: "POST" });
-export const generateCharacters = (universeId: string, trainLora?: boolean) =>
+export const generateCharacters = (universeId: string) =>
   request<any[]>("/characters/generate", {
     method: "POST",
-    body: JSON.stringify({ universeId, trainLora }),
+    body: JSON.stringify({ universeId }),
   });
 
 // Locations

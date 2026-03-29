@@ -4,8 +4,7 @@ import { debug } from "../lib/debug.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { writeTimelineEvents } from "../services/timelineWriter.js";
-import { generateImage } from "../services/imageGenerator.js";
-import { generateFluxImage } from "../services/fluxGenerator.js";
+import { generateSceneImage } from "../services/geminiGenerator.js";
 
 const router = Router();
 
@@ -97,8 +96,6 @@ router.post("/generate", async (req, res) => {
       length,
       parentPrompt,
       generateImages,
-      imageQuality,
-      imageEngine,
     } = req.body;
 
     // Use requested structure, or pick randomly if not provided
@@ -120,8 +117,6 @@ router.post("/generate", async (req, res) => {
       structure,
       length: length || "long",
       generateImages: !!generateImages,
-      imageEngine: imageEngine || "flux",
-      imageQuality: imageQuality || "high",
     });
 
     // Step 1: Build prompt
@@ -172,28 +167,22 @@ router.post("/generate", async (req, res) => {
       },
     });
 
-    // Save pages and optionally generate images (in parallel batches of 4)
     const totalPages = generated.pages.length;
 
-    const engine = imageEngine || "gpt4o";
-
     if (generateImages) {
-      const engineLabel = engine === "flux" ? "Flux" : "GPT-4o";
-      debug.image(`=== IMAGE GENERATION START (${engineLabel}, quality=${imageQuality || "high"}) ===`);
+      debug.image(`=== IMAGE GENERATION START (Gemini) ===`);
       debug.image(`Generating ${totalPages} illustrations sequentially`);
-      sendProgress("illustrating", `Creating ${totalPages} illustrations with ${engineLabel}...`);
+      sendProgress("illustrating", `Creating ${totalPages} illustrations...`);
 
       const generatedImageUrls: string[] = [];
-      const imageStartTotal = Date.now();
 
       for (let i = 0; i < totalPages; i++) {
         const page = generated.pages[i];
         let imageUrl = "";
-        let imageSeed = 0;
 
         sendProgress(
           "illustrating",
-          `Creating illustration ${i + 1} of ${totalPages} (${engineLabel})...`
+          `Creating illustration ${i + 1} of ${totalPages}...`
         );
 
         if (page.image_prompt) {
@@ -204,33 +193,17 @@ router.post("/generate", async (req, res) => {
           const pageImgStart = Date.now();
 
           try {
-            if (engine === "gpt4o") {
-              imageUrl = await generateImage(
-                page.image_prompt,
-                universeId,
-                characterIds,
-                mood || "exciting adventures",
-                ageGroup,
-                generatedImageUrls,
-                imageQuality || "high"
-              );
-            } else {
-              const result = await generateFluxImage(
-                page.image_prompt,
-                universeId,
-                characterIds,
-                mood || "exciting adventures",
-                ageGroup,
-                generatedImageUrls,
-                imageQuality || "high"
-              );
-              imageUrl = result.imageUrl;
-              imageSeed = result.seed;
-            }
+            imageUrl = await generateSceneImage(
+              page.image_prompt,
+              universeId,
+              characterIds,
+              mood || "exciting adventures",
+              ageGroup,
+              generatedImageUrls
+            );
             if (imageUrl) generatedImageUrls.push(imageUrl);
             debug.image(`Page ${i + 1}/${totalPages}: done in ${Date.now() - pageImgStart}ms`, {
               imageUrl,
-              seed: imageSeed || "n/a",
             });
           } catch (e: any) {
             debug.error(`Page ${i + 1}/${totalPages}: image generation failed: ${e.message}`);
@@ -244,8 +217,8 @@ router.post("/generate", async (req, res) => {
             content: page.content,
             imagePrompt: page.image_prompt || "",
             imageUrl,
-            imageSeed,
-            imageEngine: imageUrl ? engine : "",
+            imageSeed: 0,
+            imageEngine: imageUrl ? "gemini" : "",
           },
         });
       }

@@ -1,7 +1,8 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
-import { generateLocationConcepts, generateLocationSheet } from "../services/locationGenerator.js";
+import { generateLocationConcepts } from "../services/locationGenerator.js";
+import { generateLocationSheet } from "../services/geminiGenerator.js";
 
 const router = Router();
 

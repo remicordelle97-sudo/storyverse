@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getUniverses,
   getUniverse,
-  getLoraStatus,
   getLocations,
   regenerateCharacterSheet,
   generateCharacters,
@@ -78,20 +77,9 @@ export default function UniverseManager() {
     retry: 1,
   });
 
-  const { data: loraStatus } = useQuery({
-    queryKey: ["lora-status", selectedId],
-    queryFn: () => getLoraStatus(selectedId!),
-    enabled: !!selectedId,
-    retry: 1,
-    refetchInterval: (query) => {
-      return query.state.data?.status === "training" ? 15000 : false;
-    },
-  });
-
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["universe", selectedId] });
     queryClient.invalidateQueries({ queryKey: ["locations", selectedId] });
-    queryClient.invalidateQueries({ queryKey: ["lora-status", selectedId] });
   };
 
   const doAction = async (id: string, fn: () => Promise<any>) => {
@@ -119,24 +107,6 @@ export default function UniverseManager() {
     ...locations.filter((l: any) => l.referenceImageUrl).map((l: any) => l.referenceImageUrl),
   ];
 
-  const handleTrainLora = async () => {
-    const res = await fetch("/api/characters/train-lora", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${(await import("../auth/AuthContext")).getAccessToken()}`,
-      },
-      body: JSON.stringify({
-        universeId: selectedId,
-        replicateOwner: prompt("Enter your Replicate username:") || "",
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.json();
-      throw new Error(body.error || "Training failed");
-    }
-    invalidate();
-  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -197,40 +167,6 @@ export default function UniverseManager() {
                 </div>
               </div>
 
-              {/* LoRA Status */}
-              <div className="bg-white rounded-xl border border-stone-200 p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-stone-700 text-sm">LoRA Model</h3>
-                  <ActionButton
-                    onClick={() => doAction("lora", handleTrainLora)}
-                    loading={actionLoading === "lora"}
-                    loadingText="Starting..."
-                  >
-                    {loraStatus?.status === "ready" ? "Retrain LoRA" : "Train LoRA"}
-                  </ActionButton>
-                </div>
-                {loraStatus?.status === "ready" ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                    <span className="text-xs text-emerald-700">Ready</span>
-                    <span className="text-[10px] text-stone-400 font-mono ml-1">{loraStatus.model}</span>
-                  </div>
-                ) : loraStatus?.status === "training" ? (
-                  <div className="flex items-center gap-2">
-                    <svg className="animate-spin h-3 w-3 text-amber-600" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    <span className="text-xs text-amber-700">Training... ({loraStatus.replicateStatus})</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-stone-300" />
-                    <span className="text-xs text-stone-500">Not trained</span>
-                  </div>
-                )}
-              </div>
-
               {/* Characters */}
               <div className="bg-white rounded-xl border border-stone-200 p-5">
                 <div className="flex items-center justify-between mb-3">
@@ -239,7 +175,7 @@ export default function UniverseManager() {
                   </h3>
                   {supporting.length === 0 && hero && (
                     <ActionButton
-                      onClick={() => doAction("gen-chars", () => generateCharacters(selectedId!, false))}
+                      onClick={() => doAction("gen-chars", () => generateCharacters(selectedId!))}
                       loading={actionLoading === "gen-chars"}
                       loadingText="Generating..."
                     >
