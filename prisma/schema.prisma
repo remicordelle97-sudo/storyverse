@@ -84,6 +84,8 @@ model Scene {
   content     String
   imageUrl    String @default("")
   imagePrompt String @default("")
+  imageSeed   Int    @default(0)
+  imageEngine String @default("")
   story       Story  @relation(fields: [storyId], references: [id])
 }
 

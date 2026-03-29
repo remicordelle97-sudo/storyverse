@@ -159,6 +159,7 @@ router.post("/generate", async (req, res) => {
       for (let i = 0; i < totalPages; i++) {
         const page = generated.pages[i];
         let imageUrl = "";
+        let imageSeed = 0;
 
         sendProgress(
           "illustrating",
@@ -188,8 +189,9 @@ router.post("/generate", async (req, res) => {
                 imageQuality || "high"
               );
               imageUrl = result.imageUrl;
+              imageSeed = result.seed;
             }
-            generatedImageUrls.push(imageUrl);
+            if (imageUrl) generatedImageUrls.push(imageUrl);
           } catch (e) {
             console.error(`Image generation failed for page ${page.page_number}:`, e);
           }
@@ -202,6 +204,8 @@ router.post("/generate", async (req, res) => {
             content: page.content,
             imagePrompt: page.image_prompt || "",
             imageUrl,
+            imageSeed,
+            imageEngine: imageUrl ? engine : "",
           },
         });
       }

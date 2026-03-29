@@ -2,6 +2,7 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { generateSecondaryCharacters } from "../services/characterGenerator.js";
 import { generateCharacterReference } from "../services/imageGenerator.js";
+import { trainUniverseLora } from "../services/fluxGenerator.js";
 
 const router = Router();
 
@@ -111,6 +112,23 @@ router.post("/generate", async (req, res) => {
   } catch (e) {
     console.error("Character generation failed:", e);
     res.status(500).json({ error: "Failed to generate characters" });
+  }
+});
+
+// Train a LoRA model for a universe's characters
+router.post("/train-lora", async (req, res) => {
+  try {
+    const { universeId, replicateOwner } = req.body;
+    if (!universeId || !replicateOwner) {
+      return res.status(400).json({
+        error: "universeId and replicateOwner are required",
+      });
+    }
+    const modelId = await trainUniverseLora(universeId, replicateOwner);
+    res.status(201).json({ modelId, status: "training_started" });
+  } catch (e: any) {
+    console.error("LoRA training failed:", e);
+    res.status(500).json({ error: e.message || "Failed to start LoRA training" });
   }
 });
 

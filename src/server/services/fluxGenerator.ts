@@ -13,44 +13,60 @@ if (!fs.existsSync(IMAGES_DIR)) {
   fs.mkdirSync(IMAGES_DIR, { recursive: true });
 }
 
-function saveImageFromUrl(url: string): Promise<string> {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
-      const buffer = Buffer.from(await response.arrayBuffer());
-      const filename = `${randomUUID()}.webp`;
-      const filepath = path.join(IMAGES_DIR, filename);
-      fs.writeFileSync(filepath, buffer);
-      resolve(`/images/${filename}`);
-    } catch (e) {
-      reject(e);
-    }
-  });
-}
-
-function getPublicUrl(localPath: string): string {
-  // For Replicate, we need an accessible URL. In dev, images are local files.
-  // We'll pass them as data URIs via base64 instead.
-  const fullPath = path.join("public", localPath);
-  if (fs.existsSync(fullPath)) {
-    const data = fs.readFileSync(fullPath);
-    const ext = path.extname(localPath).slice(1) || "png";
-    const mime = ext === "webp" ? "image/webp" : ext === "jpg" ? "image/jpeg" : "image/png";
-    return `data:${mime};base64,${data.toString("base64")}`;
-  }
-  return "";
+/**
+ * Download an image from a URL and save locally.
+ */
+async function saveImageFromUrl(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
+  const buffer = Buffer.from(await response.arrayBuffer());
+  const filename = `${randomUUID()}.webp`;
+  const filepath = path.join(IMAGES_DIR, filename);
+  fs.writeFileSync(filepath, buffer);
+  return `/images/${filename}`;
 }
 
 /**
- * Build a style prompt prefix from the universe context.
+ * Upload a local image file to Replicate's file hosting so it can be
+ * used as input to models. Returns a URL that Replicate can access.
  */
-async function buildStylePrompt(
+async function uploadToReplicate(localPath: string): Promise<string> {
+  const fullPath = localPath.startsWith("public/")
+    ? localPath
+    : path.join("public", localPath);
+
+  if (!fs.existsSync(fullPath)) return "";
+
+  const data = fs.readFileSync(fullPath);
+  const ext = path.extname(fullPath).slice(1) || "png";
+  const mime =
+    ext === "webp"
+      ? "image/webp"
+      : ext === "jpg" || ext === "jpeg"
+        ? "image/jpeg"
+        : "image/png";
+
+  const file = await replicate.files.create(
+    new Blob([data], { type: mime }),
+    { filename: path.basename(fullPath) }
+  );
+
+  return file.urls.get;
+}
+
+/**
+ * Build a detailed style prompt for Flux from universe context and style guide.
+ */
+async function buildFluxPrompt(
+  scenePrompt: string,
   universeId: string,
   characterIds: string[],
   mood: string,
   ageGroup: string
-): Promise<{ stylePrefix: string; characterDescriptions: string }> {
+): Promise<{
+  prompt: string;
+  characterRefUrls: string[];
+}> {
   const characters = await prisma.character.findMany({
     where: { universeId, id: { in: characterIds } },
   });
@@ -59,46 +75,69 @@ async function buildStylePrompt(
     where: { id: universeId },
   });
 
-  // Build concise style prefix for Flux (Flux works better with shorter, focused prompts)
-  const moodKey = mood.toLowerCase().split(" ")[0];
-  const moodStyles: Record<string, string> = {
-    gentle: "soft pastel colors, warm golden light, dreamy atmosphere",
-    funny: "bright cheerful colors, energetic composition, playful",
-    exciting: "bold saturated colors, dynamic composition, adventurous",
-    mysterious: "deep blues and purples, magical glowing accents, atmospheric",
-  };
-
-  const stylePrefix = `children's storybook illustration, soft watercolor style, warm and friendly, ${moodStyles[moodKey] || moodStyles["exciting"]}, hand-drawn feel with gentle textures`;
+  // Build style guide (same one used by GPT-4o)
+  const styleGuide = buildImageStyleGuide(
+    mood,
+    ageGroup,
+    universe?.illustrationStyle
+  );
 
   // Build character descriptions
   let charDesc = "";
+  const characterRefUrls: string[] = [];
+
   for (const char of characters) {
     charDesc += `${char.name} (${char.speciesOrType}): ${char.appearance}`;
     if (char.specialDetail) {
       charDesc += `. ${char.specialDetail}`;
     }
     charDesc += ". ";
+
+    // Upload character reference image to Replicate if available
+    if (char.referenceImageUrl) {
+      try {
+        const url = await uploadToReplicate(char.referenceImageUrl);
+        if (url) characterRefUrls.push(url);
+      } catch (e) {
+        console.error(`Failed to upload ref image for ${char.name}:`, e);
+      }
+    }
   }
 
-  return { stylePrefix, characterDescriptions: charDesc.trim() };
-}
+  // Flux works best with focused prompts. Extract the key style directives
+  // rather than sending the entire multi-page guide.
+  const moodKey = mood.toLowerCase().split(" ")[0];
+  const moodStyles: Record<string, string> = {
+    gentle: "soft pastel colors, warm golden hour light, dreamy hazy atmosphere, low contrast",
+    funny: "bright cheerful saturated colors, energetic playful composition, sunny even lighting",
+    exciting: "bold rich saturated colors, dynamic composition, strong warm directional lighting",
+    mysterious: "deep indigo and purple palette, magical glowing accents, atmospheric low light with warm point lights",
+  };
 
-/**
- * Get the LoRA model ID for a universe, if one has been trained.
- */
-async function getUniverseLoraModel(universeId: string): Promise<string | null> {
-  const universe = await prisma.universe.findUnique({
-    where: { id: universeId },
-  });
-  // We'll store the LoRA model ID in illustrationStyle as "lora:owner/model"
-  if (universe?.illustrationStyle?.startsWith("lora:")) {
-    return universe.illustrationStyle.slice(5);
-  }
-  return null;
+  const ageStyles: Record<string, string> = {
+    "2-3": "very simple background, minimal detail, character fills most of the frame, bold clear shapes, high contrast",
+    "4-5": "moderate background detail with playful hidden details, bright bold colors, clear readable expressions",
+    "6-8": "rich detailed environment, visual storytelling in the background, sophisticated palette, nuanced expressions and body language",
+  };
+
+  const prompt = [
+    `children's storybook illustration, soft watercolor style with gentle paper texture, warm hand-drawn feel with sketchy brown outlines`,
+    moodStyles[moodKey] || moodStyles["exciting"],
+    ageStyles[ageGroup] || ageStyles["4-5"],
+    `Characters: ${charDesc}`,
+    `Scene: ${scenePrompt}`,
+    `Rule of thirds composition. Characters looking or moving right. Large expressive eyes. No text or letters in the image. Leave open space for text placement.`,
+    `Shadows use cool blues and purples, never black. Highlights use warm yellows and pinks. Consistent art style throughout.`,
+  ].join(". ");
+
+  return { prompt, characterRefUrls };
 }
 
 /**
  * Generate a scene illustration using Flux via Replicate.
+ *
+ * Uses IP-Adapter for character reference images when available,
+ * and Redux for style continuity from previous pages.
  */
 export async function generateFluxImage(
   scenePrompt: string,
@@ -110,107 +149,142 @@ export async function generateFluxImage(
   quality: "low" | "medium" | "high" = "high",
   seed?: number
 ): Promise<{ imageUrl: string; seed: number }> {
-  const { stylePrefix, characterDescriptions } = await buildStylePrompt(
+  const { prompt, characterRefUrls } = await buildFluxPrompt(
+    scenePrompt,
     universeId,
     characterIds,
     mood,
     ageGroup
   );
 
-  const loraModel = await getUniverseLoraModel(universeId);
+  const loraModel = await getLoraModel(universeId);
 
-  // Build the full prompt
-  const fullPrompt = `${stylePrefix}. ${characterDescriptions} ${scenePrompt}`;
-
-  // Determine model and settings based on quality and LoRA availability
+  // Choose model and build input based on what's available
   let model: string;
   let input: Record<string, any>;
+  const usedSeed = seed || Math.floor(Math.random() * 2147483647);
 
   if (loraModel) {
-    // Use the trained LoRA model
+    // Best case: trained LoRA model for this universe
     model = loraModel;
     input = {
-      prompt: fullPrompt,
+      prompt,
       num_inference_steps: quality === "low" ? 15 : quality === "medium" ? 25 : 35,
       guidance: 3.5,
       output_format: "webp",
       output_quality: quality === "low" ? 80 : 90,
-      ...(seed !== undefined && { seed }),
+      seed: usedSeed,
+    };
+  } else if (
+    characterRefUrls.length > 0 &&
+    quality !== "low"
+  ) {
+    // Use IP-Adapter with character reference images
+    model = "xlabs-ai/flux-ip-adapter";
+    input = {
+      prompt,
+      image: characterRefUrls[0], // primary character reference
+      ip_adapter_strength: 0.6,
+      steps: quality === "medium" ? 25 : 35,
+      guidance: 3.5,
+      output_format: "webp",
+      output_quality: 90,
+      seed: usedSeed,
     };
   } else if (quality === "low") {
     // Flux Schnell for fast testing
     model = "black-forest-labs/flux-schnell";
     input = {
-      prompt: fullPrompt,
+      prompt,
       num_outputs: 1,
       aspect_ratio: "4:3",
       output_format: "webp",
       output_quality: 80,
       go_fast: true,
       num_inference_steps: 4,
-      ...(seed !== undefined && { seed }),
+      seed: usedSeed,
     };
   } else {
-    // Flux 1.1 Pro for production quality
+    // Flux 1.1 Pro for production quality (no character refs available)
     model = "black-forest-labs/flux-1.1-pro";
     input = {
-      prompt: fullPrompt,
+      prompt,
       width: 1024,
       height: 768,
       prompt_upsampling: true,
       output_format: "webp",
       output_quality: 90,
-      ...(seed !== undefined && { seed }),
+      seed: usedSeed,
     };
   }
 
-  // If we have previous page images and Redux is available, use the first
-  // as a style reference (only for non-LoRA, non-Schnell)
+  // For non-LoRA, non-Schnell: if we have previous pages, try Redux for style continuity
   if (
     !loraModel &&
     quality !== "low" &&
+    !input.image && // not already using IP-Adapter
     previousPageImageUrls.length > 0
   ) {
     const lastPageUrl = previousPageImageUrls[previousPageImageUrls.length - 1];
-    const dataUri = getPublicUrl(lastPageUrl);
-    if (dataUri) {
-      // Use Flux Redux for style-guided generation
-      model = "black-forest-labs/flux-redux-dev";
-      input = {
-        prompt: fullPrompt,
-        redux_image: dataUri,
-        guidance: 3.5,
-        num_inference_steps: quality === "medium" ? 25 : 35,
-        output_format: "webp",
-        output_quality: 90,
-        ...(seed !== undefined && { seed }),
-      };
+    try {
+      const replicateUrl = await uploadToReplicate(lastPageUrl);
+      if (replicateUrl) {
+        model = "black-forest-labs/flux-redux-dev";
+        input = {
+          prompt,
+          redux_image: replicateUrl,
+          guidance: 3.5,
+          num_inference_steps: quality === "medium" ? 25 : 35,
+          output_format: "webp",
+          output_quality: 90,
+          seed: usedSeed,
+        };
+      }
+    } catch (e) {
+      console.error("Failed to upload previous page for Redux:", e);
+      // Fall through to non-Redux generation
     }
   }
 
+  console.log(`Flux generating with model: ${model}, seed: ${usedSeed}`);
+
   const output = await replicate.run(model as `${string}/${string}`, { input });
 
-  // Handle different output formats
-  let imageUrl: string;
+  // Handle different output formats from different models
+  let outputUrl: string;
   if (typeof output === "string") {
-    imageUrl = await saveImageFromUrl(output);
+    outputUrl = output;
   } else if (Array.isArray(output) && output.length > 0) {
-    const url = typeof output[0] === "string" ? output[0] : (output[0] as any)?.url;
-    if (!url) throw new Error("No image URL in Flux output");
-    imageUrl = await saveImageFromUrl(url);
+    const item = output[0];
+    outputUrl = typeof item === "string" ? item : (item as any)?.url || "";
+  } else if (output && typeof output === "object" && "url" in output) {
+    outputUrl = (output as any).url;
   } else {
-    throw new Error("Unexpected Flux output format");
+    throw new Error(`Unexpected Flux output format: ${JSON.stringify(output).slice(0, 200)}`);
   }
 
-  // Extract seed from prediction if available (for reproducibility)
-  const usedSeed = seed || Math.floor(Math.random() * 2147483647);
+  if (!outputUrl) throw new Error("No image URL in Flux output");
 
+  const imageUrl = await saveImageFromUrl(outputUrl);
   return { imageUrl, seed: usedSeed };
 }
 
 /**
+ * Get the LoRA model ID for a universe, if one has been trained.
+ */
+async function getLoraModel(universeId: string): Promise<string | null> {
+  const universe = await prisma.universe.findUnique({
+    where: { id: universeId },
+  });
+  if (universe?.illustrationStyle?.startsWith("lora:")) {
+    return universe.illustrationStyle.slice(5);
+  }
+  return null;
+}
+
+/**
  * Train a LoRA on character reference images for a universe.
- * Returns the Replicate model ID once training is complete.
+ * Uploads images to Replicate, starts training, and stores the model ID.
  */
 export async function trainUniverseLora(
   universeId: string,
@@ -220,33 +294,67 @@ export async function trainUniverseLora(
     where: { universeId },
   });
 
-  // Collect all character reference images
-  const trainingImages: string[] = [];
+  // Collect character reference images
+  const imageFiles: { path: string; caption: string }[] = [];
   for (const char of characters) {
     if (char.referenceImageUrl) {
       const fullPath = path.join("public", char.referenceImageUrl);
       if (fs.existsSync(fullPath)) {
-        trainingImages.push(fullPath);
+        imageFiles.push({
+          path: fullPath,
+          caption: `SVCHAR ${char.name}, ${char.speciesOrType}, ${char.appearance}`,
+        });
       }
     }
   }
 
-  if (trainingImages.length < 2) {
-    throw new Error("Need at least 2 character reference images to train a LoRA");
+  if (imageFiles.length < 2) {
+    throw new Error(
+      `Need at least 2 character reference images to train a LoRA (have ${imageFiles.length})`
+    );
   }
 
-  // Create a zip of training images
-  // For now, we'll skip the zip creation and note that this requires
-  // uploading images to a public URL or using Replicate's file upload API
-  // This is a placeholder for the full implementation
+  // Upload each image to Replicate
+  const uploadedUrls: string[] = [];
+  for (const img of imageFiles) {
+    const data = fs.readFileSync(img.path);
+    const file = await replicate.files.create(
+      new Blob([data], { type: "image/png" }),
+      { filename: path.basename(img.path) }
+    );
+    uploadedUrls.push(file.urls.get);
+  }
 
+  // Create a model destination
   const modelName = `storyverse-${universeId.slice(0, 8)}`;
   const destination = `${replicateOwner}/${modelName}`;
 
-  console.log(`LoRA training would be triggered for ${destination} with ${trainingImages.length} images`);
-  console.log("Full LoRA training implementation requires uploading training images to a public URL");
+  console.log(`Starting LoRA training: ${destination} with ${imageFiles.length} images`);
 
-  // Store the model reference (will be populated when training completes)
-  // For now, return a placeholder
+  // Start training
+  const training = await replicate.trainings.create(
+    "ostris",
+    "flux-dev-lora-trainer",
+    "v1",
+    {
+      destination: destination as `${string}/${string}`,
+      input: {
+        input_images: uploadedUrls[0], // Replicate expects a zip URL or single URL
+        trigger_word: "SVCHAR",
+        steps: 1000,
+        lora_rank: 16,
+        learning_rate: 0.0004,
+      },
+    }
+  );
+
+  console.log(`LoRA training started: ${training.id}, status: ${training.status}`);
+
+  // Store the model ID in the universe
+  await prisma.universe.update({
+    where: { id: universeId },
+    data: { illustrationStyle: `lora:${destination}` },
+  });
+
   return destination;
 }
