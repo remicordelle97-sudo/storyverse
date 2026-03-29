@@ -27,6 +27,8 @@ export const getUniverses = () => request<any[]>("/universes");
 export const getUniverse = (id: string) => request<any>(`/universes/${id}`);
 export const createUniverse = (data: any) =>
   request<any>("/universes", { method: "POST", body: JSON.stringify(data) });
+export const getLoraStatus = (universeId: string) =>
+  request<any>(`/universes/${universeId}/lora-status`);
 
 // Characters
 export const getCharacters = (universeId: string) =>
