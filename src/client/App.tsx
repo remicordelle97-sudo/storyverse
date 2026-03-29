@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./auth/AuthContext";
 import Login from "./pages/Login";
 import Library from "./pages/Library";
 import NewUniverse from "./pages/NewUniverse";
+import UniverseManager from "./pages/UniverseManager";
 import StoryBuilder from "./pages/StoryBuilder";
 import ReadingMode from "./pages/ReadingMode";
 
@@ -45,6 +46,10 @@ function AppRoutes() {
       <Route
         path="/new-universe"
         element={<ProtectedRoute><NewUniverse /></ProtectedRoute>}
+      />
+      <Route
+        path="/universe-manager"
+        element={<ProtectedRoute><UniverseManager /></ProtectedRoute>}
       />
       <Route
         path="/story-builder"

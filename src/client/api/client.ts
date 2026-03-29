@@ -40,6 +40,8 @@ export const getCharacters = (universeId: string) =>
   request<any[]>(`/characters?universeId=${universeId}`);
 export const createCharacter = (data: any) =>
   request<any>("/characters", { method: "POST", body: JSON.stringify(data) });
+export const regenerateCharacterSheet = (characterId: string) =>
+  request<any>(`/characters/${characterId}/regenerate-sheet`, { method: "POST" });
 export const generateCharacters = (universeId: string, trainLora?: boolean) =>
   request<any[]>("/characters/generate", {
     method: "POST",

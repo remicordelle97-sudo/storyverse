@@ -165,4 +165,45 @@ router.post("/train-lora", async (req, res) => {
   }
 });
 
+// Regenerate a character's reference sheet
+router.post("/:id/regenerate-sheet", async (req, res) => {
+  try {
+    const character = await prisma.character.findUnique({
+      where: { id: req.params.id },
+    });
+    if (!character) {
+      return res.status(404).json({ error: "Character not found" });
+    }
+
+    // Get previously generated sheets from other characters in the same universe
+    // to maintain style consistency
+    const otherCharacters = await prisma.character.findMany({
+      where: {
+        universeId: character.universeId,
+        id: { not: character.id },
+        referenceImageUrl: { not: "" },
+      },
+    });
+    const previousSheetUrls = otherCharacters.map((c) => c.referenceImageUrl);
+
+    debug.image(`Regenerating sheet for "${character.name}" (with ${previousSheetUrls.length} style references)`);
+    const startTime = Date.now();
+
+    // Clear the old reference
+    await prisma.character.update({
+      where: { id: req.params.id },
+      data: { referenceImageUrl: "" },
+    });
+
+    const sheetUrl = await generateCharacterReference(req.params.id, previousSheetUrls);
+
+    debug.image(`Sheet regenerated for "${character.name}" in ${Date.now() - startTime}ms`);
+
+    res.json({ referenceImageUrl: sheetUrl });
+  } catch (e: any) {
+    debug.error(`Sheet regeneration failed: ${e.message}`);
+    res.status(500).json({ error: "Failed to regenerate character sheet" });
+  }
+});
+
 export default router;
