@@ -266,15 +266,56 @@ export async function generateFluxImage(
 }
 
 /**
- * Get the LoRA model ID for a universe, if one has been trained.
+ * Get the LoRA model ID for a universe, only if training is complete.
  */
 async function getLoraModel(universeId: string): Promise<string | null> {
   const universe = await prisma.universe.findUnique({
     where: { id: universeId },
   });
-  if (universe?.illustrationStyle?.startsWith("lora:")) {
+  if (!universe?.illustrationStyle) return null;
+
+  // Ready to use
+  if (universe.illustrationStyle.startsWith("lora:")) {
     return universe.illustrationStyle.slice(5);
   }
+
+  // Training in progress — check if it's done
+  if (universe.illustrationStyle.startsWith("lora-training:")) {
+    const parts = universe.illustrationStyle.split(":");
+    const destination = parts[1];
+    const trainingId = parts[2];
+
+    if (trainingId) {
+      try {
+        const training = await replicate.trainings.get(trainingId);
+        debug.lora("Checking LoRA training status", {
+          status: training.status,
+          trainingId,
+        });
+
+        if (training.status === "succeeded") {
+          // Promote to ready
+          await prisma.universe.update({
+            where: { id: universeId },
+            data: { illustrationStyle: `lora:${destination}` },
+          });
+          debug.lora("LoRA training complete, model ready", { destination });
+          return destination;
+        } else if (training.status === "failed" || training.status === "canceled") {
+          // Training failed — clear the flag
+          debug.error(`LoRA training ${training.status}`, { trainingId });
+          await prisma.universe.update({
+            where: { id: universeId },
+            data: { illustrationStyle: "storybook" },
+          });
+        }
+        // Still processing — fall through to null
+      } catch (e: any) {
+        debug.error(`Failed to check LoRA training status: ${e.message}`);
+      }
+    }
+  }
+
   return null;
 }
 
@@ -371,10 +412,10 @@ export async function trainUniverseLora(
 
   debug.lora(`Training started`, { trainingId: training.id, status: training.status });
 
-  // Store the model ID in the universe
+  // Mark as training-in-progress (not ready to use yet)
   await prisma.universe.update({
     where: { id: universeId },
-    data: { illustrationStyle: `lora:${destination}` },
+    data: { illustrationStyle: `lora-training:${destination}:${training.id}` },
   });
 
   return destination;
