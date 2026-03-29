@@ -200,13 +200,18 @@ ROW 1 — TURNAROUND (4 views, same pose):
 - Side view (profile, facing right)
 - Back view
 
-ROW 2 — EXPRESSIONS (5 views, head to mid-chest, INCLUDE the full top of the head with plenty of space above):
+ROW 2 — EXPRESSIONS (5 views showing the character's ACTUAL HEAD AND UPPER BODY, NOT circles or emoji):
 - Happy (big smile, bright eyes)
 - Sad (drooping features, downcast eyes)
 - Surprised (wide eyes, open mouth)
 - Determined (focused eyes, set jaw)
 - Laughing (eyes squeezed, mouth open)
-IMPORTANT: Do NOT crop the top of the head in the expression views. Show the COMPLETE head from chin to the very top, including any features on top of the head (antennas, hats, ears, horns, crests, hair). Leave generous space above the head in each expression view.
+CRITICAL FOR EXPRESSIONS:
+- Each expression must show the character's REAL head shape and face structure from the turnaround row above, just zoomed in. NOT simplified circles or emoji faces.
+- If the character has a beak, snout, muzzle, trunk, or any protruding facial feature, it MUST appear in every expression view at the same size and shape as in the turnaround.
+- Include the full head from below the chin to well above the top of the head. Show head, neck, and upper chest/shoulders.
+- All head-mounted features (antennas, hats, horns, crests, goggles, ears) must be visible in every expression.
+- The expressions should look like cropped versions of the full-body turnaround, NOT like a different character.
 
 ROW 3 — ACTION POSES (4 full body poses):
 - Running/moving quickly
