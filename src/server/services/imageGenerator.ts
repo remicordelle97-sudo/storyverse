@@ -244,6 +244,14 @@ FEATURE RULES:
 - If the character wears CLOTHING or ACCESSORIES (cloaks, scarves, backpacks, goggles, hats), they appear in all 13 views. Clothing does not disappear in action poses.
 - The special detail "${character.specialDetail}" must be clearly visible in all 13 views.
 
+BODY CONSISTENCY (verify across all 13 views):
+- EYES: Same shape, same size, same color, same pupil style in every view. If compound eyes, they are compound in all views. If round eyes, they are round in all views. The number of eyes never changes.
+- EARS: Same shape, same size, same position on the head in every view. If no ears, then no ears in any view. Ears do not appear or disappear between views.
+- NOSE/MOUTH/BEAK/SNOUT: Same shape and size in every view. If the character has a beak, it is a beak in all 13 views, never a flat mouth. If the character has a snout, it protrudes in all views, including front-facing views.
+- LIMBS: Same number of arms and legs in every view. Same length, same thickness, same color. If the character has 4 legs, all views show 4 legs. If the character has claws, all views show claws. Hands/paws/claws must be consistent.
+- HEAD SHAPE: The head is the same shape in every view. If round, always round. If elongated, always elongated. The head does not become a simple circle in some views and a detailed shape in others.
+- BODY PROPORTIONS: The ratio of head-to-body stays the same. If the head is large relative to the body in View 1, it is large in all views.
+
 BACKGROUND: Plain white. No scenery. No props. No other characters (except in View 13 "TALKING" which may show a simple silhouette outline of a friend, but NOT a fully drawn second character).
 
 This is ONE character drawn 13 times in different poses. NOT 13 different characters.`;
