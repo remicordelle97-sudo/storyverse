@@ -194,26 +194,21 @@ Role: ${character.role}
 
 LAYOUT — Show ALL of the following on a single sheet, arranged in a clear grid on a plain white background:
 
-ROW 1 — TURNAROUND (4 views, same pose):
+ROW 1 — TURNAROUND (4 full-body views, same neutral standing pose):
 - Front view (facing camera)
 - 3/4 view (turned slightly left)
 - Side view (profile, facing right)
 - Back view
 
-ROW 2 — EXPRESSIONS (5 views showing the character's ACTUAL HEAD AND UPPER BODY, NOT circles or emoji):
-- Happy (big smile, bright eyes)
-- Sad (drooping features, downcast eyes)
-- Surprised (wide eyes, open mouth)
-- Determined (focused eyes, set jaw)
-- Laughing (eyes squeezed, mouth open)
-CRITICAL FOR EXPRESSIONS:
-- Each expression must show the character's REAL head shape and face structure from the turnaround row above, just zoomed in. NOT simplified circles or emoji faces.
-- If the character has a beak, snout, muzzle, trunk, or any protruding facial feature, it MUST appear in every expression view at the same size and shape as in the turnaround.
-- Include the full head from below the chin to well above the top of the head. Show head, neck, and upper chest/shoulders.
-- All head-mounted features (antennas, hats, horns, crests, goggles, ears) must be visible in every expression.
-- The expressions should look like cropped versions of the full-body turnaround, NOT like a different character.
+ROW 2 — EMOTIONS (5 full-body views, same size as turnaround, showing the whole character from head to feet with different emotions expressed through BOTH face AND body language):
+- Happy (smiling, open posture, maybe arms out or hands together)
+- Sad (slumped shoulders, looking down, arms hanging)
+- Surprised (leaning back slightly, hands up, wide eyes)
+- Determined (leaning forward, fists clenched, focused eyes)
+- Laughing (body bent slightly, hands on belly or covering mouth)
+IMPORTANT: These are FULL BODY drawings at the SAME SCALE as the turnaround row. NOT close-ups. NOT heads only. NOT circles. NOT emoji. Show the complete character head-to-toe in each emotion.
 
-ROW 3 — ACTION POSES (4 full body poses):
+ROW 3 — ACTION POSES (4 full-body views):
 - Running/moving quickly
 - Sitting down, relaxed
 - Reaching up for something
