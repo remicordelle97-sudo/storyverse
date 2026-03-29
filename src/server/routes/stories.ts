@@ -7,18 +7,29 @@ import { generateImage } from "../services/imageGenerator.js";
 
 const router = Router();
 
-// List stories for a universe
+// List stories — optionally filtered by universeId, otherwise all for user
 router.get("/", async (req, res) => {
   try {
     const { universeId } = req.query;
-    if (!universeId || typeof universeId !== "string") {
-      return res.status(400).json({ error: "universeId query param required" });
+    const where: any = {};
+
+    if (universeId && typeof universeId === "string") {
+      where.universeId = universeId;
+    } else {
+      // All stories across user's universes
+      const userUniverses = await prisma.universe.findMany({
+        where: { userId: req.userId },
+        select: { id: true },
+      });
+      where.universeId = { in: userUniverses.map((u) => u.id) };
     }
+
     const stories = await prisma.story.findMany({
-      where: { universeId },
+      where,
       include: {
         characters: { include: { character: true } },
         scenes: { orderBy: { sceneNumber: "asc" } },
+        universe: true,
       },
       orderBy: { createdAt: "desc" },
     });
@@ -37,7 +48,6 @@ router.get("/:id", async (req, res) => {
         characters: { include: { character: true } },
         scenes: { orderBy: { sceneNumber: "asc" } },
         universe: true,
-        child: true,
       },
     });
     if (!story) {
@@ -77,10 +87,11 @@ router.post("/generate", async (req, res) => {
   try {
     const {
       universeId,
-      childId,
       characterIds,
       mood,
       language,
+      ageGroup,
+      readerName,
       structure: requestedStructure,
       length,
       parentPrompt,
@@ -93,24 +104,20 @@ router.post("/generate", async (req, res) => {
       ? requestedStructure
       : structures[Math.floor(Math.random() * structures.length)];
 
-    if (!universeId || !childId || !characterIds?.length) {
-      return sendError("universeId, childId, and characterIds are required");
-    }
-
-    const child = await prisma.child.findUnique({ where: { id: childId } });
-    if (!child) {
-      return sendError("Child not found");
+    if (!universeId || !characterIds?.length || !ageGroup) {
+      return sendError("universeId, characterIds, and ageGroup are required");
     }
 
     // Step 1: Build prompt
     sendProgress("building", "Building your story world...");
 
-    const { userMessage, ageGroup } = await buildPrompt({
+    const { userMessage, ageGroup: resolvedAgeGroup } = await buildPrompt({
       universeId,
-      childId,
       characterIds,
       mood: mood || "exciting adventures",
       language: language || "en",
+      ageGroup,
+      readerName: readerName || "",
       structure,
       length: length || "long",
       parentPrompt: parentPrompt || "",
@@ -119,7 +126,7 @@ router.post("/generate", async (req, res) => {
     // Step 2: Generate story
     sendProgress("writing", "Writing the story...");
 
-    const generated = await generateStory(userMessage, ageGroup, length || "long");
+    const generated = await generateStory(userMessage, resolvedAgeGroup, length || "long");
 
     // Step 3: Save to database
     sendProgress("saving", `"${generated.title}" — saving ${generated.pages.length} pages...`);
@@ -127,11 +134,11 @@ router.post("/generate", async (req, res) => {
     const story = await prisma.story.create({
       data: {
         universeId,
-        childId,
         title: generated.title,
         mood: mood || "exciting adventures",
         language: language || "en",
-        ageGroup: child.ageGroup,
+        ageGroup,
+        readerName: readerName || "",
         status: "published",
       },
     });

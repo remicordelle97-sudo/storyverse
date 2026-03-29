@@ -3,15 +3,12 @@ import prisma from "../lib/prisma.js";
 
 const router = Router();
 
-// List all universes for the authenticated user's family
+// List all universes for the authenticated user
 router.get("/", async (req, res) => {
   try {
-    if (!req.familyId) {
-      return res.json([]);
-    }
     const universes = await prisma.universe.findMany({
-      where: { familyId: req.familyId },
-      include: { characters: true, child: true },
+      where: { userId: req.userId },
+      include: { characters: true },
       orderBy: { createdAt: "desc" },
     });
     res.json(universes);
@@ -37,14 +34,12 @@ router.get("/:id", async (req, res) => {
           take: 20,
           include: { character: true },
         },
-        child: true,
-        family: { include: { children: true } },
       },
     });
     if (!universe) {
       return res.status(404).json({ error: "Universe not found" });
     }
-    if (universe.familyId !== req.familyId) {
+    if (universe.userId !== req.userId) {
       return res.status(403).json({ error: "Access denied" });
     }
     res.json(universe);
@@ -53,7 +48,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Create universe (used by onboarding)
+// Create universe
 router.post("/", async (req, res) => {
   try {
     const {
@@ -63,34 +58,11 @@ router.post("/", async (req, res) => {
       mood,
       avoidThemes,
       illustrationStyle,
-      childId,
-      childName,
-      childAge,
-      childAgeGroup,
     } = req.body;
-
-    if (!req.familyId) {
-      return res.status(400).json({ error: "Set up your family first" });
-    }
-
-    // Create child if provided and no childId given
-    let resolvedChildId = childId;
-    if (!resolvedChildId && childName && childAge && childAgeGroup) {
-      const child = await prisma.child.create({
-        data: {
-          familyId: req.familyId,
-          name: childName,
-          age: childAge,
-          ageGroup: childAgeGroup,
-        },
-      });
-      resolvedChildId = child.id;
-    }
 
     const universe = await prisma.universe.create({
       data: {
-        familyId: req.familyId,
-        childId: resolvedChildId || null,
+        userId: req.userId!,
         name,
         settingDescription,
         themes: typeof themes === "string" ? themes : JSON.stringify(themes),

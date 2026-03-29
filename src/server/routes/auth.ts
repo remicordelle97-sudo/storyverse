@@ -8,7 +8,7 @@ const router = Router();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// Google login — receives the credential token from the frontend
+// Google login
 router.post("/google", async (req, res) => {
   try {
     const { credential } = req.body;
@@ -26,7 +26,6 @@ router.post("/google", async (req, res) => {
       return res.status(400).json({ error: "Invalid Google token" });
     }
 
-    // Find or create user
     let user = await prisma.user.findUnique({
       where: { googleId: payload.sub },
     });
@@ -42,14 +41,14 @@ router.post("/google", async (req, res) => {
       });
     }
 
-    const accessToken = signAccessToken(user.id, user.familyId);
+    const accessToken = signAccessToken(user.id, null);
     const refreshToken = signRefreshToken(user.id);
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      maxAge: 7 * 24 * 60 * 60 * 1000,
       path: "/api/auth/refresh",
     });
 
@@ -60,7 +59,6 @@ router.post("/google", async (req, res) => {
         email: user.email,
         name: user.name,
         picture: user.picture,
-        familyId: user.familyId,
       },
     });
   } catch (e) {
@@ -89,7 +87,7 @@ router.post("/refresh", async (req, res) => {
       return res.status(401).json({ error: "User not found" });
     }
 
-    const accessToken = signAccessToken(user.id, user.familyId);
+    const accessToken = signAccessToken(user.id, null);
     res.json({ accessToken });
   } catch {
     return res.status(401).json({ error: "Invalid refresh token" });
@@ -101,7 +99,6 @@ router.get("/me", authMiddleware, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.userId },
-      include: { family: true },
     });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -111,45 +108,13 @@ router.get("/me", authMiddleware, async (req, res) => {
       email: user.email,
       name: user.name,
       picture: user.picture,
-      familyId: user.familyId,
-      family: user.family,
     });
   } catch {
     res.status(500).json({ error: "Failed to fetch user" });
   }
 });
 
-// Create family for current user (part of onboarding)
-router.post("/family", authMiddleware, async (req, res) => {
-  try {
-    const { name } = req.body;
-    const user = await prisma.user.findUnique({ where: { id: req.userId } });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-    if (user.familyId) {
-      return res.status(400).json({ error: "User already has a family" });
-    }
-
-    const family = await prisma.family.create({
-      data: {
-        name: name || `${user.name}'s Family`,
-        email: user.email,
-      },
-    });
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { familyId: family.id },
-    });
-
-    res.status(201).json(family);
-  } catch {
-    res.status(500).json({ error: "Failed to create family" });
-  }
-});
-
-// Logout — clear refresh token cookie
+// Logout
 router.post("/logout", (_req, res) => {
   res.clearCookie("refreshToken", { path: "/api/auth/refresh" });
   res.json({ ok: true });

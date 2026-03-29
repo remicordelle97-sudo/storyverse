@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getUniverse, generateStory } from "../api/client";
+import { getUniverse, getUniverses, generateStory } from "../api/client";
 import Chip from "../components/Chip";
 
 const MOODS = ["Gentle", "Funny", "Exciting", "Mysterious"];
+const AGE_GROUPS = ["2-3", "4-5", "6-8"];
 
 const STEP_LABELS: Record<string, string> = {
   building: "Building your story world",
@@ -16,7 +17,21 @@ const STEP_LABELS: Record<string, string> = {
 
 export default function StoryBuilder() {
   const navigate = useNavigate();
-  const universeId = localStorage.getItem("universeId") || "";
+  const storedUniverseId = localStorage.getItem("universeId") || "";
+
+  const { data: universes = [] } = useQuery({
+    queryKey: ["universes"],
+    queryFn: getUniverses,
+  });
+
+  const [universeId, setUniverseId] = useState(storedUniverseId);
+
+  // Auto-select if only one universe
+  useEffect(() => {
+    if (!universeId && universes.length === 1) {
+      setUniverseId(universes[0].id);
+    }
+  }, [universes, universeId]);
 
   const { data: universe } = useQuery({
     queryKey: ["universe", universeId],
@@ -26,6 +41,8 @@ export default function StoryBuilder() {
 
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
   const [mood, setMood] = useState("Exciting");
+  const [ageGroup, setAgeGroup] = useState("4-5");
+  const [readerName, setReaderName] = useState("");
   const [structure, setStructure] = useState("problem-solution");
   const [length, setLength] = useState<"short" | "long">("long");
   const [parentPrompt, setParentPrompt] = useState("");
@@ -41,19 +58,16 @@ export default function StoryBuilder() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
-  const childId =
-    localStorage.getItem("childId") || universe?.family?.children?.[0]?.id;
-
   const hero = universe?.characters?.find((c: any) => c.role === "main");
   const secondaryCharacters = (universe?.characters || []).filter(
     (c: any) => c.role !== "main"
   );
 
   const handleGenerate = async () => {
-    // Hero is always included
     const heroId = hero?.id;
-    if (!heroId || !childId) return;
+    if (!heroId || !universeId) return;
     const allCharacterIds = [heroId, ...selectedCharacters];
+
     setLoading(true);
     setError("");
     setProgressStep("");
@@ -64,10 +78,11 @@ export default function StoryBuilder() {
       const result = await generateStory(
         {
           universeId,
-          childId,
           characterIds: allCharacterIds,
           mood: mood.toLowerCase(),
-          language: universe?.family?.preferredLanguage || "en",
+          language: "en",
+          ageGroup,
+          readerName,
           structure,
           length,
           parentPrompt,
@@ -76,7 +91,6 @@ export default function StoryBuilder() {
         (step, detail) => {
           setCompletedSteps((prev) => {
             if (prev.includes(step)) return prev;
-            // Mark previous step as completed
             if (progressStep && !prev.includes(progressStep)) {
               return [...prev, progressStep];
             }
@@ -101,10 +115,10 @@ export default function StoryBuilder() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <button
-        onClick={() => navigate("/dashboard")}
+        onClick={() => navigate("/library")}
         className="text-sm text-stone-500 hover:text-stone-700 mb-6 block"
       >
-        &larr; Back to dashboard
+        &larr; Back to library
       </button>
 
       <h1 className="text-2xl font-bold text-stone-800 mb-8">
@@ -119,68 +133,32 @@ export default function StoryBuilder() {
               const isActive = progressStep === step;
               const isComplete =
                 completedSteps.includes(step) ||
-                (allSteps.indexOf(step) < allSteps.indexOf(progressStep));
+                allSteps.indexOf(step) < allSteps.indexOf(progressStep);
 
               return (
                 <div key={step} className="flex items-center gap-3">
-                  {/* Icon */}
                   {isComplete ? (
                     <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                      <svg
-                        className="w-3.5 h-3.5 text-white"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                          clipRule="evenodd"
-                        />
+                      <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     </div>
                   ) : isActive ? (
                     <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                      <svg
-                        className="animate-spin h-5 w-5 text-primary"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        />
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
+                      <svg className="animate-spin h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                       </svg>
                     </div>
                   ) : (
                     <div className="w-6 h-6 rounded-full border-2 border-stone-200 flex-shrink-0" />
                   )}
-
-                  {/* Label */}
                   <div>
-                    <p
-                      className={`text-sm font-medium ${
-                        isActive
-                          ? "text-stone-800"
-                          : isComplete
-                            ? "text-secondary"
-                            : "text-stone-300"
-                      }`}
-                    >
+                    <p className={`text-sm font-medium ${isActive ? "text-stone-800" : isComplete ? "text-secondary" : "text-stone-300"}`}>
                       {STEP_LABELS[step]}
                     </p>
                     {isActive && progressDetail && (
-                      <p className="text-xs text-stone-400 mt-0.5">
-                        {progressDetail}
-                      </p>
+                      <p className="text-xs text-stone-400 mt-0.5">{progressDetail}</p>
                     )}
                   </div>
                 </div>
@@ -192,37 +170,88 @@ export default function StoryBuilder() {
 
       {!loading && (
         <>
-          {/* Hero (always included) */}
-          {hero && (
-            <section className="mb-6">
-              <label className="block text-sm font-medium text-stone-700 mb-3">
-                Hero
-              </label>
-              <div className="flex flex-wrap gap-2">
-                <Chip label={hero.name} selected={true} onClick={() => {}} />
-              </div>
-              <p className="text-xs text-stone-400 mt-1">Always included in the story</p>
-            </section>
-          )}
-
-          {/* Secondary Characters (optional) */}
-          {secondaryCharacters.length > 0 && (
+          {/* Universe selector (if multiple) */}
+          {universes.length > 1 && (
             <section className="mb-8">
               <label className="block text-sm font-medium text-stone-700 mb-3">
-                Supporting characters (optional)
+                Universe
               </label>
               <div className="flex flex-wrap gap-2">
-                {secondaryCharacters.map((c: any) => (
+                {universes.map((u: any) => (
                   <Chip
-                    key={c.id}
-                    label={c.name}
-                    selected={selectedCharacters.includes(c.id)}
-                    onClick={() => toggleCharacter(c.id)}
+                    key={u.id}
+                    label={u.name}
+                    selected={universeId === u.id}
+                    onClick={() => {
+                      setUniverseId(u.id);
+                      setSelectedCharacters([]);
+                    }}
                   />
                 ))}
               </div>
             </section>
           )}
+
+          {universe && (
+            <>
+              {/* Hero (always included) */}
+              {hero && (
+                <section className="mb-6">
+                  <label className="block text-sm font-medium text-stone-700 mb-3">
+                    Hero
+                  </label>
+                  <Chip label={hero.name} selected={true} onClick={() => {}} />
+                  <p className="text-xs text-stone-400 mt-1">Always included in the story</p>
+                </section>
+              )}
+
+              {/* Secondary Characters */}
+              {secondaryCharacters.length > 0 && (
+                <section className="mb-8">
+                  <label className="block text-sm font-medium text-stone-700 mb-3">
+                    Supporting characters (optional)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {secondaryCharacters.map((c: any) => (
+                      <Chip
+                        key={c.id}
+                        label={c.name}
+                        selected={selectedCharacters.includes(c.id)}
+                        onClick={() => toggleCharacter(c.id)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+
+          {/* Age group */}
+          <section className="mb-8">
+            <label className="block text-sm font-medium text-stone-700 mb-3">
+              Reader age
+            </label>
+            <div className="flex gap-2">
+              {AGE_GROUPS.map((g) => (
+                <Chip key={g} label={g} selected={ageGroup === g} onClick={() => setAgeGroup(g)} />
+              ))}
+            </div>
+          </section>
+
+          {/* Reader name (optional) */}
+          <section className="mb-8">
+            <label className="block text-sm font-medium text-stone-700 mb-2">
+              Reader's name (optional)
+            </label>
+            <input
+              type="text"
+              value={readerName}
+              onChange={(e) => setReaderName(e.target.value)}
+              className="w-full border border-stone-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+              placeholder="e.g. Mia"
+            />
+            <p className="text-xs text-stone-400 mt-1">The story can be personalized for this reader</p>
+          </section>
 
           {/* Mood */}
           <section className="mb-8">
@@ -231,12 +260,7 @@ export default function StoryBuilder() {
             </label>
             <div className="flex flex-wrap gap-2">
               {MOODS.map((m) => (
-                <Chip
-                  key={m}
-                  label={m}
-                  selected={mood === m}
-                  onClick={() => setMood(m)}
-                />
+                <Chip key={m} label={m} selected={mood === m} onClick={() => setMood(m)} />
               ))}
             </div>
           </section>
@@ -246,11 +270,11 @@ export default function StoryBuilder() {
             <label className="block text-sm font-medium text-stone-700 mb-1">
               Story structure
             </label>
-            <p className="text-xs text-stone-400 mb-3">For testing — will be randomized in production</p>
+            <p className="text-xs text-stone-400 mb-3">For testing</p>
             <div className="space-y-2">
               {[
                 { value: "problem-solution", label: "Problem & Solution", desc: "A clear problem the hero works to solve" },
-                { value: "rule-of-three", label: "Rule of Three", desc: "Three attempts — fail, fail, succeed!" },
+                { value: "rule-of-three", label: "Rule of Three", desc: "Three attempts, fail, fail, succeed" },
                 { value: "cumulative", label: "Cumulative", desc: "Each event builds on the last, snowball style" },
                 { value: "circular", label: "Circular", desc: "Ends where it began, but the hero has changed" },
                 { value: "journey", label: "Journey & Return", desc: "Leave home, adventure, return transformed" },
@@ -277,16 +301,8 @@ export default function StoryBuilder() {
               Length
             </label>
             <div className="flex gap-2">
-              <Chip
-                label="Short (10 pages)"
-                selected={length === "short"}
-                onClick={() => setLength("short")}
-              />
-              <Chip
-                label="Long (32 pages)"
-                selected={length === "long"}
-                onClick={() => setLength("long")}
-              />
+              <Chip label="Short (10 pages)" selected={length === "short"} onClick={() => setLength("short")} />
+              <Chip label="Long (32 pages)" selected={length === "long"} onClick={() => setLength("long")} />
             </div>
           </section>
 
@@ -295,23 +311,13 @@ export default function StoryBuilder() {
             <label className="flex items-center gap-3 cursor-pointer">
               <div
                 onClick={() => setGenerateImages(!generateImages)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  generateImages ? "bg-primary" : "bg-stone-300"
-                }`}
+                className={`relative w-11 h-6 rounded-full transition-colors ${generateImages ? "bg-primary" : "bg-stone-300"}`}
               >
-                <div
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                    generateImages ? "translate-x-5" : ""
-                  }`}
-                />
+                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${generateImages ? "translate-x-5" : ""}`} />
               </div>
-              <span className="text-sm font-medium text-stone-700">
-                Generate illustrations (DALL-E 3)
-              </span>
+              <span className="text-sm font-medium text-stone-700">Generate illustrations</span>
             </label>
-            <p className="text-xs text-stone-400 mt-1 ml-14">
-              ~$0.04 per page. Leave off to save credits during testing.
-            </p>
+            <p className="text-xs text-stone-400 mt-1 ml-14">Uses GPT-4o. Leave off to save credits.</p>
           </section>
 
           {/* Parent prompt */}
@@ -338,7 +344,7 @@ export default function StoryBuilder() {
           {/* Generate */}
           <button
             onClick={handleGenerate}
-            disabled={!hero}
+            disabled={!hero || !universeId}
             className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Generate story

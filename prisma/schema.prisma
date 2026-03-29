@@ -8,42 +8,18 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  googleId  String   @unique
-  email     String   @unique
-  name      String
-  picture   String   @default("")
-  familyId  String?
-  createdAt DateTime @default(now())
-  family    Family?  @relation(fields: [familyId], references: [id])
-}
-
-model Family {
-  id                String     @id @default(uuid())
-  name              String
-  email             String     @unique
-  preferredLanguage String     @default("en")
-  createdAt         DateTime   @default(now())
-  users             User[]
-  children          Child[]
-  universes         Universe[]
-}
-
-model Child {
   id        String     @id @default(uuid())
-  familyId  String
+  googleId  String     @unique
+  email     String     @unique
   name      String
-  age       Int
-  ageGroup  String
-  family    Family     @relation(fields: [familyId], references: [id])
-  stories   Story[]
+  picture   String     @default("")
+  createdAt DateTime   @default(now())
   universes Universe[]
 }
 
 model Universe {
   id                   String          @id @default(uuid())
-  familyId             String
-  childId              String?
+  userId               String
   name                 String
   settingDescription   String
   themes               String
@@ -52,8 +28,7 @@ model Universe {
   illustrationsEnabled Boolean         @default(true)
   avoidThemes          String          @default("")
   createdAt            DateTime        @default(now())
-  family               Family          @relation(fields: [familyId], references: [id])
-  child                Child?          @relation(fields: [childId], references: [id])
+  user                 User            @relation(fields: [userId], references: [id])
   characters           Character[]
   stories              Story[]
   timelineEvents       TimelineEvent[]
@@ -89,16 +64,15 @@ model Relationship {
 model Story {
   id               String           @id @default(uuid())
   universeId       String
-  childId          String
   title            String
   mood             String
   language         String           @default("en")
   ageGroup         String
+  readerName       String           @default("")
   hasIllustrations Boolean          @default(false)
   status           String           @default("draft")
   createdAt        DateTime         @default(now())
   universe         Universe         @relation(fields: [universeId], references: [id])
-  child            Child            @relation(fields: [childId], references: [id])
   scenes           Scene[]
   characters       StoryCharacter[]
   timelineEvents   TimelineEvent[]

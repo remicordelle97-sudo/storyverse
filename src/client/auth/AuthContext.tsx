@@ -12,7 +12,6 @@ interface User {
   email: string;
   name: string;
   picture: string;
-  familyId: string | null;
 }
 
 interface AuthState {

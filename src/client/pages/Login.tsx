@@ -22,7 +22,7 @@ export default function Login() {
 
   useEffect(() => {
     if (!loading && user) {
-      navigate(user.familyId ? "/family" : "/onboarding");
+      navigate("/library");
     }
   }, [user, loading, navigate]);
 

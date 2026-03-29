@@ -5,7 +5,6 @@ declare global {
   namespace Express {
     interface Request {
       userId?: string;
-      familyId?: string | null;
     }
   }
 }
@@ -20,7 +19,6 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
   try {
     const payload = verifyToken(token);
     req.userId = payload.userId;
-    req.familyId = payload.familyId;
     next();
   } catch {
     return res.status(401).json({ error: "Invalid or expired token" });

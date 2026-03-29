@@ -2,10 +2,11 @@ import prisma from "../lib/prisma.js";
 
 interface PromptInput {
   universeId: string;
-  childId: string;
   characterIds: string[];
   mood: string;
   language: string;
+  ageGroup: string;
+  readerName: string;
   structure: string;
   length: "short" | "long";
   parentPrompt: string;
@@ -186,10 +187,6 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
     },
   });
 
-  const child = await prisma.child.findUniqueOrThrow({
-    where: { id: input.childId },
-  });
-
   const pageCount = input.length === "short" ? 10 : 32;
 
   // Fetch timeline: last 4 events + 5 most recent major events, deduplicated
@@ -275,9 +272,8 @@ These events have happened in previous stories. You may reference them briefly f
 
   prompt += `${structureGuide}
 
-=== STORY REQUEST ===
-Child: ${child.name}, age ${child.age}
-Reading level: ${child.ageGroup}
+=== STORY REQUEST ===${input.readerName ? `\nReader: ${input.readerName}` : ""}
+Reading level: ${input.ageGroup}
 Language: ${input.language}
 Mood: ${input.mood}
 Total pages: ${pageCount}
@@ -313,5 +309,5 @@ Characters must look IDENTICAL across all pages. Use the exact same descriptors 
   ]
 }`;
 
-  return { userMessage: prompt, ageGroup: child.ageGroup };
+  return { userMessage: prompt, ageGroup: input.ageGroup };
 }

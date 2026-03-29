@@ -4,7 +4,6 @@ import path from "path";
 import authRouter from "./routes/auth.js";
 import universesRouter from "./routes/universes.js";
 import charactersRouter from "./routes/characters.js";
-import childrenRouter from "./routes/children.js";
 import storiesRouter from "./routes/stories.js";
 import timelineRouter from "./routes/timeline.js";
 import { authMiddleware } from "./middleware/auth.js";
@@ -23,7 +22,6 @@ app.use("/api/auth", authRouter);
 
 // Protected routes
 app.use("/api/universes", authMiddleware, universesRouter);
-app.use("/api/children", authMiddleware, childrenRouter);
 app.use("/api/characters", authMiddleware, charactersRouter);
 app.use("/api/stories", authMiddleware, storiesRouter);
 app.use("/api/timeline", authMiddleware, timelineRouter);

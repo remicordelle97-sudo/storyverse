@@ -1,13 +1,10 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import Login from "./pages/Login";
-import Family from "./pages/Family";
-import Universes from "./pages/Universes";
-import Onboarding from "./pages/Onboarding";
-import Dashboard from "./pages/Dashboard";
+import Library from "./pages/Library";
+import NewUniverse from "./pages/NewUniverse";
 import StoryBuilder from "./pages/StoryBuilder";
 import ReadingMode from "./pages/ReadingMode";
-import Library from "./pages/Library";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -42,73 +39,29 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route
-        path="/family"
-        element={
-          <ProtectedRoute>
-            <Family />
-          </ProtectedRoute>
-        }
+        path="/library"
+        element={<ProtectedRoute><Library /></ProtectedRoute>}
       />
       <Route
-        path="/universes"
-        element={
-          <ProtectedRoute>
-            <Universes />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/onboarding"
-        element={
-          <ProtectedRoute>
-            <Onboarding />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
+        path="/new-universe"
+        element={<ProtectedRoute><NewUniverse /></ProtectedRoute>}
       />
       <Route
         path="/story-builder"
-        element={
-          <ProtectedRoute>
-            <StoryBuilder />
-          </ProtectedRoute>
-        }
+        element={<ProtectedRoute><StoryBuilder /></ProtectedRoute>}
       />
       <Route
         path="/reading/:storyId"
-        element={
-          <ProtectedRoute>
-            <ReadingMode />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/library"
-        element={
-          <ProtectedRoute>
-            <Library />
-          </ProtectedRoute>
-        }
+        element={<ProtectedRoute><ReadingMode /></ProtectedRoute>}
       />
       <Route
         path="/"
         element={
-          !user ? (
-            <Navigate to="/login" replace />
-          ) : !user.familyId ? (
-            <Navigate to="/onboarding" replace />
-          ) : (
-            <Navigate to="/family" replace />
-          )
+          user ? <Navigate to="/library" replace /> : <Navigate to="/login" replace />
         }
       />
+      {/* Catch-all redirect */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

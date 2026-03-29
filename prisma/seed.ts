@@ -11,29 +11,19 @@ async function main() {
   await prisma.relationship.deleteMany();
   await prisma.character.deleteMany();
   await prisma.universe.deleteMany();
-  await prisma.child.deleteMany();
-  await prisma.family.deleteMany();
+  await prisma.user.deleteMany();
 
-  const family = await prisma.family.create({
+  const user = await prisma.user.create({
     data: {
-      name: "The Johnson Family",
-      email: "parent@example.com",
-      preferredLanguage: "en",
-    },
-  });
-
-  const child = await prisma.child.create({
-    data: {
-      familyId: family.id,
-      name: "Mia",
-      age: 5,
-      ageGroup: "5-7",
+      googleId: "demo-user",
+      email: "demo@example.com",
+      name: "Demo User",
     },
   });
 
   const universe = await prisma.universe.create({
     data: {
-      familyId: family.id,
+      userId: user.id,
       name: "The Golden Savanna",
       settingDescription:
         "A vast, sun-drenched savanna filled with golden grasses, towering baobab trees, winding rivers, and hidden waterfalls. Home to a community of brave and friendly animals who go on adventures together.",
@@ -77,46 +67,10 @@ async function main() {
     },
   });
 
-  // We need a placeholder story for timeline events
-  const placeholderStory = await prisma.story.create({
-    data: {
-      universeId: universe.id,
-      childId: child.id,
-      title: "The Beginning",
-      mood: "exciting adventures",
-      ageGroup: "5-7",
-      status: "published",
-    },
-  });
-
-  await prisma.timelineEvent.create({
-    data: {
-      universeId: universe.id,
-      storyId: placeholderStory.id,
-      characterId: leo.id,
-      eventSummary:
-        "Discovered a hidden waterfall at the edge of the savanna",
-      significance: "major",
-    },
-  });
-
-  await prisma.timelineEvent.create({
-    data: {
-      universeId: universe.id,
-      storyId: placeholderStory.id,
-      characterId: zuri.id,
-      eventSummary:
-        "Learned to jump over the wide river on the third try",
-      significance: "minor",
-    },
-  });
-
   console.log("Seed complete:");
-  console.log(`  Family: ${family.name} (${family.id})`);
-  console.log(`  Child: ${child.name} (${child.id})`);
+  console.log(`  User: ${user.name} (${user.id})`);
   console.log(`  Universe: ${universe.name} (${universe.id})`);
   console.log(`  Characters: ${leo.name}, ${zuri.name}`);
-  console.log(`  Timeline events: 2`);
 }
 
 main()
