@@ -26,7 +26,7 @@ export async function generateStory(
   ageGroup: string,
   length: "short" | "long" = "long"
 ): Promise<GeneratedStory> {
-  const maxTokens = length === "short" ? 4000 : 16000;
+  const maxTokens = length === "short" ? 8000 : 16000;
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
