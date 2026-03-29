@@ -140,7 +140,7 @@ export default function NewUniverse() {
         role: "main",
       });
 
-      setSavingStep("Populating world with characters...");
+      setSavingStep("Populating world with characters and drawing them...");
       await generateCharacters(universe.id);
 
       queryClient.invalidateQueries({ queryKey: ["universes"] });

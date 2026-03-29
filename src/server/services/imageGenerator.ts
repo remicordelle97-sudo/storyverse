@@ -8,14 +8,10 @@ const openai = new OpenAI();
 
 const IMAGES_DIR = path.resolve("public/images");
 
-// Ensure images directory exists
 if (!fs.existsSync(IMAGES_DIR)) {
   fs.mkdirSync(IMAGES_DIR, { recursive: true });
 }
 
-/**
- * Save a base64 image to disk and return the public URL path.
- */
 function saveBase64Image(base64Data: string, format: string = "png"): string {
   const filename = `${randomUUID()}.${format}`;
   const filepath = path.join(IMAGES_DIR, filename);
@@ -24,13 +20,22 @@ function saveBase64Image(base64Data: string, format: string = "png"): string {
   return `/images/${filename}`;
 }
 
+function readImageAsBase64(imageUrl: string): string | null {
+  const imgPath = path.join("public", imageUrl);
+  if (fs.existsSync(imgPath)) {
+    return fs.readFileSync(imgPath).toString("base64");
+  }
+  return null;
+}
+
 /**
- * Build a character reference description for the prompt.
+ * Build a complete, deterministic character description for image prompts.
+ * This is injected server-side so we don't rely on Claude's wording.
  */
-async function buildCharacterReference(
+async function buildImageContext(
   universeId: string,
   characterIds: string[]
-): Promise<{ text: string; referenceImages: string[] }> {
+): Promise<{ prompt: string; referenceImages: string[] }> {
   const characters = await prisma.character.findMany({
     where: { universeId, id: { in: characterIds } },
   });
@@ -40,64 +45,76 @@ async function buildCharacterReference(
   });
 
   const style = universe?.illustrationStyle || "storybook";
-
-  let text = `ART STYLE: Children's ${style} illustration, warm and friendly, consistent character designs throughout.\n\n`;
-  text += `CHARACTER REFERENCE SHEET (characters must look exactly like this in every image):\n`;
-
   const referenceImages: string[] = [];
 
-  for (const char of characters) {
-    text += `- ${char.name}: ${char.appearance}`;
-    if (char.specialDetail) {
-      text += `. ${char.specialDetail}`;
-    }
-    text += `\n`;
+  let prompt = `STYLE: Children's ${style} illustration. Warm, soft lighting. Consistent character designs. Storybook aesthetic with rich but not overwhelming detail.\n\n`;
+  prompt += `CHARACTERS (draw each character EXACTLY as described — same proportions, colors, markings, and accessories in every image):\n\n`;
 
+  for (const char of characters) {
+    prompt += `${char.name}:\n`;
+    prompt += `  Species: ${char.speciesOrType}\n`;
+    prompt += `  Appearance: ${char.appearance}\n`;
+    if (char.specialDetail) {
+      prompt += `  Key detail (MUST be visible): ${char.specialDetail}\n`;
+    }
+    prompt += `\n`;
+
+    // Load reference image if available
     if (char.referenceImageUrl) {
-      // Read the saved reference image as base64
-      const imgPath = path.join("public", char.referenceImageUrl);
-      if (fs.existsSync(imgPath)) {
-        const imgData = fs.readFileSync(imgPath).toString("base64");
+      const imgData = readImageAsBase64(char.referenceImageUrl);
+      if (imgData) {
         referenceImages.push(imgData);
       }
     }
   }
 
-  return { text, referenceImages };
+  return { prompt, referenceImages };
 }
 
 /**
- * Generate a scene illustration using GPT-4o with optional character reference images.
+ * Generate a scene illustration with character references and optional
+ * previous page image for scenery/style continuity.
  */
 export async function generateImage(
-  prompt: string,
-  universeId?: string,
-  characterIds?: string[]
+  scenePrompt: string,
+  universeId: string,
+  characterIds: string[],
+  previousPageImageUrl?: string,
+  quality: "low" | "medium" | "high" = "high"
 ): Promise<string> {
-  let textPrompt = prompt;
-  let referenceImages: string[] = [];
+  const context = await buildImageContext(universeId, characterIds);
 
-  if (universeId && characterIds?.length) {
-    const ref = await buildCharacterReference(universeId, characterIds);
-    textPrompt = `${ref.text}\nSCENE: ${prompt}\n\nDraw the characters EXACTLY as described in the character reference sheet. Maintain perfect visual consistency.`;
-    referenceImages = ref.referenceImages;
-  } else {
-    textPrompt = `Children's storybook illustration, warm and friendly style: ${prompt}`;
-  }
+  const fullPrompt = `${context.prompt}SCENE TO ILLUSTRATE:\n${scenePrompt}\n\nIMPORTANT: Characters must match their descriptions and reference images exactly. Maintain the same art style, color palette, and proportions as the reference images.`;
 
-  // Build input content with optional reference images
+  // Build input content: reference images first, then previous page, then prompt
   const content: any[] = [];
 
-  for (const imgBase64 of referenceImages) {
+  // Character reference images
+  for (const imgBase64 of context.referenceImages) {
     content.push({
       type: "input_image",
       image_url: `data:image/png;base64,${imgBase64}`,
     });
   }
 
+  // Previous page image for scenery/style continuity
+  if (previousPageImageUrl) {
+    const prevImgData = readImageAsBase64(previousPageImageUrl);
+    if (prevImgData) {
+      content.push({
+        type: "input_image",
+        image_url: `data:image/png;base64,${prevImgData}`,
+      });
+      content.push({
+        type: "input_text",
+        text: "The image above is the previous page's illustration. Match its art style, color palette, lighting, and character appearances exactly. The new scene should feel like the next page of the same book.",
+      });
+    }
+  }
+
   content.push({
     type: "input_text",
-    text: textPrompt,
+    text: fullPrompt,
   });
 
   const response = await openai.responses.create({
@@ -106,14 +123,13 @@ export async function generateImage(
     tools: [
       {
         type: "image_generation",
-        quality: "high",
+        quality,
         size: "1024x1024",
         output_format: "png",
       },
     ],
   });
 
-  // Find the image output
   const imageOutput = response.output.find(
     (item: any) => item.type === "image_generation_call"
   );
@@ -122,12 +138,11 @@ export async function generateImage(
     throw new Error("No image generated");
   }
 
-  // Save to disk and return the URL path
   return saveBase64Image(imageOutput.result as string, "png");
 }
 
 /**
- * Generate a character reference sheet image and save it to the character record.
+ * Generate a character reference sheet image.
  */
 export async function generateCharacterReference(
   characterId: string
@@ -146,7 +161,7 @@ SPECIES: ${character.speciesOrType}
 APPEARANCE: ${character.appearance}
 SPECIAL DETAIL: ${character.specialDetail}
 
-Draw ONLY this one character. No background scenery. Clean, clear design that could be used as a reference for drawing this character consistently in many different scenes.`;
+Draw ONLY this one character, centered in the frame. No background scenery. Clean, clear design that an illustrator could use as a reference for drawing this character consistently across many different scenes.`;
 
   const response = await openai.responses.create({
     model: "gpt-4o",
@@ -172,7 +187,6 @@ Draw ONLY this one character. No background scenery. Clean, clear design that co
 
   const imageUrl = saveBase64Image(imageOutput.result as string, "png");
 
-  // Save the reference image URL to the character record
   await prisma.character.update({
     where: { id: characterId },
     data: { referenceImageUrl: imageUrl },

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { generateSecondaryCharacters } from "../services/characterGenerator.js";
+import { generateCharacterReference } from "../services/imageGenerator.js";
 
 const router = Router();
 
@@ -84,14 +85,29 @@ router.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "universeId is required" });
     }
     await generateSecondaryCharacters(universeId);
+
+    // Generate reference images for all characters in the universe
     const characters = await prisma.character.findMany({
+      where: { universeId },
+    });
+    for (const char of characters) {
+      if (!char.referenceImageUrl) {
+        try {
+          await generateCharacterReference(char.id);
+        } catch (e) {
+          console.error(`Reference image failed for ${char.name}:`, e);
+        }
+      }
+    }
+
+    const fullCharacters = await prisma.character.findMany({
       where: { universeId },
       include: {
         relationshipsA: { include: { characterB: true } },
         relationshipsB: { include: { characterA: true } },
       },
     });
-    res.status(201).json(characters);
+    res.status(201).json(fullCharacters);
   } catch (e) {
     console.error("Character generation failed:", e);
     res.status(500).json({ error: "Failed to generate characters" });

@@ -46,6 +46,7 @@ export default function StoryBuilder() {
   const [length, setLength] = useState<"short" | "long">("long");
   const [parentPrompt, setParentPrompt] = useState("");
   const [generateImages, setGenerateImages] = useState(false);
+  const [imageQuality, setImageQuality] = useState<"low" | "medium" | "high">("low");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progressStep, setProgressStep] = useState("");
@@ -85,6 +86,7 @@ export default function StoryBuilder() {
           length,
           parentPrompt,
           generateImages,
+          imageQuality,
         },
         (step, detail) => {
           setCompletedSteps((prev) => {
@@ -302,6 +304,18 @@ export default function StoryBuilder() {
               <span className="text-sm font-medium text-stone-700">Generate illustrations</span>
             </label>
             <p className="text-xs text-stone-400 mt-1 ml-14">Uses GPT-4o. Leave off to save credits.</p>
+            {generateImages && (
+              <div className="flex gap-2 mt-3 ml-14">
+                {(["low", "medium", "high"] as const).map((q) => (
+                  <Chip
+                    key={q}
+                    label={q.charAt(0).toUpperCase() + q.slice(1)}
+                    selected={imageQuality === q}
+                    onClick={() => setImageQuality(q)}
+                  />
+                ))}
+              </div>
+            )}
           </section>
 
           {/* Parent prompt */}

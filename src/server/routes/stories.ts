@@ -95,6 +95,7 @@ router.post("/generate", async (req, res) => {
       length,
       parentPrompt,
       generateImages,
+      imageQuality,
     } = req.body;
 
     // Use requested structure, or pick randomly if not provided
@@ -146,41 +147,41 @@ router.post("/generate", async (req, res) => {
     if (generateImages) {
       sendProgress("illustrating", `Creating ${totalPages} illustrations...`);
 
-      const BATCH_SIZE = 4;
-      const imageResults: (string | null)[] = new Array(totalPages).fill(null);
+      // Generate images sequentially, passing each page's image to the next
+      // for scenery and style continuity
+      let previousImageUrl: string | undefined;
 
-      for (let batch = 0; batch < totalPages; batch += BATCH_SIZE) {
-        const batchEnd = Math.min(batch + BATCH_SIZE, totalPages);
+      for (let i = 0; i < totalPages; i++) {
+        const page = generated.pages[i];
+        let imageUrl = "";
+
         sendProgress(
           "illustrating",
-          `Creating illustrations ${batch + 1}–${batchEnd} of ${totalPages}...`
+          `Creating illustration ${i + 1} of ${totalPages}...`
         );
 
-        const promises = generated.pages.slice(batch, batchEnd).map(async (page, idx) => {
-          if (!page.image_prompt) return;
+        if (page.image_prompt) {
           try {
-            imageResults[batch + idx] = await generateImage(
+            imageUrl = await generateImage(
               page.image_prompt,
               universeId,
-              characterIds
+              characterIds,
+              previousImageUrl,
+              imageQuality || "high"
             );
+            previousImageUrl = imageUrl;
           } catch (e) {
             console.error(`Image generation failed for page ${page.page_number}:`, e);
           }
-        });
+        }
 
-        await Promise.all(promises);
-      }
-
-      // Save all pages with their images
-      for (let i = 0; i < totalPages; i++) {
         await prisma.scene.create({
           data: {
             storyId: story.id,
-            sceneNumber: generated.pages[i].page_number,
-            content: generated.pages[i].content,
-            imagePrompt: generated.pages[i].image_prompt || "",
-            imageUrl: imageResults[i] || "",
+            sceneNumber: page.page_number,
+            content: page.content,
+            imagePrompt: page.image_prompt || "",
+            imageUrl,
           },
         });
       }
