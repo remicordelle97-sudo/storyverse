@@ -119,11 +119,11 @@ export async function generateCharacterSheet(
     ? `\nOUTFIT (character is ALWAYS wearing/carrying ALL of these):\n${character.outfit}`
     : "";
 
-  const prompt = `Create a CHARACTER MODEL SHEET. Show this character 12-15 times on a plain white background in a natural grid layout. Mix of full body views and close-up head/upper body views.
+  const prompt = `ART STYLE: Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic.
+
+Create a CHARACTER MODEL SHEET. Show this character 12-15 times on a plain white background in a natural grid layout. Mix of full body views and close-up head/upper body views.
 
 IMPORTANT: This character is a ${character.speciesOrType}. Follow the body description below EXACTLY. Do NOT reuse any design elements from reference images of other characters. This character has its own unique body shape, colors, proportions, and clothing.
-
-${styleGuide}
 
 CHARACTER: ${character.name}
 SPECIES: ${character.speciesOrType}
@@ -196,9 +196,9 @@ export async function generateLocationSheet(
   debug.image(`Generating location sheet for "${location.name}" via Gemini`);
   const startTime = Date.now();
 
-  const prompt = `Create a LOCATION REFERENCE SHEET. Show this location 8-10 times on a plain white background.
+  const prompt = `ART STYLE: Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic.
 
-${styleGuide}
+Create a LOCATION REFERENCE SHEET. Show this location 8-10 times on a plain white background.
 
 LOCATION: ${location.name}
 ROLE: ${location.role}
@@ -296,16 +296,19 @@ export async function generateSceneImage(
     locDesc += "\n";
   }
 
-  const prompt = `${styleGuide}
-
-CHARACTERS:\n${charDesc}
+  const prompt = `CHARACTERS:\n${charDesc}
 ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}
 SCENE: ${scenePrompt}
 
 Draw the characters EXACTLY as shown in the reference sheets. Match the art style, proportions, colors, and outfits precisely. All clothing and accessories must be present.`;
 
-  // Build parts: reference sheets + previous pages + prompt
+  // Build parts: style instruction FIRST, then reference sheets, then prompt
   const parts: any[] = [];
+
+  // Art style as the very first thing Gemini sees
+  parts.push({
+    text: `ART STYLE (apply to the generated image): Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic. Think Oliver Jeffers or Jon Klassen.`,
+  });
 
   // Character and location reference sheets
   const refParts = await buildReferenceParts(universeId, characterIds);
@@ -326,6 +329,7 @@ Draw the characters EXACTLY as shown in the reference sheets. Match the art styl
     });
   }
 
+  parts.push({ text: styleGuide });
   parts.push({ text: prompt });
 
   debug.image(`Gemini scene: ${parts.filter(p => p.inlineData).length} reference images, prompt ${prompt.length} chars`);
