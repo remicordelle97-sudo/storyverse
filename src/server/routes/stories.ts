@@ -166,6 +166,8 @@ router.post("/generate", async (req, res) => {
               page.image_prompt,
               universeId,
               characterIds,
+              mood || "exciting adventures",
+              ageGroup,
               previousImageUrl,
               imageQuality || "high"
             );

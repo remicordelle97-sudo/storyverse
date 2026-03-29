@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import prisma from "../lib/prisma.js";
+import { buildImageStyleGuide } from "./imageStyleGuide.js";
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -34,7 +35,9 @@ function readImageAsBase64(imageUrl: string): string | null {
  */
 async function buildImageContext(
   universeId: string,
-  characterIds: string[]
+  characterIds: string[],
+  mood: string,
+  ageGroup: string
 ): Promise<{ prompt: string; referenceImages: string[] }> {
   const characters = await prisma.character.findMany({
     where: { universeId, id: { in: characterIds } },
@@ -44,11 +47,16 @@ async function buildImageContext(
     where: { id: universeId },
   });
 
-  const style = universe?.illustrationStyle || "storybook";
   const referenceImages: string[] = [];
 
-  let prompt = `STYLE: Children's ${style} illustration. Warm, soft lighting. Consistent character designs. Storybook aesthetic with rich but not overwhelming detail.\n\n`;
-  prompt += `CHARACTERS (draw each character EXACTLY as described — same proportions, colors, markings, and accessories in every image):\n\n`;
+  // Full style guide based on mood, age group, and illustration style
+  let prompt = buildImageStyleGuide(
+    mood,
+    ageGroup,
+    universe?.illustrationStyle
+  );
+
+  prompt += `=== CHARACTER SHEET ===\nDraw each character EXACTLY as described. Same proportions, colors, markings, and accessories in every image.\n\n`;
 
   for (const char of characters) {
     prompt += `${char.name}:\n`;
@@ -59,7 +67,6 @@ async function buildImageContext(
     }
     prompt += `\n`;
 
-    // Load reference image if available
     if (char.referenceImageUrl) {
       const imgData = readImageAsBase64(char.referenceImageUrl);
       if (imgData) {
@@ -79,10 +86,12 @@ export async function generateImage(
   scenePrompt: string,
   universeId: string,
   characterIds: string[],
+  mood: string,
+  ageGroup: string,
   previousPageImageUrl?: string,
   quality: "low" | "medium" | "high" = "high"
 ): Promise<string> {
-  const context = await buildImageContext(universeId, characterIds);
+  const context = await buildImageContext(universeId, characterIds, mood, ageGroup);
 
   const fullPrompt = `${context.prompt}SCENE TO ILLUSTRATE:\n${scenePrompt}\n\nIMPORTANT: Characters must match their descriptions and reference images exactly. Maintain the same art style, color palette, and proportions as the reference images.`;
 
