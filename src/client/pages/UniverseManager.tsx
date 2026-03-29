@@ -237,7 +237,7 @@ export default function UniverseManager() {
                   <h3 className="font-semibold text-stone-700 text-sm">
                     Characters ({(universe.characters || []).length})
                   </h3>
-                  {supporting.length === 0 && (
+                  {supporting.length === 0 && hero && (
                     <ActionButton
                       onClick={() => doAction("gen-chars", () => generateCharacters(selectedId!, false))}
                       loading={actionLoading === "gen-chars"}
@@ -247,6 +247,9 @@ export default function UniverseManager() {
                     </ActionButton>
                   )}
                 </div>
+                {!hero && (universe.characters || []).length === 0 && (
+                  <p className="text-xs text-red-500 mb-2">No hero found. Try creating the universe again.</p>
+                )}
                 <div className="space-y-3">
                   {(universe.characters || []).map((char: any) => (
                     <SheetRow
