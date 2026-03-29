@@ -362,6 +362,8 @@ function SheetRow({
   onGenerate: () => void;
   isGenerating: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg border border-stone-100">
       {/* Thumbnail */}
@@ -388,8 +390,18 @@ function SheetRow({
           <p className="text-sm font-medium text-stone-800 truncate">{name}</p>
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-400">{subtitle}</span>
         </div>
-        <p className="text-xs text-stone-500 mt-0.5 line-clamp-2">{description}</p>
-        {detail && <p className="text-[10px] text-stone-400 mt-0.5 line-clamp-1">{detail}</p>}
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-left w-full mt-0.5"
+        >
+          <p className={`text-xs text-stone-500 ${expanded ? "" : "line-clamp-2"}`}>{description}</p>
+          {detail && (
+            <p className={`text-[10px] text-stone-400 mt-0.5 whitespace-pre-wrap ${expanded ? "" : "line-clamp-1"}`}>{detail}</p>
+          )}
+          <span className="text-[10px] text-primary/60 hover:text-primary mt-0.5 inline-block">
+            {expanded ? "Show less" : "Show more"}
+          </span>
+        </button>
       </div>
 
       {/* Generate button */}
