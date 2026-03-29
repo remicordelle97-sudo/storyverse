@@ -6,7 +6,6 @@ interface PromptInput {
   mood: string;
   language: string;
   ageGroup: string;
-  readerName: string;
   structure: string;
   length: "short" | "long";
   parentPrompt: string;
@@ -292,7 +291,7 @@ These events have happened in previous stories. You may reference them briefly f
 
   prompt += `${structureGuide}
 
-=== STORY REQUEST ===${input.readerName ? `\nReader: ${input.readerName}` : ""}
+=== STORY REQUEST ===
 Reading level: ${input.ageGroup}
 Language: ${input.language}
 Mood: ${input.mood}

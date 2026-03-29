@@ -68,7 +68,6 @@ model Story {
   mood             String
   language         String           @default("en")
   ageGroup         String
-  readerName       String           @default("")
   hasIllustrations Boolean          @default(false)
   status           String           @default("draft")
   createdAt        DateTime         @default(now())

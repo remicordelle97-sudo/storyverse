@@ -42,7 +42,6 @@ export default function StoryBuilder() {
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
   const [mood, setMood] = useState("Exciting");
   const [ageGroup, setAgeGroup] = useState("4-5");
-  const [readerName, setReaderName] = useState("");
   const [structure, setStructure] = useState("problem-solution");
   const [length, setLength] = useState<"short" | "long">("long");
   const [parentPrompt, setParentPrompt] = useState("");
@@ -82,7 +81,6 @@ export default function StoryBuilder() {
           mood: mood.toLowerCase(),
           language: "en",
           ageGroup,
-          readerName,
           structure,
           length,
           parentPrompt,
@@ -236,21 +234,6 @@ export default function StoryBuilder() {
                 <Chip key={g} label={g} selected={ageGroup === g} onClick={() => setAgeGroup(g)} />
               ))}
             </div>
-          </section>
-
-          {/* Reader name (optional) */}
-          <section className="mb-8">
-            <label className="block text-sm font-medium text-stone-700 mb-2">
-              Reader's name (optional)
-            </label>
-            <input
-              type="text"
-              value={readerName}
-              onChange={(e) => setReaderName(e.target.value)}
-              className="w-full border border-stone-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="e.g. Mia"
-            />
-            <p className="text-xs text-stone-400 mt-1">The story can be personalized for this reader</p>
           </section>
 
           {/* Mood */}

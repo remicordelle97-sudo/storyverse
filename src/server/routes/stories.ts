@@ -91,7 +91,6 @@ router.post("/generate", async (req, res) => {
       mood,
       language,
       ageGroup,
-      readerName,
       structure: requestedStructure,
       length,
       parentPrompt,
@@ -117,7 +116,6 @@ router.post("/generate", async (req, res) => {
       mood: mood || "exciting adventures",
       language: language || "en",
       ageGroup,
-      readerName: readerName || "",
       structure,
       length: length || "long",
       parentPrompt: parentPrompt || "",
@@ -138,38 +136,67 @@ router.post("/generate", async (req, res) => {
         mood: mood || "exciting adventures",
         language: language || "en",
         ageGroup,
-        readerName: readerName || "",
         status: "published",
       },
     });
 
-    // Save pages and optionally generate images
+    // Save pages and optionally generate images (in parallel batches of 4)
     const totalPages = generated.pages.length;
-    for (let i = 0; i < totalPages; i++) {
-      const page = generated.pages[i];
-      let imageUrl = "";
 
-      if (generateImages && page.image_prompt) {
+    if (generateImages) {
+      sendProgress("illustrating", `Creating ${totalPages} illustrations...`);
+
+      const BATCH_SIZE = 4;
+      const imageResults: (string | null)[] = new Array(totalPages).fill(null);
+
+      for (let batch = 0; batch < totalPages; batch += BATCH_SIZE) {
+        const batchEnd = Math.min(batch + BATCH_SIZE, totalPages);
         sendProgress(
           "illustrating",
-          `Creating illustration ${i + 1} of ${totalPages}...`
+          `Creating illustrations ${batch + 1}–${batchEnd} of ${totalPages}...`
         );
-        try {
-          imageUrl = await generateImage(page.image_prompt, universeId, characterIds);
-        } catch (e) {
-          console.error(`Image generation failed for page ${page.page_number}:`, e);
-        }
+
+        const promises = generated.pages.slice(batch, batchEnd).map(async (page, idx) => {
+          if (!page.image_prompt) return;
+          try {
+            imageResults[batch + idx] = await generateImage(
+              page.image_prompt,
+              universeId,
+              characterIds
+            );
+          } catch (e) {
+            console.error(`Image generation failed for page ${page.page_number}:`, e);
+          }
+        });
+
+        await Promise.all(promises);
       }
 
-      await prisma.scene.create({
-        data: {
-          storyId: story.id,
-          sceneNumber: page.page_number,
-          content: page.content,
-          imagePrompt: page.image_prompt || "",
-          imageUrl,
-        },
-      });
+      // Save all pages with their images
+      for (let i = 0; i < totalPages; i++) {
+        await prisma.scene.create({
+          data: {
+            storyId: story.id,
+            sceneNumber: generated.pages[i].page_number,
+            content: generated.pages[i].content,
+            imagePrompt: generated.pages[i].image_prompt || "",
+            imageUrl: imageResults[i] || "",
+          },
+        });
+      }
+    } else {
+      // No images — save pages directly
+      for (const page of generated.pages) {
+        await prisma.scene.create({
+          data: {
+            storyId: story.id,
+            sceneNumber: page.page_number,
+            content: page.content,
+            imagePrompt: page.image_prompt || "",
+            imageUrl: "",
+          },
+        });
+      }
     }
 
     // Save story-character associations
