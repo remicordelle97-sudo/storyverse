@@ -91,24 +91,30 @@ router.post("/generate", async (req, res) => {
     await generateSecondaryCharacters(universeId);
     debug.character(`Secondary characters generated in ${Date.now() - startGen}ms`);
 
-    // Generate reference images for all characters in the universe
+    // Generate multi-pose character model sheets, chained so each
+    // character sees the previous sheets and matches the art style
     const characters = await prisma.character.findMany({
       where: { universeId },
+      orderBy: { role: "asc" }, // "main" first, then "supporting"
     });
-    debug.character(`Found ${characters.length} characters, generating reference images...`);
+    debug.character(`Found ${characters.length} characters, generating model sheets (chained)...`);
+
+    const completedSheetUrls: string[] = [];
 
     for (const char of characters) {
       if (!char.referenceImageUrl) {
         try {
-          debug.image(`Generating reference sheet for "${char.name}"...`);
+          debug.image(`Generating model sheet for "${char.name}" (with ${completedSheetUrls.length} previous sheets as style reference)...`);
           const startImg = Date.now();
-          await generateCharacterReference(char.id);
-          debug.image(`Reference sheet for "${char.name}" done in ${Date.now() - startImg}ms`);
+          const sheetUrl = await generateCharacterReference(char.id, completedSheetUrls);
+          completedSheetUrls.push(sheetUrl);
+          debug.image(`Model sheet for "${char.name}" done in ${Date.now() - startImg}ms`);
         } catch (e: any) {
-          debug.error(`Reference image failed for "${char.name}": ${e.message}`);
+          debug.error(`Model sheet failed for "${char.name}": ${e.message}`);
         }
       } else {
-        debug.image(`"${char.name}" already has reference image, skipping`);
+        debug.image(`"${char.name}" already has model sheet, using as reference`);
+        completedSheetUrls.push(char.referenceImageUrl);
       }
     }
 

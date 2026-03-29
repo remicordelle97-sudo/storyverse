@@ -154,37 +154,111 @@ export async function generateImage(
 }
 
 /**
- * Generate a character reference sheet image.
+ * Generate a multi-pose character reference sheet.
+ *
+ * Creates a single large image with the character shown from multiple
+ * angles, expressions, and poses — like a professional animation model sheet.
+ *
+ * @param characterId - The character to generate a sheet for
+ * @param previousSheetUrls - Reference sheets of already-generated characters
+ *   (passed as input images so GPT-4o matches the art style)
  */
 export async function generateCharacterReference(
-  characterId: string
+  characterId: string,
+  previousSheetUrls: string[] = []
 ): Promise<string> {
   const character = await prisma.character.findUniqueOrThrow({
     where: { id: characterId },
     include: { universe: true },
   });
 
-  const style = character.universe.illustrationStyle || "storybook";
+  const { debug } = await import("../lib/debug.js");
+  const { buildImageStyleGuide } = await import("./imageStyleGuide.js");
 
-  const prompt = `Create a character reference sheet for a children's ${style} illustration. Show the character from the front, clearly and fully visible against a simple white background.
+  const styleGuide = buildImageStyleGuide(
+    character.universe.mood,
+    "4-5", // Use middle age group for character design
+    character.universe.illustrationStyle
+  );
 
-CHARACTER: ${character.name}
-SPECIES: ${character.speciesOrType}
-APPEARANCE: ${character.appearance}
-SPECIAL DETAIL: ${character.specialDetail}
+  const prompt = `Create a CHARACTER MODEL SHEET for a children's book character. This is a reference sheet that an illustrator would use to draw this character consistently across many pages.
 
-Draw ONLY this one character, centered in the frame. No background scenery. Clean, clear design that an illustrator could use as a reference for drawing this character consistently across many different scenes.`;
+${styleGuide}
+
+CHARACTER DETAILS:
+Name: ${character.name}
+Species: ${character.speciesOrType}
+Appearance: ${character.appearance}
+Special detail that must ALWAYS be visible: ${character.specialDetail}
+Role: ${character.role}
+
+LAYOUT — Show ALL of the following on a single sheet, arranged in a clear grid on a plain white background:
+
+ROW 1 — TURNAROUND (4 views, same pose):
+- Front view (facing camera)
+- 3/4 view (turned slightly left)
+- Side view (profile, facing right)
+- Back view
+
+ROW 2 — EXPRESSIONS (5 faces, head and shoulders only):
+- Happy (big smile, bright eyes)
+- Sad (drooping features, downcast eyes)
+- Surprised (wide eyes, open mouth)
+- Determined (focused eyes, set jaw)
+- Laughing (eyes squeezed, mouth open)
+
+ROW 3 — ACTION POSES (4 full body poses):
+- Running/moving quickly
+- Sitting down, relaxed
+- Reaching up for something
+- Interacting with a friend (gesturing, talking)
+
+CRITICAL RULES:
+- The character must look IDENTICAL in every pose and expression — same proportions, same colors, same markings, same accessories.
+- The special detail (${character.specialDetail}) must be visible in every single view.
+- Plain white background. No scenery, no props, no other characters.
+- Label each view with small text underneath (e.g., "FRONT", "SIDE", "HAPPY", "RUNNING").
+- Use clean, consistent line work throughout.
+- This is ONE character shown many times, NOT multiple characters.`;
+
+  // Build input content with optional previous character sheets
+  const content: any[] = [];
+
+  // Pass previous character sheets so GPT-4o matches the art style
+  for (const sheetUrl of previousSheetUrls) {
+    const imgPath = path.join("public", sheetUrl);
+    if (fs.existsSync(imgPath)) {
+      const imgData = fs.readFileSync(imgPath).toString("base64");
+      content.push({
+        type: "input_image",
+        image_url: `data:image/png;base64,${imgData}`,
+      });
+    }
+  }
+
+  if (previousSheetUrls.length > 0) {
+    content.push({
+      type: "input_text",
+      text: `The ${previousSheetUrls.length} image(s) above are character model sheets for OTHER characters in the same book. You MUST match their exact art style, line quality, color approach, and proportions. The new character should look like it was drawn by the same illustrator.`,
+    });
+  }
+
+  content.push({
+    type: "input_text",
+    text: prompt,
+  });
+
+  debug.image(`Generating multi-pose model sheet for "${character.name}" (with ${previousSheetUrls.length} previous sheets as style reference)`);
 
   const response = await openai.responses.create({
     model: "gpt-4o",
-    input: prompt,
+    input: [{ role: "user", content }],
     tools: [
       {
         type: "image_generation",
         quality: "high",
-        size: "1024x1024",
+        size: "1536x1024" as any, // Wide format for the grid layout
         output_format: "png",
-        background: "transparent" as any,
       },
     ],
   });
@@ -203,6 +277,8 @@ Draw ONLY this one character, centered in the frame. No background scenery. Clea
     where: { id: characterId },
     data: { referenceImageUrl: imageUrl },
   });
+
+  debug.image(`Model sheet saved for "${character.name}": ${imageUrl}`);
 
   return imageUrl;
 }
