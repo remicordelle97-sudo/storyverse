@@ -4,7 +4,7 @@ import { debug } from "../lib/debug.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { writeTimelineEvents } from "../services/timelineWriter.js";
-import { generateSceneImage } from "../services/geminiGenerator.js";
+import { generateStoryImages } from "../services/geminiGenerator.js";
 
 const router = Router();
 
@@ -170,55 +170,32 @@ router.post("/generate", async (req, res) => {
     const totalPages = generated.pages.length;
 
     if (generateImages) {
-      debug.image(`=== IMAGE GENERATION START (Gemini) ===`);
-      debug.image(`Generating ${totalPages} illustrations sequentially`);
+      debug.image(`=== IMAGE GENERATION START (Gemini multi-turn chat) ===`);
       sendProgress("illustrating", `Creating ${totalPages} illustrations...`);
 
-      const generatedImageUrls: string[] = [];
-
-      for (let i = 0; i < totalPages; i++) {
-        const page = generated.pages[i];
-        let imageUrl = "";
-
-        sendProgress(
-          "illustrating",
-          `Creating illustration ${i + 1} of ${totalPages}...`
-        );
-
-        if (page.image_prompt) {
-          debug.image(`Page ${i + 1}/${totalPages}: generating...`, {
-            promptPreview: page.image_prompt.slice(0, 80),
-            previousPages: generatedImageUrls.length,
-          });
-          const pageImgStart = Date.now();
-
-          try {
-            imageUrl = await generateSceneImage(
-              page.image_prompt,
-              universeId,
-              characterIds,
-              mood || "exciting adventures",
-              ageGroup,
-              generatedImageUrls
-            );
-            if (imageUrl) generatedImageUrls.push(imageUrl);
-            debug.image(`Page ${i + 1}/${totalPages}: done in ${Date.now() - pageImgStart}ms`, {
-              imageUrl,
-            });
-          } catch (e: any) {
-            debug.error(`Page ${i + 1}/${totalPages}: image generation failed: ${e.message}`);
-          }
+      // Generate all images in a single chat session for consistency
+      const imageMap = await generateStoryImages(
+        universeId,
+        characterIds,
+        mood || "exciting adventures",
+        ageGroup,
+        generated.pages,
+        (pageNum, total, _imageUrl) => {
+          sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);
         }
+      );
 
+      // Save all pages with their images
+      for (const page of generated.pages) {
         await prisma.scene.create({
           data: {
             storyId: story.id,
             sceneNumber: page.page_number,
             content: page.content,
             imagePrompt: page.image_prompt || "",
-            imageUrl,
+            imageUrl: imageMap.get(page.page_number) || "",
             imageSeed: 0,
-            imageEngine: imageUrl ? "gemini" : "",
+            imageEngine: imageMap.has(page.page_number) ? "gemini" : "",
           },
         });
       }

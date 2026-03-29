@@ -333,18 +333,24 @@ ONE location shown from many angles and times of day. NOT multiple locations.`;
 }
 
 /**
- * Generate a scene illustration using Gemini with reference images
- * and previous page context for consistency.
+ * Generate ALL scene illustrations for a story using a single multi-turn
+ * chat session. Gemini maintains character, scenery, and style consistency
+ * across all pages because they're generated in the same conversation.
+ *
+ * Flow:
+ * 1. First message: all character/location reference sheets + style guide
+ * 2. Each subsequent message: one page's scene prompt → one illustration
  */
-export async function generateSceneImage(
-  scenePrompt: string,
+export async function generateStoryImages(
   universeId: string,
   characterIds: string[],
   mood: string,
   ageGroup: string,
-  previousPageImageUrls: string[] = []
-): Promise<string> {
+  pages: { page_number: number; image_prompt: string }[],
+  onProgress?: (pageNum: number, total: number, imageUrl: string) => void
+): Promise<Map<number, string>> {
   const styleGuide = buildImageStyleGuide(mood, ageGroup);
+  const results = new Map<number, string>();
 
   // Build character descriptions
   const characters = await prisma.character.findMany({
@@ -368,48 +374,38 @@ export async function generateSceneImage(
     locDesc += "\n";
   }
 
-  const prompt = `CHARACTERS:\n${charDesc}
-${locDesc ? `LOCATIONS:\n${locDesc}` : ""}
-SCENE: ${scenePrompt}
+  // Build the setup message with all reference images
+  const setupParts: any[] = [];
 
-Draw the characters EXACTLY as shown in the reference sheets. Match the art style, proportions, colors, and outfits precisely. All clothing and accessories must be present.`;
+  setupParts.push({
+    text: `ART STYLE: Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic.
 
-  // Build parts: style instruction FIRST, then reference sheets, then prompt
-  const parts: any[] = [];
+You are illustrating a children's picture book. I will give you scene descriptions one at a time. For each one, generate ONE illustration.
 
-  // Art style as the very first thing Gemini sees
-  parts.push({
-    text: `ART STYLE (apply to the generated image): Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic. Think Oliver Jeffers or Jon Klassen.`,
+CRITICAL: Maintain PERFECT visual consistency across ALL pages:
+- Characters must look IDENTICAL on every page (same body, same colors, same outfit, same proportions)
+- Locations must look the same when revisited (same landmarks, same colors, same geography)
+- Art style, color palette, and lighting approach must stay consistent throughout
+
+${styleGuide}
+
+CHARACTERS:\n${charDesc}
+${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
   });
 
-  // Character and location reference sheets
+  // Add all character reference sheet images
   const refParts = await buildReferenceParts(universeId, characterIds);
-  parts.push(...refParts);
+  setupParts.push(...refParts);
 
-  // Previous pages for continuity (last 3)
-  const recentPages = previousPageImageUrls.slice(-3);
-  for (const pageUrl of recentPages) {
-    const img = readImageAsBase64(pageUrl);
-    if (img) {
-      parts.push({ inlineData: { data: img.data, mimeType: img.mimeType } });
-    }
-  }
+  setupParts.push({
+    text: `The images above are character and location reference sheets. Draw the characters EXACTLY as shown — same body, proportions, colors, outfit, and accessories in every illustration. Now I will send you scene descriptions one at a time. Generate one illustration per scene.`,
+  });
 
-  if (recentPages.length > 0) {
-    parts.push({
-      text: `The previous ${recentPages.length} image(s) are illustrations from earlier pages of this same story. Match their art style, color palette, lighting, character appearances, and scenery exactly. The new illustration should feel like the next page of the same book.`,
-    });
-  }
+  debug.image(`Starting multi-turn story chat: ${pages.length} pages, ${refParts.filter(p => p.inlineData).length} reference images`);
 
-  parts.push({ text: styleGuide });
-  parts.push({ text: prompt });
-
-  debug.image(`Gemini scene: ${parts.filter(p => p.inlineData).length} reference images, prompt ${prompt.length} chars`);
-  const startTime = Date.now();
-
-  const response = await ai.models.generateContent({
+  // Create chat session
+  const chat = ai.chats.create({
     model: "gemini-2.5-flash-image",
-    contents: [{ role: "user", parts }],
     config: {
       responseModalities: ["Image", "Text"],
       imageConfig: {
@@ -418,11 +414,45 @@ Draw the characters EXACTLY as shown in the reference sheets. Match the art styl
     },
   });
 
-  const imageUrl = extractImage(response);
-  if (!imageUrl) {
-    throw new Error("No scene image generated by Gemini");
+  // Send setup message
+  try {
+    const setupResponse = await chat.sendMessage({
+      message: setupParts,
+    });
+    debug.image("Setup message sent, Gemini acknowledged");
+  } catch (e: any) {
+    debug.error(`Setup message failed: ${e.message}`);
+    // Continue anyway — some models don't respond to setup messages
   }
 
-  debug.image(`Gemini scene done in ${Date.now() - startTime}ms: ${imageUrl}`);
-  return imageUrl;
+  // Generate each page
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+    if (!page.image_prompt) continue;
+
+    debug.image(`Chat page ${i + 1}/${pages.length}: generating...`, {
+      promptPreview: page.image_prompt.slice(0, 80),
+    });
+    const startTime = Date.now();
+
+    try {
+      const response = await chat.sendMessage({
+        message: `Page ${page.page_number}: ${page.image_prompt}`,
+      });
+
+      const imageUrl = extractImage(response);
+      if (imageUrl) {
+        results.set(page.page_number, imageUrl);
+        debug.image(`Chat page ${i + 1}/${pages.length}: done in ${Date.now() - startTime}ms`, { imageUrl });
+        onProgress?.(page.page_number, pages.length, imageUrl);
+      } else {
+        debug.error(`Chat page ${i + 1}/${pages.length}: no image in response`);
+      }
+    } catch (e: any) {
+      debug.error(`Chat page ${i + 1}/${pages.length}: failed: ${e.message}`);
+    }
+  }
+
+  debug.image(`Story chat complete: ${results.size}/${pages.length} images generated`);
+  return results;
 }
