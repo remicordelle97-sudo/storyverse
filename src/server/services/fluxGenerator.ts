@@ -336,7 +336,7 @@ export async function trainUniverseLora(
     debug.lora("Creating destination model on Replicate...", { destination });
     await replicate.models.create(replicateOwner, modelName, {
       visibility: "private",
-      hardware: "gpu-t4-nano",
+      hardware: "gpu-t4",
       description: `Storyverse LoRA for universe ${universeId}`,
     });
     debug.lora("Destination model created");
