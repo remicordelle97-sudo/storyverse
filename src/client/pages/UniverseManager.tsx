@@ -64,22 +64,25 @@ export default function UniverseManager() {
   const [sheetPreview, setSheetPreview] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const { data: universe } = useQuery({
+  const { data: universe, isError: universeError } = useQuery({
     queryKey: ["universe", selectedId],
     queryFn: () => getUniverse(selectedId!),
     enabled: !!selectedId,
+    retry: 1,
   });
 
   const { data: locations = [] } = useQuery({
     queryKey: ["locations", selectedId],
     queryFn: () => getLocations(selectedId!),
     enabled: !!selectedId,
+    retry: 1,
   });
 
   const { data: loraStatus } = useQuery({
     queryKey: ["lora-status", selectedId],
     queryFn: () => getLoraStatus(selectedId!),
     enabled: !!selectedId,
+    retry: 1,
     refetchInterval: (query) => {
       return query.state.data?.status === "training" ? 15000 : false;
     },
@@ -171,6 +174,10 @@ export default function UniverseManager() {
           {!selectedId ? (
             <div className="bg-white rounded-xl border border-stone-200 p-8 text-center">
               <p className="text-stone-400">Select a universe</p>
+            </div>
+          ) : universeError ? (
+            <div className="bg-white rounded-xl border border-stone-200 p-8 text-center">
+              <p className="text-red-500 text-sm">Failed to load universe. Check the terminal for errors.</p>
             </div>
           ) : !universe ? (
             <div className="bg-white rounded-xl border border-stone-200 p-8 text-center">
