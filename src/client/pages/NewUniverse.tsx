@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { createUniverse, createCharacter, generateCharacters } from "../api/client";
+import { createUniverse, createCharacter, generateCharacters, generateUniverseConcept } from "../api/client";
 import Chip from "../components/Chip";
 
 const INTERESTS = [
@@ -34,50 +34,6 @@ const PERSONALITIES = [
   "Clever",
   "Mischievous",
 ];
-
-const UNIVERSE_MAP: Record<string, { name: string; setting: string }> = {
-  "Lions & big cats": {
-    name: "The Golden Savanna",
-    setting: "A vast, sun-drenched savanna filled with golden grasses, towering baobab trees, and friendly animals.",
-  },
-  Dinosaurs: {
-    name: "The Lost Valley",
-    setting: "A lush hidden valley where gentle dinosaurs roam among giant ferns and bubbling hot springs.",
-  },
-  Space: {
-    name: "The Starfield",
-    setting: "A glittering expanse of stars, friendly planets, and cosy space stations connected by rainbow bridges.",
-  },
-  Ocean: {
-    name: "The Deep Blue",
-    setting: "A magical underwater kingdom with coral castles, kelp forests, and glowing sea creatures.",
-  },
-  Dragons: {
-    name: "The Enchanted Realm",
-    setting: "A mystical land of rolling green hills, crystal caves, and friendly dragons who guard ancient secrets.",
-  },
-};
-
-function deriveUniverse(interests: string[]) {
-  for (const interest of interests) {
-    if (UNIVERSE_MAP[interest]) return UNIVERSE_MAP[interest];
-  }
-  return {
-    name: "The Wonder World",
-    setting: `A wonderful world shaped by ${interests.join(", ").toLowerCase()}, full of surprises and new friends.`,
-  };
-}
-
-function deriveSpecies(universeName: string) {
-  const map: Record<string, string> = {
-    "The Golden Savanna": "Lion",
-    "The Lost Valley": "Dinosaur",
-    "The Starfield": "Space Explorer",
-    "The Deep Blue": "Sea Creature",
-    "The Enchanted Realm": "Dragon",
-  };
-  return map[universeName] || "Adventurer";
-}
 
 export default function NewUniverse() {
   const navigate = useNavigate();
@@ -114,29 +70,35 @@ export default function NewUniverse() {
   const handleCreate = async () => {
     setSaving(true);
     try {
-      setSavingStep("Creating world...");
-      const derived = deriveUniverse(interests);
       const allThemes = [
         ...interests.filter((i) => i !== "Something else"),
         ...(customInterest ? [customInterest] : []),
       ];
 
+      // Generate unique universe name and description via AI
+      setSavingStep("Imagining your world...");
+      const concept = await generateUniverseConcept({
+        interests: allThemes,
+        mood: mood || "exciting adventures",
+        heroName,
+      });
+
+      setSavingStep(`Creating "${concept.name}"...`);
       const universe = await createUniverse({
-        name: derived.name,
-        settingDescription: derived.setting,
+        name: concept.name,
+        settingDescription: concept.settingDescription,
         themes: JSON.stringify(allThemes),
         mood: mood || "exciting adventures",
         avoidThemes,
       });
 
       setSavingStep("Creating hero...");
-      const species = deriveSpecies(derived.name);
       await createCharacter({
         universeId: universe.id,
         name: heroName,
-        speciesOrType: species,
+        speciesOrType: concept.heroSpecies || "Adventurer",
         personalityTraits: JSON.stringify(heroTraits),
-        appearance: `A friendly ${species.toLowerCase()} with bright, curious eyes`,
+        appearance: `A friendly ${(concept.heroSpecies || "character").toLowerCase()} with bright, curious eyes`,
         specialDetail: heroDetail,
         role: "main",
       });

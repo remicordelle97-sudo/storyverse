@@ -1,6 +1,9 @@
 import { Router } from "express";
+import Anthropic from "@anthropic-ai/sdk";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+
+const anthropic = new Anthropic();
 
 const router = Router();
 
@@ -46,6 +49,66 @@ router.get("/:id", async (req, res) => {
     res.json(universe);
   } catch (e) {
     res.status(500).json({ error: "Failed to fetch universe" });
+  }
+});
+
+// Generate a unique universe concept (name, description, hero species)
+router.post("/generate-concept", async (req, res) => {
+  try {
+    const { interests, mood, heroName } = req.body;
+
+    debug.universe("Generating universe concept via Claude", { interests, mood, heroName });
+
+    const message = await anthropic.messages.create({
+      model: "claude-sonnet-4-6",
+      max_tokens: 500,
+      temperature: 0.9,
+      system: "You create unique, imaginative worlds for children's stories. Return ONLY valid JSON. No markdown fences.",
+      messages: [
+        {
+          role: "user",
+          content: `Create a unique children's story universe based on these inputs:
+
+INTERESTS: ${JSON.stringify(interests)}
+MOOD: ${mood}
+HERO NAME: ${heroName}
+
+Generate a creative, evocative universe name and a rich setting description. The name should be unique and memorable, not generic (avoid "The [Adjective] [Noun]" patterns every time — be creative with the naming).
+
+The setting description should be 2-3 sentences that paint a vivid picture of this world: what it looks, sounds, and feels like. Include specific, surprising details that make it feel alive.
+
+Also suggest what species or type the hero "${heroName}" could be, based on the interests and world.
+
+Return exactly this JSON:
+{
+  "name": "A unique universe name",
+  "settingDescription": "2-3 sentences describing this world vividly",
+  "heroSpecies": "The suggested species or type for the hero"
+}`,
+        },
+      ],
+    });
+
+    const textBlock = message.content.find((b) => b.type === "text");
+    if (!textBlock || textBlock.type !== "text") {
+      throw new Error("No text response from AI");
+    }
+
+    let raw = textBlock.text.trim();
+    if (raw.startsWith("```")) {
+      raw = raw.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+    }
+
+    const concept = JSON.parse(raw);
+    debug.universe("Universe concept generated", {
+      name: concept.name,
+      heroSpecies: concept.heroSpecies,
+    });
+
+    res.json(concept);
+  } catch (e: any) {
+    debug.error(`Universe concept generation failed: ${e.message}`);
+    res.status(500).json({ error: "Failed to generate universe concept" });
   }
 });
 
