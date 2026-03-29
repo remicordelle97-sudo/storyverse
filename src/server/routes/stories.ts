@@ -175,7 +175,7 @@ router.post("/generate", async (req, res) => {
     // Save pages and optionally generate images (in parallel batches of 4)
     const totalPages = generated.pages.length;
 
-    const engine = imageEngine || "flux";
+    const engine = imageEngine || "gpt4o";
 
     if (generateImages) {
       const engineLabel = engine === "flux" ? "Flux" : "GPT-4o";

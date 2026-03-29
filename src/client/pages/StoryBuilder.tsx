@@ -46,8 +46,8 @@ export default function StoryBuilder() {
   const [length, setLength] = useState<"short" | "long">("long");
   const [parentPrompt, setParentPrompt] = useState("");
   const [generateImages, setGenerateImages] = useState(false);
-  const [imageEngine, setImageEngine] = useState<"flux" | "gpt4o">("flux");
-  const [imageQuality, setImageQuality] = useState<"low" | "medium" | "high">("low");
+  const [imageEngine, setImageEngine] = useState<"flux" | "gpt4o">("gpt4o");
+  const [imageQuality, setImageQuality] = useState<"low" | "medium" | "high">("high");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progressStep, setProgressStep] = useState("");
@@ -312,14 +312,14 @@ export default function StoryBuilder() {
                   <p className="text-xs text-stone-500 mb-1.5">Engine</p>
                   <div className="flex gap-2">
                     <Chip
-                      label="Flux"
-                      selected={imageEngine === "flux"}
-                      onClick={() => setImageEngine("flux")}
-                    />
-                    <Chip
-                      label="GPT-4o"
+                      label="GPT-4o (consistent)"
                       selected={imageEngine === "gpt4o"}
                       onClick={() => setImageEngine("gpt4o")}
+                    />
+                    <Chip
+                      label="Flux (fast)"
+                      selected={imageEngine === "flux"}
+                      onClick={() => setImageEngine("flux")}
                     />
                   </div>
                 </div>
