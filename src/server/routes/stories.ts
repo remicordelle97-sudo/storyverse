@@ -4,6 +4,7 @@ import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { writeTimelineEvents } from "../services/timelineWriter.js";
 import { generateImage } from "../services/imageGenerator.js";
+import { generateFluxImage } from "../services/fluxGenerator.js";
 
 const router = Router();
 
@@ -96,6 +97,7 @@ router.post("/generate", async (req, res) => {
       parentPrompt,
       generateImages,
       imageQuality,
+      imageEngine,
     } = req.body;
 
     // Use requested structure, or pick randomly if not provided
@@ -144,8 +146,11 @@ router.post("/generate", async (req, res) => {
     // Save pages and optionally generate images (in parallel batches of 4)
     const totalPages = generated.pages.length;
 
+    const engine = imageEngine || "flux";
+
     if (generateImages) {
-      sendProgress("illustrating", `Creating ${totalPages} illustrations...`);
+      const engineLabel = engine === "flux" ? "Flux" : "GPT-4o";
+      sendProgress("illustrating", `Creating ${totalPages} illustrations with ${engineLabel}...`);
 
       // Generate images sequentially, passing previous pages' images
       // for scenery, style, and character continuity
@@ -157,20 +162,33 @@ router.post("/generate", async (req, res) => {
 
         sendProgress(
           "illustrating",
-          `Creating illustration ${i + 1} of ${totalPages}...`
+          `Creating illustration ${i + 1} of ${totalPages} (${engineLabel})...`
         );
 
         if (page.image_prompt) {
           try {
-            imageUrl = await generateImage(
-              page.image_prompt,
-              universeId,
-              characterIds,
-              mood || "exciting adventures",
-              ageGroup,
-              generatedImageUrls,
-              imageQuality || "high"
-            );
+            if (engine === "gpt4o") {
+              imageUrl = await generateImage(
+                page.image_prompt,
+                universeId,
+                characterIds,
+                mood || "exciting adventures",
+                ageGroup,
+                generatedImageUrls,
+                imageQuality || "high"
+              );
+            } else {
+              const result = await generateFluxImage(
+                page.image_prompt,
+                universeId,
+                characterIds,
+                mood || "exciting adventures",
+                ageGroup,
+                generatedImageUrls,
+                imageQuality || "high"
+              );
+              imageUrl = result.imageUrl;
+            }
             generatedImageUrls.push(imageUrl);
           } catch (e) {
             console.error(`Image generation failed for page ${page.page_number}:`, e);
