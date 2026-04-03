@@ -50,7 +50,7 @@ VOCABULARY — Ages 4-5:
 - VOCABULARY CHECK: Before writing each sentence, ask: would a 4-year-old understand this on first hearing, without any explanation? If not, use a simpler word. The story is read aloud — there is no time to stop and explain.`,
 
   "6-8": `WRITING LEVEL — Ages 6-8 (Confident Reader):
-- Each page has 3-5 sentences with richer descriptive detail.
+- Each page has 3-4 sentences with richer descriptive detail.
 - Use varied sentence structure. Vocabulary can be more ambitious than younger ages, but every sentence must be understandable on first read.
 - SHOW every emotion through actions, body language, and dialogue — never state them directly. Write "Leo clenched his paws and stared at the ground" not "Leo felt frustrated."
 - Real stakes and challenges are OK — characters can struggle, fail, and try again.
