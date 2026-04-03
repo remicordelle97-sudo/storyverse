@@ -4,6 +4,7 @@ import { debug } from "../lib/debug.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { generateStoryImages } from "../services/geminiGenerator.js";
+import { verifyUniverseOwnership } from "../lib/ownership.js";
 
 const router = Router();
 
@@ -14,6 +15,9 @@ router.get("/", async (req, res) => {
     const where: any = {};
 
     if (universeId && typeof universeId === "string") {
+      if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       where.universeId = universeId;
     } else {
       // All stories across user's universes
@@ -53,6 +57,9 @@ router.get("/:id", async (req, res) => {
     if (!story) {
       return res.status(404).json({ error: "Story not found" });
     }
+    if (!await verifyUniverseOwnership(story.universeId, req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     res.json(story);
   } catch (e) {
     res.status(500).json({ error: "Failed to fetch story" });
@@ -88,7 +95,6 @@ router.post("/generate", async (req, res) => {
     const {
       universeId,
       characterIds,
-      mood,
       language,
       ageGroup,
       structure: requestedStructure,
@@ -103,8 +109,16 @@ router.post("/generate", async (req, res) => {
       ? requestedStructure
       : structures[Math.floor(Math.random() * structures.length)];
 
+    // Pick mood randomly for each story
+    const moods = ["gentle", "funny", "exciting", "mysterious"];
+    const mood = moods[Math.floor(Math.random() * moods.length)];
+
     if (!universeId || !characterIds?.length || !ageGroup) {
       return sendError("universeId, characterIds, and ageGroup are required");
+    }
+
+    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+      return sendError("Access denied");
     }
 
     debug.story("=== STORY GENERATION START ===");
@@ -126,7 +140,7 @@ router.post("/generate", async (req, res) => {
     const { userMessage, ageGroup: resolvedAgeGroup } = await buildPrompt({
       universeId,
       characterIds,
-      mood: mood || "exciting adventures",
+      mood: mood,
       language: language || "en",
       ageGroup,
       structure,
@@ -158,7 +172,7 @@ router.post("/generate", async (req, res) => {
       data: {
         universeId,
         title: generated.title,
-        mood: mood || "exciting adventures",
+        mood: mood,
         language: language || "en",
         ageGroup,
         status: "published",
@@ -175,8 +189,7 @@ router.post("/generate", async (req, res) => {
       const imageMap = await generateStoryImages(
         universeId,
         characterIds,
-        mood || "exciting adventures",
-        ageGroup,
+        mood,
         generated.pages,
         (pageNum, total, _imageUrl) => {
           sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);

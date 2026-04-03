@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { getUniverse, getUniverses, generateStory } from "../api/client";
 import Chip from "../components/Chip";
 
-const MOODS = ["Gentle", "Funny", "Exciting", "Mysterious"];
 const AGE_GROUPS = ["2-3", "4-5", "6-8"];
 
 const STEP_LABELS: Record<string, string> = {
@@ -39,7 +38,6 @@ export default function StoryBuilder() {
   });
 
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
-  const [mood, setMood] = useState("Exciting");
   const [ageGroup, setAgeGroup] = useState("4-5");
   const [structure, setStructure] = useState("problem-solution");
   const [length, setLength] = useState<"short" | "long">("long");
@@ -81,7 +79,6 @@ export default function StoryBuilder() {
         {
           universeId,
           characterIds: allCharacterIds,
-          mood: mood.toLowerCase(),
           language: "en",
           ageGroup,
           structure,
@@ -235,18 +232,6 @@ export default function StoryBuilder() {
             <div className="flex gap-2">
               {AGE_GROUPS.map((g) => (
                 <Chip key={g} label={g} selected={ageGroup === g} onClick={() => setAgeGroup(g)} />
-              ))}
-            </div>
-          </section>
-
-          {/* Mood */}
-          <section className="mb-8">
-            <label className="block text-sm font-medium text-stone-700 mb-3">
-              Mood
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {MOODS.map((m) => (
-                <Chip key={m} label={m} selected={mood === m} onClick={() => setMood(m)} />
               ))}
             </div>
           </section>

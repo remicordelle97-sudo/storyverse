@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { generateLocationConcepts } from "../services/locationGenerator.js";
 import { generateLocationSheet } from "../services/geminiGenerator.js";
+import { verifyUniverseOwnership } from "../lib/ownership.js";
 
 const router = Router();
 
@@ -12,6 +13,9 @@ router.get("/", async (req, res) => {
     const { universeId } = req.query;
     if (!universeId || typeof universeId !== "string") {
       return res.status(400).json({ error: "universeId query param required" });
+    }
+    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
     }
     const locations = await prisma.location.findMany({
       where: { universeId },
@@ -29,6 +33,9 @@ router.post("/generate", async (req, res) => {
     const { universeId } = req.body;
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
+    }
+    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     debug.universe("Generating locations for universe", { universeId });
@@ -56,6 +63,9 @@ router.post("/:id/generate-sheet", async (req, res) => {
     });
     if (!location) {
       return res.status(404).json({ error: "Location not found" });
+    }
+    if (location.universe.userId !== req.userId) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     // Gather existing sheets (characters + other locations) for style reference

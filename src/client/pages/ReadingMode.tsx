@@ -141,9 +141,10 @@ export default function ReadingMode() {
 
   return (
     <div
-      className="min-h-screen bg-[#1a1a2e] flex items-center justify-center select-none"
+      className="min-h-screen bg-[#1a1a2e] flex items-center justify-center select-none overflow-hidden"
       onMouseMove={showControls}
       onClick={showControls}
+      style={{ fontFamily: "Lexend, sans-serif" }}
     >
       {/* Controls overlay */}
       <div
@@ -154,7 +155,6 @@ export default function ReadingMode() {
         <button
           onClick={() => navigate("/library")}
           className="text-white/60 hover:text-white text-sm transition-colors"
-          style={{ fontFamily: "Lexend, sans-serif" }}
         >
           &times; Close
         </button>
@@ -173,128 +173,271 @@ export default function ReadingMode() {
         <div className="w-12" />
       </div>
 
-      {/* Book container */}
-      <div className="w-full max-w-2xl mx-auto relative" style={{ fontFamily: "Lexend, sans-serif" }}>
-        {/* Tap zones */}
-        {view === "page" && (
-          <>
+      {/* Tap zones */}
+      {view === "page" && (
+        <>
+          <div
+            className="fixed left-0 top-0 w-1/3 h-full z-40 cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); goBack(); }}
+          />
+          <div
+            className="fixed right-0 top-0 w-2/3 h-full z-40 cursor-pointer"
+            onClick={(e) => { e.stopPropagation(); goForward(); }}
+          />
+        </>
+      )}
+
+      {/* Content with transition */}
+      <div
+        className={`w-full transition-all duration-300 ease-out ${
+          transitioning
+            ? direction === "forward"
+              ? "opacity-0 translate-x-[-30px]"
+              : "opacity-0 translate-x-[30px]"
+            : "opacity-100 translate-x-0"
+        }`}
+      >
+        {/* Title page */}
+        {view === "title" && (
+          <div
+            className="flex items-center justify-center px-4 cursor-pointer"
+            style={{ minHeight: "100vh" }}
+            onClick={goForward}
+          >
+            {/* Book shell for title */}
             <div
-              className="fixed left-0 top-0 w-1/3 h-full z-40 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                goBack();
+              className="relative w-full max-w-5xl mx-auto"
+              style={{
+                filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.5))",
               }}
-            />
-            <div
-              className="fixed right-0 top-0 w-2/3 h-full z-40 cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                goForward();
-              }}
-            />
-          </>
+            >
+              <div
+                className="rounded-lg overflow-hidden flex flex-col md:flex-row"
+                style={{
+                  background: "#F5ECD7",
+                  minHeight: "min(75vh, 600px)",
+                }}
+              >
+                {/* Left page */}
+                <div
+                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 relative"
+                  style={{
+                    background: "linear-gradient(to right, #EDE3C8, #F5ECD7)",
+                  }}
+                >
+                  {/* Decorative border */}
+                  <div
+                    className="absolute inset-6 md:inset-10 rounded-sm pointer-events-none"
+                    style={{
+                      border: "2px solid #D4C5A0",
+                    }}
+                  />
+                  <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight mb-4 relative z-10">
+                    {story.title}
+                  </h1>
+                  {story.characters?.length > 0 && (
+                    <p className="text-stone-500 text-sm relative z-10">
+                      featuring{" "}
+                      {story.characters
+                        .map((sc: any) => sc.character.name)
+                        .join(" & ")}
+                    </p>
+                  )}
+                </div>
+
+                {/* Spine */}
+                <div
+                  className="hidden md:block w-[3px] relative z-10"
+                  style={{
+                    background: "linear-gradient(to bottom, #C4B48A, #A89668, #C4B48A)",
+                    boxShadow: "-2px 0 8px rgba(0,0,0,0.1), 2px 0 8px rgba(0,0,0,0.1)",
+                  }}
+                />
+
+                {/* Right page */}
+                <div
+                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12"
+                  style={{
+                    background: "linear-gradient(to left, #EDE3C8, #F5ECD7)",
+                  }}
+                >
+                  <div className="text-stone-400 text-sm italic mb-6">A Storyverse tale</div>
+                  <p className="text-stone-400 text-xs animate-pulse">
+                    Tap to begin
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* Content with transition */}
-        <div
-          className={`transition-all duration-300 ease-out ${
-            transitioning
-              ? direction === "forward"
-                ? "opacity-0 translate-x-[-30px]"
-                : "opacity-0 translate-x-[30px]"
-              : "opacity-100 translate-x-0"
-          }`}
-        >
-          {/* Title page */}
-          {view === "title" && (
+        {/* Story page — open book spread */}
+        {view === "page" && page && (
+          <div
+            className="flex items-center justify-center px-4 py-16"
+            style={{ minHeight: "100vh" }}
+          >
             <div
-              className="min-h-screen flex flex-col items-center justify-center px-8 cursor-pointer"
-              onClick={goForward}
+              className="relative w-full max-w-5xl mx-auto"
+              style={{
+                filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.5))",
+              }}
             >
-              <h1 className="text-4xl md:text-5xl font-bold text-[#FEFCF8] text-center leading-tight mb-6">
-                {story.title}
-              </h1>
-              {story.characters?.length > 0 && (
-                <p className="text-white/40 text-sm mb-12">
-                  featuring{" "}
-                  {story.characters
-                    .map((sc: any) => sc.character.name)
-                    .join(" & ")}
-                </p>
-              )}
-              <p className="text-white/30 text-xs animate-pulse">
-                Tap to begin
-              </p>
-            </div>
-          )}
-
-          {/* Story page */}
-          {view === "page" && page && (
-            <div className="min-h-screen flex flex-col justify-center px-4 py-20">
-              {/* Illustration */}
-              {page.imageUrl ? (
-                <div className="mb-6 rounded-2xl overflow-hidden shadow-2xl">
-                  <img
-                    src={page.imageUrl}
-                    alt={`Illustration for page ${pageIndex + 1}`}
-                    className="w-full"
-                    draggable={false}
-                  />
-                </div>
-              ) : (
-                <div className="mb-6 rounded-2xl overflow-hidden bg-[#2a2a3e] aspect-[4/3] flex items-center justify-center">
-                  <div className="text-white/10 text-sm">Illustration</div>
-                </div>
-              )}
-
-              {/* Text panel */}
-              <div className="bg-[#FEFCF8] rounded-2xl px-8 py-6 shadow-lg">
-                <p
-                  className="text-stone-800 leading-[1.75] tracking-wide text-left"
+              <div
+                className="rounded-lg overflow-hidden flex flex-col md:flex-row"
+                style={{
+                  background: "#F5ECD7",
+                }}
+              >
+                {/* Left page — illustration */}
+                <div
+                  className="flex-1 relative flex items-center justify-center"
                   style={{
-                    fontSize: "clamp(1.25rem, 2.5vw + 0.5rem, 1.75rem)",
-                    wordSpacing: "0.05em",
-                    letterSpacing: "0.02em",
+                    background: "linear-gradient(to right, #EDE3C8, #F5ECD7)",
                   }}
                 >
-                  {page.content}
-                </p>
-              </div>
+                  {page.imageUrl ? (
+                    <img
+                      src={page.imageUrl}
+                      alt={`Illustration for page ${pageIndex + 1}`}
+                      className="w-full h-full object-cover"
+                      style={{ minHeight: "min(70vh, 550px)" }}
+                      draggable={false}
+                    />
+                  ) : (
+                    <div
+                      className="w-full flex items-center justify-center"
+                      style={{
+                        minHeight: "min(70vh, 550px)",
+                        background: "linear-gradient(135deg, #E8DFC8, #DDD3B8)",
+                      }}
+                    >
+                      <div className="text-stone-400/40 text-sm">Illustration</div>
+                    </div>
+                  )}
+                  {/* Page number — left */}
+                  <div className="absolute bottom-3 left-0 right-0 text-center">
+                    <span className="text-stone-500/50 text-xs">{pageIndex * 2 + 1}</span>
+                  </div>
+                </div>
 
-              {/* Page number */}
-              <p className="text-white/20 text-xs text-center mt-4">
-                {pageIndex + 1} / {totalPages}
-              </p>
-            </div>
-          )}
-
-          {/* End page */}
-          {view === "end" && (
-            <div className="min-h-screen flex flex-col items-center justify-center px-8">
-              <p className="text-[#FEFCF8] text-3xl font-light mb-2">
-                The End
-              </p>
-              <p className="text-white/30 text-sm mb-12">{story.title}</p>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => {
-                    setView("title");
-                    setPageIndex(0);
+                {/* Spine */}
+                <div
+                  className="hidden md:block w-[3px] relative z-10 flex-shrink-0"
+                  style={{
+                    background: "linear-gradient(to bottom, #C4B48A, #A89668, #C4B48A)",
+                    boxShadow: "-2px 0 8px rgba(0,0,0,0.1), 2px 0 8px rgba(0,0,0,0.1)",
                   }}
-                  className="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
+                />
+
+                {/* Right page — text */}
+                <div
+                  className="flex-1 flex flex-col justify-between relative"
+                  style={{
+                    background: "linear-gradient(to left, #EDE3C8, #F5ECD7)",
+                    minHeight: "min(70vh, 550px)",
+                  }}
                 >
-                  Read again
-                </button>
-                <button
-                  onClick={() => navigate("/library")}
-                  className="px-6 py-3 text-white/50 hover:text-white transition-colors"
-                >
-                  Back to library
-                </button>
+                  <div className="flex-1 flex items-center px-8 md:px-10 py-8 md:py-10">
+                    <p
+                      className="text-stone-800 leading-[1.85] tracking-wide text-left"
+                      style={{
+                        fontSize: "clamp(1rem, 1.8vw + 0.4rem, 1.4rem)",
+                        wordSpacing: "0.05em",
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      {page.content}
+                    </p>
+                  </div>
+                  {/* Page number — right */}
+                  <div className="text-center pb-3">
+                    <span className="text-stone-500/50 text-xs">
+                      {pageIndex * 2 + 2}
+                    </span>
+                  </div>
+                  {/* Scene counter */}
+                  <div className="absolute top-3 right-4">
+                    <span className="text-stone-400/40 text-[10px]">
+                      {pageIndex + 1} of {totalPages}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* End page */}
+        {view === "end" && (
+          <div
+            className="flex items-center justify-center px-4"
+            style={{ minHeight: "100vh" }}
+          >
+            <div
+              className="relative w-full max-w-5xl mx-auto"
+              style={{
+                filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.5))",
+              }}
+            >
+              <div
+                className="rounded-lg overflow-hidden flex flex-col md:flex-row"
+                style={{
+                  background: "#F5ECD7",
+                  minHeight: "min(75vh, 600px)",
+                }}
+              >
+                {/* Left page */}
+                <div
+                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12"
+                  style={{
+                    background: "linear-gradient(to right, #EDE3C8, #F5ECD7)",
+                  }}
+                >
+                  <p className="text-stone-800 text-4xl md:text-5xl font-light italic">
+                    The End
+                  </p>
+                  <p className="text-stone-500 text-sm mt-3">{story.title}</p>
+                </div>
+
+                {/* Spine */}
+                <div
+                  className="hidden md:block w-[3px] relative z-10"
+                  style={{
+                    background: "linear-gradient(to bottom, #C4B48A, #A89668, #C4B48A)",
+                    boxShadow: "-2px 0 8px rgba(0,0,0,0.1), 2px 0 8px rgba(0,0,0,0.1)",
+                  }}
+                />
+
+                {/* Right page */}
+                <div
+                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12"
+                  style={{
+                    background: "linear-gradient(to left, #EDE3C8, #F5ECD7)",
+                  }}
+                >
+                  <div className="flex flex-col gap-4 items-center">
+                    <button
+                      onClick={() => {
+                        setView("title");
+                        setPageIndex(0);
+                      }}
+                      className="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      Read again
+                    </button>
+                    <button
+                      onClick={() => navigate("/library")}
+                      className="px-6 py-3 text-stone-500 hover:text-stone-800 transition-colors"
+                    >
+                      Back to library
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

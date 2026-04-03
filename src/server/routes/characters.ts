@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { generateSecondaryCharacters } from "../services/characterGenerator.js";
 import { generateCharacterSheet, generateAllCharacterSheets } from "../services/geminiGenerator.js";
+import { verifyUniverseOwnership } from "../lib/ownership.js";
 
 const router = Router();
 
@@ -12,6 +13,9 @@ router.get("/", async (req, res) => {
     const { universeId } = req.query;
     if (!universeId || typeof universeId !== "string") {
       return res.status(400).json({ error: "universeId query param required" });
+    }
+    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
     }
     const characters = await prisma.character.findMany({
       where: { universeId },
@@ -36,6 +40,10 @@ router.post("/", async (req, res) => {
       specialDetail,
       role,
     } = req.body;
+
+    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     debug.character("Creating character", { name, speciesOrType: speciesOrType, role, hasOutfit: !!outfit, hasAppearance: !!appearance });
 
@@ -68,6 +76,9 @@ router.post("/generate", async (req, res) => {
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
     }
+    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
     debug.character("Generating secondary characters via Claude...", { universeId });
     const startGen = Date.now();
     await generateSecondaryCharacters(universeId);
@@ -97,6 +108,9 @@ router.post("/:id/regenerate-sheet", async (req, res) => {
     if (!character) {
       return res.status(404).json({ error: "Character not found" });
     }
+    if (!await verifyUniverseOwnership(character.universeId, req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     debug.image(`Regenerating sheet for "${character.name}"`);
     const startTime = Date.now();
@@ -124,6 +138,9 @@ router.post("/generate-all-sheets", async (req, res) => {
     const { universeId } = req.body;
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
+    }
+    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
     }
     debug.image("Generating all character sheets via multi-turn chat", { universeId });
     await generateAllCharacterSheets(universeId);
