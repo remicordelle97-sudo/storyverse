@@ -269,6 +269,8 @@ ${universe.scaleAndGeography ? `Scale & geography: ${universe.scaleAndGeography}
 Themes: ${universe.themes}
 Avoid: ${universe.avoidThemes}
 
+IMPORTANT: The universe details above are BACKDROP, not plot. Use them to COLOR the setting (sprinkle in sensory details, mention landmarks in passing, let the world rules affect things naturally) but do NOT build the main story around any single universe detail. The story's plot should come from the CHARACTERS and the PARENT'S REQUEST below, not from the setting description. A child re-reading many stories in this universe should experience different adventures each time, not variations on the same world feature.
+
 === CHARACTERS (for storytelling) ===
 `;
 
