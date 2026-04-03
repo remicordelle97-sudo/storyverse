@@ -5,13 +5,13 @@
  * and mood-specific rules injected into every image prompt.
  */
 
-const ART_STYLE = `ART STYLE — oil pastel on textured paper:
+const ART_STYLE = `ART STYLE — soft chalk pastel on textured paper:
 CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
-- Medium: Oil pastel illustration on heavy textured paper. Soft, waxy, chalky strokes that blend and smudge into each other. Colors are rich, saturated, and slightly grainy.
-- Edges: ABSOLUTELY NO outlines, linework, or drawn borders. Shapes are formed by pressing colored pastel into paper — edges are soft, smudgy, and blended where colors meet.
-- Texture: Heavy visible paper grain showing through the pastel. Strokes should look thick, waxy, and layered. Areas of color should be uneven and organic with visible stick marks.
-- Colors: Bold, warm, saturated. Rich opaque color with a slight sheen. Colors blend where they overlap.
-- Aesthetic: Handmade, warm, tactile, childlike. Think Komako Sakai or Miroco Machiko. Expressive, not precise.
+- Medium: Soft chalk pastel illustration on heavy textured paper. Powdery, dreamy strokes that smudge and blur into each other. Colors are soft, dusty, and luminous.
+- Edges: ABSOLUTELY NO outlines, linework, or drawn borders. Shapes are formed by smudging colored chalk into paper — edges are diffused, powdery, and feathered. Every boundary is soft and hazy.
+- Texture: Heavy visible paper grain showing through the chalk. Powdery layered strokes, areas rubbed smooth mixed with visible individual strokes.
+- Colors: Soft, warm, luminous. Dusty matte quality. Colors glow from within. Gentle blending where colors meet.
+- Aesthetic: Dreamy, gentle, ethereal. Think Iwasaki Chihiro or Komako Sakai. Tender and atmospheric, not precise.
 - FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours.`;
 
 const COLOR_RULES = `COLOR PALETTE:

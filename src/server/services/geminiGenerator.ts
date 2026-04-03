@@ -212,17 +212,17 @@ function buildCharacterSheetPrompt(character: any): string {
 
   return `CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
 
-ART STYLE — oil pastel on textured paper:
-- Medium: Oil pastel illustration on heavy textured paper. Soft, waxy, chalky strokes that blend and smudge into each other. Colors are rich, saturated, and slightly grainy.
-- Edges: ABSOLUTELY NO outlines, linework, or drawn borders. Shapes are formed by pressing colored pastel into paper — edges are soft, smudgy, and blended where colors meet. Like finger-painting with crayons.
-- Texture: Heavy visible paper grain showing through the pastel. Strokes should look thick, waxy, and layered. Areas of color should be uneven and organic with visible stick marks.
-- Colors: Bold, warm, saturated. Oil pastel gives rich opaque color with a slight sheen. Colors blend where they overlap, creating soft transitions.
-- Feel: Handmade, warm, tactile, childlike. Like illustrations a talented art teacher would make. Think Komako Sakai or Miroco Machiko.
+ART STYLE — soft chalk pastel on textured paper:
+- Medium: Soft chalk pastel illustration on heavy textured paper. Powdery, dreamy strokes that smudge and blur into each other. Colors are soft, dusty, and luminous — like looking through a gentle haze.
+- Edges: ABSOLUTELY NO outlines, linework, or drawn borders. Shapes are formed by smudging colored chalk into paper — edges are diffused, powdery, and feathered. Every boundary between shapes is soft and hazy, never sharp.
+- Texture: Heavy visible paper grain showing through the chalk. Strokes should look powdery and layered, with areas where the chalk is rubbed smooth and areas where individual strokes are still visible.
+- Colors: Soft, warm, luminous. Chalk pastel gives a distinctive dusty, matte quality. Colors glow from within rather than being bold or saturated. Gentle blending where colors meet.
+- Feel: Dreamy, gentle, ethereal — like illustrations seen through a soft-focus lens. Think Iwasaki Chihiro or Komako Sakai. Tender and atmospheric, not precise.
 - FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours.
 
-REPEAT: NO OUTLINES. NO LINEWORK. Shapes are defined by COLOR ONLY.
+REPEAT: NO OUTLINES. NO LINEWORK. Shapes are defined by SOFT SMUDGED COLOR ONLY.
 
-Create a page of OIL PASTEL PAINTED STUDIES of this character. Show this character 12-15 times on a warm cream-colored paper background. Mix of full body views and close-up head/upper body views. Each study should look like an individual oil pastel painting — soft, smudgy, painterly. NOT a clean technical model sheet. NOT a cartoon turnaround. These are PAINTED STUDIES, like pages from an artist's sketchbook done entirely in oil pastel.
+Create a page of SOFT CHALK PASTEL STUDIES of this character. Show this character 12-15 times on a warm cream-colored paper background. Mix of full body views and close-up head/upper body views. Each study should look like an individual chalk pastel drawing — soft, powdery, dreamy. NOT a clean technical model sheet. NOT a cartoon turnaround. These are PASTEL STUDIES, like pages from an artist's sketchbook done entirely in soft chalk pastel.
 
 IMPORTANT: This character is a ${character.speciesOrType}. Follow the body description below EXACTLY. This character has its own unique body shape, colors, proportions, and clothing.
 
@@ -267,7 +267,7 @@ export async function generateLocationSheet(
 
   const prompt = `CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
 
-ART STYLE: Oil pastel on heavy textured paper. Soft, waxy, chalky strokes that blend and smudge. NO outlines, NO linework, NO drawn borders — shapes formed by pressing colored pastel into paper, edges soft and smudgy. Heavy paper grain, thick layered strokes, visible stick marks. Bold warm saturated colors. Handmade and childlike, not precise. Think Komako Sakai. FORBIDDEN: outlines, linework, ink borders, cel shading, vector art, digital art, 3D, photorealism.
+ART STYLE: Soft chalk pastel on heavy textured paper. Powdery, dreamy strokes that smudge and blur. NO outlines, NO linework, NO drawn borders — shapes formed by smudging chalk into paper, edges diffused and feathered. Heavy paper grain, soft layered strokes, dusty luminous colors. Gentle and atmospheric, not precise. Think Iwasaki Chihiro. FORBIDDEN: outlines, linework, ink borders, cel shading, vector art, digital art, 3D, photorealism.
 
 Create a LOCATION REFERENCE SHEET. Show this location 8-10 times on a plain white background.
 
@@ -433,7 +433,7 @@ ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
 
     try {
       const response = await chat.sendMessage({
-        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: Oil pastel style — soft waxy smudgy strokes, NO outlines, NO linework. Characters must match their reference sheets exactly.`,
+        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: Soft chalk pastel style — powdery dreamy smudged strokes, NO outlines, NO linework. Characters must match their reference sheets exactly.`,
       });
 
       const imageUrl = extractImage(response);
