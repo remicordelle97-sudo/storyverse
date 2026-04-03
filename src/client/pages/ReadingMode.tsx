@@ -2,6 +2,131 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getStory } from "../api/client";
+import { jsPDF } from "jspdf";
+
+async function loadImageAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function exportStoryAsPdf(story: any) {
+  const pages = story.scenes || [];
+  // Landscape A4: 297 x 210 mm
+  const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const pageW = 297;
+  const pageH = 210;
+  const halfW = pageW / 2;
+
+  // -- Title page --
+  pdf.setFillColor(245, 236, 215); // parchment
+  pdf.rect(0, 0, pageW, pageH, "F");
+
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(28);
+  pdf.setTextColor(60, 50, 40);
+  const titleLines = pdf.splitTextToSize(story.title, halfW - 30);
+  const titleY = pageH / 2 - (titleLines.length * 12) / 2;
+  pdf.text(titleLines, halfW / 2, titleY, { align: "center" });
+
+  if (story.characters?.length > 0) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(12);
+    pdf.setTextColor(140, 130, 120);
+    const names = story.characters.map((sc: any) => sc.character.name).join(" & ");
+    pdf.text(`featuring ${names}`, halfW / 2, titleY + titleLines.length * 12 + 8, { align: "center" });
+  }
+
+  // Right side of title page
+  pdf.setFont("helvetica", "italic");
+  pdf.setFontSize(11);
+  pdf.setTextColor(160, 150, 140);
+  pdf.text("A Storyverse tale", halfW + halfW / 2, pageH / 2, { align: "center" });
+
+  // Spine line
+  pdf.setDrawColor(196, 180, 138);
+  pdf.setLineWidth(0.5);
+  pdf.line(halfW, 0, halfW, pageH);
+
+  // -- Story pages --
+  for (let i = 0; i < pages.length; i++) {
+    const scene = pages[i];
+    pdf.addPage([pageW, pageH], "landscape");
+
+    // Background
+    pdf.setFillColor(245, 236, 215);
+    pdf.rect(0, 0, pageW, pageH, "F");
+
+    // Left side: illustration
+    if (scene.imageUrl) {
+      const dataUrl = await loadImageAsDataUrl(scene.imageUrl);
+      if (dataUrl) {
+        try {
+          pdf.addImage(dataUrl, "JPEG", 2, 2, halfW - 4, pageH - 4);
+        } catch {
+          // Image failed to load, skip
+        }
+      }
+    }
+
+    // Spine
+    pdf.setDrawColor(196, 180, 138);
+    pdf.setLineWidth(0.5);
+    pdf.line(halfW, 0, halfW, pageH);
+
+    // Right side: text
+    const textX = halfW + 12;
+    const textW = halfW - 24;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(14);
+    pdf.setTextColor(60, 50, 40);
+    const textLines = pdf.splitTextToSize(scene.content, textW);
+    pdf.text(textLines, textX, 20);
+
+    // Page numbers
+    pdf.setFontSize(8);
+    pdf.setTextColor(160, 150, 140);
+    pdf.text(String(i * 2 + 1), halfW / 2, pageH - 6, { align: "center" });
+    pdf.text(String(i * 2 + 2), halfW + halfW / 2, pageH - 6, { align: "center" });
+
+    // Scene counter
+    pdf.text(`${i + 1} of ${pages.length}`, pageW - 10, 8, { align: "right" });
+  }
+
+  // -- End page --
+  pdf.addPage([pageW, pageH], "landscape");
+  pdf.setFillColor(245, 236, 215);
+  pdf.rect(0, 0, pageW, pageH, "F");
+
+  pdf.setFont("helvetica", "italic");
+  pdf.setFontSize(32);
+  pdf.setTextColor(60, 50, 40);
+  pdf.text("The End", halfW / 2, pageH / 2, { align: "center" });
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(12);
+  pdf.setTextColor(140, 130, 120);
+  pdf.text(story.title, halfW / 2, pageH / 2 + 14, { align: "center" });
+
+  // Spine
+  pdf.setDrawColor(196, 180, 138);
+  pdf.setLineWidth(0.5);
+  pdf.line(halfW, 0, halfW, pageH);
+
+  // Save
+  const safeName = story.title.replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "-").toLowerCase();
+  pdf.save(`${safeName}.pdf`);
+}
 
 type View = "title" | "page" | "end";
 
@@ -14,6 +139,7 @@ export default function ReadingMode() {
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [controlsVisible, setControlsVisible] = useState(true);
   const [controlsTimer, setControlsTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const { data: story, isLoading } = useQuery({
     queryKey: ["story", storyId],
@@ -170,7 +296,23 @@ export default function ReadingMode() {
             ))}
           </div>
         )}
-        <div className="w-12" />
+        <button
+          onClick={async (e) => {
+            e.stopPropagation();
+            if (exporting || !story) return;
+            setExporting(true);
+            try {
+              await exportStoryAsPdf(story);
+            } catch (err) {
+              console.error("PDF export failed:", err);
+            }
+            setExporting(false);
+          }}
+          disabled={exporting}
+          className="text-white/60 hover:text-white text-sm transition-colors disabled:opacity-40"
+        >
+          {exporting ? "Saving..." : "Save PDF"}
+        </button>
       </div>
 
       {/* Tap zones */}
