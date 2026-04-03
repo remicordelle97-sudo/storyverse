@@ -425,8 +425,19 @@ For each page, I may include character reference images. These are for CHARACTER
       }
     }
 
+    // Rotate shot types to force composition variety
+    const shotTypes = [
+      "WIDE ESTABLISHING SHOT — character small in a big landscape",
+      "MEDIUM SHOT — full body with environment visible",
+      "CLOSE-UP — face and upper body filling most of the frame",
+      "LOW ANGLE — looking up at the character from ground level",
+      "OVER-THE-SHOULDER or BIRD'S EYE view",
+      "MEDIUM-WIDE — character at one side, environment dominant",
+    ];
+    const shotType = shotTypes[i % shotTypes.length];
+
     pageParts.push({
-      text: `Page ${page.page_number}: ${page.image_prompt}\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration. ${matchedChars.length > 0 ? `Match ${matchedChars.join(" and ")} to their reference images (body, colors, outfit) but use the style guide for art style.` : ""}`,
+      text: `Page ${page.page_number}: ${page.image_prompt}\n\nFRAMING: Use a ${shotType}. This MUST look different from the previous page — different angle, different composition, different background emphasis.\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration. ${matchedChars.length > 0 ? `Match ${matchedChars.join(" and ")} to their reference images (body, colors, outfit) but use the style guide for art style.` : ""}`,
     });
 
     try {

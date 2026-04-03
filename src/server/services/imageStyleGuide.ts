@@ -27,11 +27,17 @@ const COMPOSITION_RULES = `COMPOSITION:
 - Use leading lines (paths, branches, rivers, gazes) to draw the eye toward the focal point.
 - Leave breathing room. Not every inch needs detail. Empty space makes the important elements stronger.
 - Leave an area of calm, non-busy space (plain sky, simple ground, soft gradient) where text could be placed. Do NOT generate any text or letters in the image.
-- Vary framing across pages: mix close-ups (face and shoulders) with medium shots (full body) and wide shots (character small in a big landscape).
-- Frame characters using environmental elements when possible: doorways, tree branches, cave openings, window frames.`;
+- Frame characters using environmental elements when possible: doorways, tree branches, cave openings, window frames.
+
+CRITICAL — VARY EVERY PAGE:
+- NEVER repeat the same composition, camera angle, or framing on consecutive pages.
+- Alternate between these shot types across the story: CLOSE-UP (face and shoulders filling the frame), MEDIUM (full body with some environment), WIDE/ESTABLISHING (character small in a big landscape), OVER-THE-SHOULDER, BIRD'S EYE view looking down, LOW ANGLE looking up at the character.
+- Each page must show a DIFFERENT background/environment or a meaningfully different view of the same location (different angle, different time of day, different weather, different focal point).
+- If the previous page showed the character from the front, show them from the side or back.
+- The reader should feel like they are MOVING through the story, not staring at the same scene.`;
 
 const CHARACTER_RENDERING = `CHARACTER RENDERING:
-- Eyes are the most important feature. Draw them LARGE, expressive, and clearly readable. Eyes communicate the emotion of the scene.
+- Eyes should be LARGE and expressive but in a stylized, illustrated way — NOT photorealistic or hyper-detailed. Simple round eyes with clear pupils, matching the soft painterly style. No photorealistic reflections, no complex iris detail, no Disney-style sparkle effects. Eyes should feel drawn/painted, not rendered.
 - Facial expressions must match the story text's emotion. Show feelings through the whole body: ears, tail, posture, hand/paw position.
 - Each character has identity anchors (listed in the character sheet) that MUST appear in every single image: signature colors, clothing, accessories, distinguishing marks.
 - Maintain consistent proportions for each character across all pages. If a character is small and round on page 1, they must be small and round on page 10.
