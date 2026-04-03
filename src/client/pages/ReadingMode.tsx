@@ -71,7 +71,19 @@ async function exportStoryAsPdf(story: any) {
       const dataUrl = await loadImageAsDataUrl(scene.imageUrl);
       if (dataUrl) {
         try {
-          pdf.addImage(dataUrl, "JPEG", 2, 2, halfW - 4, pageH - 4);
+          // Fit image within left page while preserving 4:3 aspect ratio
+          const availW = halfW - 4;
+          const availH = pageH - 4;
+          const imgRatio = 4 / 3;
+          let imgW = availW;
+          let imgH = imgW / imgRatio;
+          if (imgH > availH) {
+            imgH = availH;
+            imgW = imgH * imgRatio;
+          }
+          const imgX = 2 + (availW - imgW) / 2;
+          const imgY = 2 + (availH - imgH) / 2;
+          pdf.addImage(dataUrl, "JPEG", imgX, imgY, imgW, imgH);
         } catch {
           // Image failed to load, skip
         }
