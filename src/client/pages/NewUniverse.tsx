@@ -17,16 +17,6 @@ const INTERESTS = [
   "Something else",
 ];
 
-const PERSONALITIES = [
-  "Brave",
-  "Curious",
-  "Funny",
-  "Kind",
-  "Shy but brave",
-  "Clever",
-  "Mischievous",
-];
-
 export default function NewUniverse() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -36,8 +26,6 @@ export default function NewUniverse() {
   const [customInterest, setCustomInterest] = useState("");
   const [avoidThemes, setAvoidThemes] = useState("");
   const [heroName, setHeroName] = useState("");
-  const [heroTraits, setHeroTraits] = useState<string[]>([]);
-  const [heroDetail, setHeroDetail] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingStep, setSavingStep] = useState("");
 
@@ -45,15 +33,11 @@ export default function NewUniverse() {
     setInterests((prev) =>
       prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i]
     );
-  const toggleTrait = (t: string) =>
-    setHeroTraits((prev) =>
-      prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
-    );
 
   const canNext = () => {
     if (step === 1) return interests.length > 0;
     if (step === 2) return true;
-    if (step === 3) return heroName.trim() && heroTraits.length > 0;
+    if (step === 3) return heroName.trim().length > 0;
     return true;
   };
 
@@ -83,16 +67,14 @@ export default function NewUniverse() {
       });
 
       setSavingStep("Creating hero...");
-      console.log("Creating hero with:", { heroName, species: concept.heroSpecies, hasAppearance: !!concept.heroAppearance, hasOutfit: !!concept.heroOutfit });
-
       await createCharacter({
         universeId: universe.id,
         name: heroName,
         speciesOrType: concept.heroSpecies || "Adventurer",
-        personalityTraits: JSON.stringify(heroTraits),
+        personalityTraits: concept.heroPersonalityTraits || "[]",
         appearance: concept.heroAppearance || `A friendly ${(concept.heroSpecies || "character").toLowerCase()} with bright, curious eyes`,
         outfit: concept.heroOutfit || "",
-        specialDetail: heroDetail,
+        specialDetail: concept.heroSpecialDetail || "",
         dominantTrait: concept.heroDominantTrait || "",
         personalWant: concept.heroPersonalWant || "",
         signatureBehavior: concept.heroSignatureBehavior || "",
@@ -182,9 +164,9 @@ export default function NewUniverse() {
         {step === 3 && (
           <div>
             <h2 className="text-2xl font-bold text-stone-800 mb-2">
-              Create the hero
+              Name your hero
             </h2>
-            <p className="text-stone-500 mb-6">The main character of this world.</p>
+            <p className="text-stone-500 mb-6">We'll create their personality, look, and friends.</p>
             <label className="block text-sm font-medium text-stone-700 mb-1">
               Hero's name
             </label>
@@ -192,33 +174,9 @@ export default function NewUniverse() {
               type="text"
               value={heroName}
               onChange={(e) => setHeroName(e.target.value)}
-              className="w-full border border-stone-300 rounded-lg px-4 py-2.5 mb-5 focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="e.g. Leo the Lion"
-            />
-            <label className="block text-sm font-medium text-stone-700 mb-2">
-              Personality
-            </label>
-            <div className="flex flex-wrap gap-2 mb-5">
-              {PERSONALITIES.map((p) => (
-                <Chip
-                  key={p}
-                  label={p}
-                  selected={heroTraits.includes(p)}
-                  onClick={() => toggleTrait(p)}
-                />
-              ))}
-            </div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">
-              One special detail (optional)
-            </label>
-            <input
-              type="text"
-              value={heroDetail}
-              onChange={(e) => setHeroDetail(e.target.value)}
               className="w-full border border-stone-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
-              placeholder="e.g. Always carries a tiny blue backpack"
+              placeholder="e.g. Leo"
             />
-
           </div>
         )}
 

@@ -89,7 +89,9 @@ If the character has WHISKERS, specify: count per side, length, color.
 
 Also generate the hero's OUTFIT separately — everything they wear, carry, or have on them. List each item with its EXACT color as a hex code. Format as a bulleted list starting with "ALWAYS WEARS AND CARRIES (never remove any item):".
 
-Generate the hero's CHARACTER DEPTH:
+Generate the hero's PERSONALITY AND CHARACTER DEPTH:
+- "heroPersonalityTraits": 2-4 distinct personality traits that make the hero feel real and specific. (e.g., ["brave", "curious", "impulsive"])
+- "heroSpecialDetail": A fun, memorable quirk or special detail about the hero. (e.g., "Has one ear that's slightly bigger than the other", "Can wiggle their nose in a perfect circle")
 - "heroDominantTrait": The ONE trait that defines this hero above all others. Not a list — one single word or short phrase. (e.g., "recklessly brave", "uncontrollably curious", "stubbornly optimistic")
 - "heroPersonalWant": A small, specific, ongoing desire the hero has — something personal that drives them beyond any single story. (e.g., "Wants to climb to the very top of the tallest tree in the forest", "Dreams of finding the legendary golden shell")
 - "heroSignatureBehavior": One specific, repeatable action or verbal habit that children can anticipate and join in on. Should appear in EVERY story. (e.g., "Always sniffs the air three times before entering a new place", "Says 'let's GO!' while jumping with both feet")
@@ -101,6 +103,8 @@ Return exactly this JSON:
   "heroSpecies": "The suggested species or type for the hero",
   "heroAppearance": "Complete BODY-ONLY visual specification (no clothing)",
   "heroOutfit": "ALWAYS WEARS AND CARRIES (never remove any item):\\n- #hexcode color item description\\n- #hexcode color item description",
+  "heroPersonalityTraits": ["trait1", "trait2", "trait3"],
+  "heroSpecialDetail": "a fun memorable quirk",
   "heroDominantTrait": "one defining trait",
   "heroPersonalWant": "a specific ongoing desire",
   "heroSignatureBehavior": "a repeatable action or verbal habit"
