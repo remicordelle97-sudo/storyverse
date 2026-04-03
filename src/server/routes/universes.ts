@@ -45,69 +45,33 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Generate a unique universe concept (name, description, hero species)
+// Generate a unique universe concept (name and description only)
 router.post("/generate-concept", async (req, res) => {
   try {
-    const { interests, heroName } = req.body;
+    const { interests } = req.body;
 
-    debug.universe("Generating universe concept via Claude", { interests, heroName });
+    debug.universe("Generating universe concept via Claude", { interests });
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 2000,
+      max_tokens: 1000,
       temperature: 0.75,
       system: "You create unique, imaginative worlds for children's stories. Return ONLY valid JSON. No markdown fences.",
       messages: [
         {
           role: "user",
-          content: `Create a unique children's story universe based on these inputs:
+          content: `Create a unique children's story universe based on these interests:
 
 INTERESTS: ${JSON.stringify(interests)}
-HERO NAME: ${heroName}
 
 Generate a creative, evocative universe name and a rich setting description. The name should be unique and memorable, not generic (avoid "The [Adjective] [Noun]" patterns every time — be creative with the naming).
 
 The setting description should be 2-3 sentences that paint a vivid picture of this world: what it looks, sounds, and feels like. Include specific, surprising details that make it feel alive.
 
-Also suggest what species or type the hero "${heroName}" could be, based on the interests and world.
-
-Generate a COMPLETE VISUAL SPECIFICATION for the hero's appearance — detailed enough for an illustrator to draw the character identically across 50 different images. Include ALL of the following:
-- BODY: shape, size, posture, primary color
-- HEAD: shape, size relative to body, color
-- EYES: count, shape, size, color, pupil style
-- NOSE/MOUTH/BEAK/SNOUT: type, shape, color
-- EARS: count, shape, size, position (or "none")
-- ARMS: count, length, thickness, color, what's at the end (hands/paws/claws, finger count)
-- LEGS: count, length, thickness, color, what's at the end (feet/hooves/claws)
-- WINGS: count, size, shape, color, transparency, attachment point (or "none")
-- TAIL: length, shape, color (or "none")
-- ANTENNAE/HORNS: count, shape, length (or "none")
-- MARKINGS: stripes, spots, patterns, locations on body
-- CLOTHING: what they always wear
-Be SPECIFIC with numbers: "2 large translucent teal wings" not just "wings".
-If the character has WHISKERS, specify: count per side, length, color.
-
-Also generate the hero's OUTFIT separately — everything they wear, carry, or have on them. List each item with its EXACT color as a hex code. Format as a bulleted list starting with "ALWAYS WEARS AND CARRIES (never remove any item):".
-
-Generate the hero's PERSONALITY AND CHARACTER DEPTH:
-- "heroPersonalityTraits": 2-4 distinct personality traits that make the hero feel real and specific. (e.g., ["brave", "curious", "impulsive"])
-- "heroSpecialDetail": A fun, memorable quirk or special detail about the hero. (e.g., "Has one ear that's slightly bigger than the other", "Can wiggle their nose in a perfect circle")
-- "heroDominantTrait": The ONE trait that defines this hero above all others. Not a list — one single word or short phrase. (e.g., "recklessly brave", "uncontrollably curious", "stubbornly optimistic")
-- "heroPersonalWant": A small, specific, ongoing desire the hero has — something personal that drives them beyond any single story. (e.g., "Wants to climb to the very top of the tallest tree in the forest", "Dreams of finding the legendary golden shell")
-- "heroSignatureBehavior": One specific, repeatable action or verbal habit that children can anticipate and join in on. Should appear in EVERY story. (e.g., "Always sniffs the air three times before entering a new place", "Says 'let's GO!' while jumping with both feet")
-
 Return exactly this JSON:
 {
   "name": "A unique universe name",
-  "settingDescription": "2-3 sentences describing this world vividly",
-  "heroSpecies": "The suggested species or type for the hero",
-  "heroAppearance": "Complete BODY-ONLY visual specification (no clothing)",
-  "heroOutfit": "ALWAYS WEARS AND CARRIES (never remove any item):\\n- #hexcode color item description\\n- #hexcode color item description",
-  "heroPersonalityTraits": ["trait1", "trait2", "trait3"],
-  "heroSpecialDetail": "a fun memorable quirk",
-  "heroDominantTrait": "one defining trait",
-  "heroPersonalWant": "a specific ongoing desire",
-  "heroSignatureBehavior": "a repeatable action or verbal habit"
+  "settingDescription": "2-3 sentences describing this world vividly"
 }`,
         },
       ],
@@ -124,10 +88,7 @@ Return exactly this JSON:
     }
 
     const concept = JSON.parse(raw);
-    debug.universe("Universe concept generated", {
-      name: concept.name,
-      heroSpecies: concept.heroSpecies,
-    });
+    debug.universe("Universe concept generated", { name: concept.name });
 
     res.json(concept);
   } catch (e: any) {

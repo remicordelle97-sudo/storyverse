@@ -1,7 +1,7 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
-import { generateSecondaryCharacters } from "../services/characterGenerator.js";
+import { generateAllCharacters } from "../services/characterGenerator.js";
 import { generateCharacterSheet, generateAllCharacterSheets } from "../services/geminiGenerator.js";
 import { verifyUniverseOwnership } from "../lib/ownership.js";
 
@@ -85,10 +85,10 @@ router.post("/generate", async (req, res) => {
     if (!await verifyUniverseOwnership(universeId, req.userId!)) {
       return res.status(403).json({ error: "Access denied" });
     }
-    debug.character("Generating secondary characters via Claude...", { universeId });
+    debug.character("Generating all characters via Claude...", { universeId });
     const startGen = Date.now();
-    await generateSecondaryCharacters(universeId);
-    debug.character(`Secondary characters generated in ${Date.now() - startGen}ms`);
+    await generateAllCharacters(universeId);
+    debug.character(`All characters generated in ${Date.now() - startGen}ms`);
 
     // Generate all character sheets in a single multi-turn chat
     // for art style consistency

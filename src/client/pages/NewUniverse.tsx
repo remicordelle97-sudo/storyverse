@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { createUniverse, createCharacter, generateUniverseConcept, generateCharacters } from "../api/client";
+
 import Chip from "../components/Chip";
 
 const INTERESTS = [
@@ -53,10 +54,7 @@ export default function NewUniverse() {
       setSavingStep("Imagining your world...");
       const concept = await generateUniverseConcept({
         interests: allThemes,
-        heroName,
       });
-
-      console.log("Universe concept:", JSON.stringify(concept, null, 2));
 
       setSavingStep(`Creating "${concept.name}"...`);
       const universe = await createUniverse({
@@ -66,22 +64,17 @@ export default function NewUniverse() {
         avoidThemes,
       });
 
-      setSavingStep("Creating hero...");
+      // Create a bare hero placeholder — generateCharacters will flesh it out
       await createCharacter({
         universeId: universe.id,
         name: heroName,
-        speciesOrType: concept.heroSpecies || "Adventurer",
-        personalityTraits: concept.heroPersonalityTraits || "[]",
-        appearance: concept.heroAppearance || `A friendly ${(concept.heroSpecies || "character").toLowerCase()} with bright, curious eyes`,
-        outfit: concept.heroOutfit || "",
-        specialDetail: concept.heroSpecialDetail || "",
-        dominantTrait: concept.heroDominantTrait || "",
-        personalWant: concept.heroPersonalWant || "",
-        signatureBehavior: concept.heroSignatureBehavior || "",
+        speciesOrType: "TBD",
+        personalityTraits: "[]",
+        appearance: "",
         role: "main",
       });
 
-      setSavingStep("Creating supporting characters...");
+      setSavingStep("Creating characters...");
       await generateCharacters(universe.id);
 
       queryClient.invalidateQueries({ queryKey: ["universes"] });
