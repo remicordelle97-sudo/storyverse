@@ -96,9 +96,9 @@ export function runAutomatedChecks(
     : 0;
 
   const ageRanges: Record<string, { min: number; max: number }> = {
-    "2-3": { min: 3, max: 10 },
-    "4-5": { min: 5, max: 18 },
-    "6-8": { min: 6, max: 25 },
+    "2-3": { min: 2, max: 8 },
+    "4-5": { min: 4, max: 14 },
+    "6-8": { min: 5, max: 18 },
   };
   const range = ageRanges[params.ageGroup] || ageRanges["4-5"];
   const sentenceScore = avgSentenceLength >= range.min && avgSentenceLength <= range.max

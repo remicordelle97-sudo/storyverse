@@ -14,13 +14,21 @@ interface PromptInput {
 
 const AGE_GUIDELINES: Record<string, string> = {
   "2-3": `WRITING LEVEL — Ages 2-3 (Toddler):
-- Each page has 1-2 short sentences (5-8 words each).
+- Each page has 1-2 short sentences (3-6 words each).
 - No conflict, tension, or scary moments — everything is gentle and safe.
 - Repeat key phrases throughout the story as a refrain the child can anticipate and join in on. For example: "And off they went, step by step!" should appear at least 3 times.
-- Focus on sensory details: describe colours, sounds, textures, smells ("the warm, soft sand", "the bright red flower").
+- Focus on sensory details: describe colours, sounds, textures, smells ("the warm sand", "the red flower").
 - Characters express only simple emotions: happy, sad, surprised, sleepy. SHOW emotions through actions ("Leo's tail wagged") not labels ("Leo felt happy").
-- Use short punchy sentences during movement and longer gentle ones during rest.
 - End with warmth, hugs, or bedtime cues.
+
+SENTENCE STRUCTURE — Ages 2-3:
+- ONE clause per sentence. No compound sentences. No "and then" joining two actions.
+- Pattern: Subject + Verb, or Subject + Verb + Object. That is it.
+- Maximum ONE adjective per noun. "The big rock." NOT "the big round smooth rock."
+- No subordinate clauses. No "while," "because," "although," "when," "before," "after," "which," "that."
+- No commas except in lists of exactly 2 items.
+- GOOD sentences: "Leo sat down." "The rock was red." "Zuri found a stick." "The water was cold."
+- BAD sentences: "Leo sat down on the warm, soft sand near the big tree." "While looking at the sky, Zuri noticed a bird flying over the hill."
 
 VOCABULARY — Ages 2-3:
 - Use ONLY words a toddler hears in daily life. One or two syllable words almost exclusively.
@@ -31,37 +39,52 @@ VOCABULARY — Ages 2-3:
 - VOCABULARY CHECK: Before writing each sentence, ask yourself: would a 2-year-old understand every single word? If ANY word might be unfamiliar, replace it with a simpler one.`,
 
   "4-5": `WRITING LEVEL — Ages 4-5 (Early Reader):
-- Each page has 2-4 sentences.
-- Use clear, vivid sentences (8-15 words).
+- Each page has 2-3 sentences.
 - Include a recurring phrase or refrain that appears at key moments — something the child can predict and say along with the reader.
 - Gentle tension is OK (a lost item, a small misunderstanding) but resolve it within a few pages.
-- SHOW emotions through actions, body language, and dialogue — never state them. Write "Zuri's ears flattened and she stepped behind Leo" not "Zuri felt scared."
+- SHOW emotions through actions, body language, and dialogue — never state them. Write "Zuri's ears went flat" not "Zuri felt scared."
 - Include at least 2-3 sensory details per page: what things look, sound, smell, feel, or taste like.
 - Use light humour, funny sounds, and playful dialogue.
-- Use short staccato sentences during exciting moments. Use longer flowing sentences during calm, reflective moments.
 - Be bold and surprising — children love the outrageous and unexpected. Think big: a waterfall that flows upward, a cave that sings, a cloud you can bounce on.
 - Always resolve uncertainty before the story ends.
 
+SENTENCE STRUCTURE — Ages 4-5:
+- Maximum ONE clause per sentence for most sentences.
+- Occasionally TWO clauses joined by "and" or "but" — no more than once per page.
+- No "while," "although," "however," "meanwhile," "furthermore." Only "and," "but," "so" to join clauses.
+- Maximum TWO adjectives per noun.
+- 6-12 words per sentence.
+- Keep Subject-Verb-Object order. Do NOT start sentences with prepositional phrases or subordinate clauses.
+- GOOD sentences: "Leo picked up the blue stone." "Zuri ran fast, but she stopped at the river." "The cave was dark and cold."
+- BAD sentences: "While walking through the meadow, Leo noticed something shiny between the roots of the old oak tree." "The soft, warm, golden light that filtered through the ancient canopy made everything glow."
+
 VOCABULARY — Ages 4-5:
 - Prefer simple, punchy, concrete words over fancy ones. "Big" not "enormous." "Ran" not "dashed." "Tried" not "endeavored." "Looked" not "gazed."
-- ONE new or interesting word per page is OK IF the meaning is completely obvious from the sentence around it. For example: "a lantern — a special light you can carry."
+- ONE new or interesting word per page is OK IF the meaning is completely obvious from the sentence around it.
 - No adult literary vocabulary. No words a parent would need to explain.
 - BANNED words for this age: endeavored, contemplated, magnificent, glistened, murmured, pondered, peculiar, extraordinary, spectacle, remarkable, commenced, exclaimed, approached cautiously, determination, reluctantly, presumably, consequently, nevertheless.
 - VOCABULARY CHECK: Before writing each sentence, ask: would a 4-year-old understand this on first hearing, without any explanation? If not, use a simpler word. The story is read aloud — there is no time to stop and explain.`,
 
   "6-8": `WRITING LEVEL — Ages 6-8 (Confident Reader):
-- Each page has 3-4 sentences with richer descriptive detail.
-- Use varied sentence structure. Vocabulary can be more ambitious than younger ages, but every sentence must be understandable on first read.
+- Each page has 3-4 sentences.
 - SHOW every emotion through actions, body language, and dialogue — never state them directly. Write "Leo clenched his paws and stared at the ground" not "Leo felt frustrated."
 - Real stakes and challenges are OK — characters can struggle, fail, and try again.
 - Characters can experience complex emotions: embarrassment, jealousy, guilt, determination — conveyed through their actions and words.
 - Dialogue should be witty and show distinct character voices — each character should sound different.
-- Include at least 3-4 sensory details per page across different senses.
-- Use short punchy sentences for action and tension. Use longer flowing sentences for emotional and reflective moments. Vary rhythm deliberately.
+- Include at least 2-3 sensory details per page across different senses.
 - Be surprising and imaginative — the more inventive and unexpected the world-building details, the more memorable the story. Don't settle for the obvious.
 - Subplots and mysteries are welcome — foreshadow and pay off details.
 - Themes can include fairness, responsibility, and standing up for others — but NEVER state a moral lesson. Let the reader draw their own conclusions from the characters' experiences.
 - The ending should feel earned, not handed to the characters.
+
+SENTENCE STRUCTURE — Ages 6-8:
+- Mix of simple sentences (one clause) and compound sentences (two clauses joined by "and," "but," "so").
+- Maximum ONE complex sentence per page (using "because," "when," "before," "after").
+- No sentence may have more than TWO clauses.
+- 8-15 words per sentence.
+- Vary sentence length deliberately: short for impact, medium for description.
+- GOOD sentences: "Leo climbed the rock and looked out over the valley." "The cave was dark because the sun had set." "Zuri laughed. She could not help it."
+- BAD sentences: "Although Leo had been nervous about entering the cave, which was darker than any place he had ever visited before, he took a deep breath and stepped inside." "The ancient, weathered, moss-covered stone archway that marked the entrance to the forgotten tunnels beneath the mountain stood silent in the fading light."
 
 VOCABULARY — Ages 6-8:
 - Richer vocabulary is welcome, but prefer strong, vivid, specific words over fancy, literary ones. "Stomped" is better than "proceeded." "Huge" is better than "magnificent."
