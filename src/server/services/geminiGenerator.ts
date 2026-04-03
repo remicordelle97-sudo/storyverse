@@ -442,32 +442,37 @@ For each page, I may include character reference images. These are for CHARACTER
 
     try {
       let imageUrl: string | null = null;
-      let attempts = 0;
-      const maxAttempts = 2;
 
-      while (!imageUrl && attempts < maxAttempts) {
-        attempts++;
-        const response = await chat.sendMessage({
-          message: pageParts,
-        });
+      // Attempt 1: with reference images
+      const response1 = await chat.sendMessage({ message: pageParts });
+      imageUrl = extractImage(response1);
 
-        imageUrl = extractImage(response);
+      if (!imageUrl) {
+        const candidate = response1?.candidates?.[0];
+        const finishReason = candidate?.finishReason || "no candidate";
+        const textParts = candidate?.content?.parts
+          ?.filter((p: any) => p.text)
+          ?.map((p: any) => p.text)
+          ?.join(" ") || "no content";
+        debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt 1 with refs). finishReason=${finishReason}, refImages=${matchedChars.length}, text="${textParts.slice(0, 200)}"`);
+
+        // Attempt 2: retry with reference images
+        debug.image(`Retrying page ${i + 1} with refs...`);
+        const response2 = await chat.sendMessage({ message: pageParts });
+        imageUrl = extractImage(response2);
+      }
+
+      if (!imageUrl && matchedChars.length > 0) {
+        // Attempt 3: without reference images (they may be triggering the filter)
+        debug.image(`Retrying page ${i + 1} WITHOUT reference images...`);
+        const textOnlyParts = pageParts.filter((p: any) => p.text && !p.inlineData);
+        const response3 = await chat.sendMessage({ message: textOnlyParts });
+        imageUrl = extractImage(response3);
 
         if (!imageUrl) {
-          // Log detailed response info for debugging
-          const candidate = response?.candidates?.[0];
-          const textParts = candidate?.content?.parts
-            ?.filter((p: any) => p.text)
-            ?.map((p: any) => p.text)
-            ?.join(" ") || "no content";
+          const candidate = response3?.candidates?.[0];
           const finishReason = candidate?.finishReason || "no candidate";
-          const safetyRatings = candidate?.safetyRatings?.map((r: any) => `${r.category}:${r.probability}`).join(", ") || "none";
-          const promptFeedback = response?.promptFeedback?.blockReason || "none";
-          debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt ${attempts}/${maxAttempts}). finishReason=${finishReason}, blockReason=${promptFeedback}, safety=[${safetyRatings}], text="${textParts.slice(0, 200)}", refImages=${matchedChars.length}`);
-
-          if (attempts < maxAttempts) {
-            debug.image(`Retrying page ${i + 1}...`);
-          }
+          debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt 3 without refs). finishReason=${finishReason}`);
         }
       }
 
