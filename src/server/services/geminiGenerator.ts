@@ -47,53 +47,6 @@ function extractImage(response: any): string | null {
   return null;
 }
 
-/**
- * Build reference image parts for Gemini from character and location sheets.
- */
-async function buildReferenceParts(
-  universeId: string,
-  characterIds?: string[]
-): Promise<any[]> {
-  const parts: any[] = [];
-
-  // Character reference sheets
-  const charWhere: any = { universeId, referenceImageUrl: { not: "" } };
-  if (characterIds?.length) {
-    charWhere.id = { in: characterIds };
-  }
-  const characters = await prisma.character.findMany({ where: charWhere });
-
-  for (const char of characters) {
-    const img = readImageAsBase64(char.referenceImageUrl);
-    if (img) {
-      parts.push({
-        inlineData: { data: img.data, mimeType: img.mimeType },
-      });
-      parts.push({
-        text: `Reference sheet for ${char.name} (${char.speciesOrType}). Body: ${char.appearance}. ${char.outfit ? `Outfit: ${char.outfit}` : ""} ${char.specialDetail ? `Key detail: ${char.specialDetail}` : ""}`,
-      });
-    }
-  }
-
-  // Location reference sheets
-  const locations = await prisma.location.findMany({
-    where: { universeId, referenceImageUrl: { not: "" } },
-  });
-
-  for (const loc of locations) {
-    const img = readImageAsBase64(loc.referenceImageUrl);
-    if (img) {
-      parts.push({
-        inlineData: { data: img.data, mimeType: img.mimeType },
-      });
-      parts.push({
-        text: `Reference sheet for location "${loc.name}" (${loc.role}): ${loc.description}`,
-      });
-    }
-  }
-
-  return parts;
-}
 
 /**
  * Generate a single character model sheet using Gemini (for regeneration).
@@ -361,11 +314,30 @@ export async function generateStoryImages(
     locDesc += "\n";
   }
 
-  // Build the setup message with all reference images
+  // Pre-load all character reference images for per-page injection
+  const charWhere: any = { universeId, referenceImageUrl: { not: "" } };
+  if (characterIds?.length) {
+    charWhere.id = { in: characterIds };
+  }
+  const refCharacters = await prisma.character.findMany({ where: charWhere });
+
+  const characterRefs = new Map<string, { name: string; data: string; mimeType: string }>();
+  for (const char of refCharacters) {
+    const img = readImageAsBase64(char.referenceImageUrl);
+    if (img) {
+      characterRefs.set(char.name.toLowerCase(), {
+        name: char.name,
+        data: img.data,
+        mimeType: img.mimeType,
+      });
+    }
+  }
+
+  // Build setup message — style guide and scene instructions only, NO reference images
   const setupParts: any[] = [];
 
   setupParts.push({
-    text: `You are illustrating a children's picture book. I will give you scene descriptions one at a time. For each one, generate ONE illustration.
+    text: `You are illustrating a children's picture book. I will give you scene descriptions one at a time. For each one, generate ONE illustration — a full scene with characters, background, and atmosphere.
 
 IMPORTANT — Read the following style guide carefully. Every illustration you generate MUST follow these rules exactly.
 
@@ -376,18 +348,16 @@ CRITICAL: Maintain PERFECT visual consistency across ALL pages:
 - Art style, color palette, and lighting approach must stay consistent throughout
 
 CHARACTERS:\n${charDesc}
-${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
+${locDesc ? `LOCATIONS:\n${locDesc}` : ""}
+
+For each page, I may include character reference images. These are for CHARACTER IDENTITY ONLY:
+- Use them to match the character's body shape, colors, proportions, outfit, and accessories
+- Do NOT copy the style, pose, layout, background, or artistic technique from the reference images
+- Do NOT reproduce the grid/multi-pose layout of reference sheets — generate a SINGLE scene illustration
+- The reference images may be in a different art style — IGNORE their style and follow the style guide above instead`,
   });
 
-  // Add all character reference sheet images
-  const refParts = await buildReferenceParts(universeId, characterIds);
-  setupParts.push(...refParts);
-
-  setupParts.push({
-    text: `The images above are character and location reference sheets. Draw the characters EXACTLY as shown — same body, proportions, colors, outfit, and accessories in every illustration. Now I will send you scene descriptions one at a time. Generate one illustration per scene.`,
-  });
-
-  debug.image(`Starting multi-turn story chat: ${pages.length} pages, ${refParts.filter(p => p.inlineData).length} reference images`);
+  debug.image(`Starting multi-turn story chat: ${pages.length} pages, ${characterRefs.size} character refs available`);
 
   // Create chat session
   const chat = ai.chats.create({
@@ -400,7 +370,7 @@ ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
     },
   });
 
-  // Send setup message
+  // Send setup message (text only, no images)
   try {
     const setupResponse = await chat.sendMessage({
       message: setupParts,
@@ -408,10 +378,9 @@ ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
     debug.image("Setup message sent, Gemini acknowledged");
   } catch (e: any) {
     debug.error(`Setup message failed: ${e.message}`);
-    // Continue anyway — some models don't respond to setup messages
   }
 
-  // Generate each page
+  // Generate each page — inject only relevant character references
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i];
     if (!page.image_prompt) continue;
@@ -421,9 +390,30 @@ ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
     });
     const startTime = Date.now();
 
+    // Find which characters appear in this page's prompt
+    const pageParts: any[] = [];
+    const promptLower = page.image_prompt.toLowerCase();
+    const matchedChars: string[] = [];
+
+    for (const [nameLower, ref] of characterRefs) {
+      if (promptLower.includes(nameLower)) {
+        pageParts.push({
+          inlineData: { data: ref.data, mimeType: ref.mimeType },
+        });
+        pageParts.push({
+          text: `[Reference for ${ref.name} — use for character identity ONLY, not style or layout]`,
+        });
+        matchedChars.push(ref.name);
+      }
+    }
+
+    pageParts.push({
+      text: `Page ${page.page_number}: ${page.image_prompt}\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration. ${matchedChars.length > 0 ? `Match ${matchedChars.join(" and ")} to their reference images (body, colors, outfit) but use the style guide for art style.` : ""}`,
+    });
+
     try {
       const response = await chat.sendMessage({
-        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: ${ART_STYLE_REMINDER} Characters must match their reference sheets exactly.`,
+        message: pageParts,
       });
 
       const imageUrl = extractImage(response);
