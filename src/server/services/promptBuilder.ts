@@ -313,21 +313,15 @@ Parent's request: "${input.parentPrompt}"
 Return exactly this JSON structure and nothing else.
 The "pages" array must contain exactly ${pageCount} page objects.
 
-CRITICAL IMAGE PROMPT RULES:
-Every image_prompt MUST include the FULL visual description of every character who appears on that page. Use the CHARACTER VISUAL REFERENCE below — copy the exact descriptions into every image_prompt. Do NOT use just names. Always describe:
-- Species/type and physical features (size, color, distinguishing marks)
-- What they are wearing or carrying
-- Their expression and body language matching the scene's emotion
-- The setting/environment for that specific moment
-Characters must look IDENTICAL across all pages. Use the exact same descriptors every time a character appears.
-
-=== CHARACTER VISUAL REFERENCE (use ONLY in image_prompt fields, NOT in story text) ===
-${characters.map((char) => {
-    let desc = `${char.name}:\n  Body: ${char.appearance}`;
-    if (char.outfit) desc += `\n  Outfit: ${char.outfit}`;
-    if (char.specialDetail) desc += `\n  Key detail: ${char.specialDetail}`;
-    return desc;
-  }).join("\n\n")}
+IMAGE PROMPT RULES:
+The image_prompt should describe the SCENE, not the characters' bodies. Character reference images are provided separately to the illustrator. For each image_prompt:
+- Name each character present (use their full name, e.g., "Leo the Lion")
+- Describe their EXPRESSION and BODY LANGUAGE (e.g., "looking excited, leaning forward", "sitting sadly with head down")
+- Describe the SETTING and ENVIRONMENT in detail (location, time of day, weather, key objects)
+- Describe the ACTION — what is happening in this moment
+- Describe the MOOD and ATMOSPHERE of the scene
+- Do NOT describe characters' physical bodies, species details, or clothing — the illustrator already has reference images for that
+- Keep image_prompts to 2-3 sentences focused on scene, action, and emotion
 
 {
   "title": "Story title",
