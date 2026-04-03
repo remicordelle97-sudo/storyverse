@@ -454,12 +454,16 @@ For each page, I may include character reference images. These are for CHARACTER
         imageUrl = extractImage(response);
 
         if (!imageUrl) {
-          // Log what Gemini returned instead of an image
-          const textParts = response?.candidates?.[0]?.content?.parts
+          // Log detailed response info for debugging
+          const candidate = response?.candidates?.[0];
+          const textParts = candidate?.content?.parts
             ?.filter((p: any) => p.text)
             ?.map((p: any) => p.text)
             ?.join(" ") || "no content";
-          debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt ${attempts}/${maxAttempts}). Gemini said: ${textParts.slice(0, 200)}`);
+          const finishReason = candidate?.finishReason || "no candidate";
+          const safetyRatings = candidate?.safetyRatings?.map((r: any) => `${r.category}:${r.probability}`).join(", ") || "none";
+          const promptFeedback = response?.promptFeedback?.blockReason || "none";
+          debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt ${attempts}/${maxAttempts}). finishReason=${finishReason}, blockReason=${promptFeedback}, safety=[${safetyRatings}], text="${textParts.slice(0, 200)}", refImages=${matchedChars.length}`);
 
           if (attempts < maxAttempts) {
             debug.image(`Retrying page ${i + 1}...`);
