@@ -12,17 +12,30 @@
  *   --mood MOOD       Story mood (default: "exciting adventures")
  *   --judge           Run Claude-as-judge evaluation (costs ~$0.02/story)
  *   --universe ID     Use a specific universe ID (otherwise uses first available)
+ *   --fresh           Create a fresh universe with new characters for this eval run
+ *   --interests LIST  Interests for fresh universe (comma-separated, default: "Dragons,Space")
+ *   --hero NAME       Hero name for fresh universe (default: "Spark")
  */
 
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { buildPrompt, buildSystemPrompt } from "../../src/server/services/promptBuilder.js";
+import { generateSecondaryCharacters } from "../../src/server/services/characterGenerator.js";
 import { runAutomatedChecks } from "./checks.js";
 import { judgeStory } from "./judge.js";
 import Anthropic from "@anthropic-ai/sdk";
 
 const prisma = new PrismaClient();
 const anthropic = new Anthropic();
+
+const INTERESTS_MAP: Record<string, { themes: string[]; heroSpecies: string }> = {
+  "Dragons": { themes: ["dragons", "fire", "flying"], heroSpecies: "Dragon" },
+  "Space": { themes: ["space", "stars", "exploration"], heroSpecies: "Space Explorer" },
+  "Ocean": { themes: ["ocean", "sea creatures", "coral"], heroSpecies: "Sea Creature" },
+  "Lions": { themes: ["lions", "savanna", "courage"], heroSpecies: "Lion" },
+  "Robots": { themes: ["robots", "technology", "invention"], heroSpecies: "Robot" },
+  "Dinosaurs": { themes: ["dinosaurs", "prehistoric", "adventure"], heroSpecies: "Dinosaur" },
+};
 
 interface EvalResult {
   storyIndex: number;
@@ -65,7 +78,104 @@ function parseArgs() {
     mood: opts.mood || "exciting adventures",
     judge: opts.judge === "true",
     universeId: opts.universe || "",
+    fresh: opts.fresh === "true",
+    interests: opts.interests || "Dragons,Space",
+    heroName: opts.hero || "Spark",
   };
+}
+
+async function createFreshUniverse(interests: string, heroName: string, mood: string): Promise<string> {
+  const interestList = interests.split(",").map((s) => s.trim());
+  const allThemes: string[] = [];
+  let heroSpecies = "Adventurer";
+
+  for (const interest of interestList) {
+    const info = INTERESTS_MAP[interest];
+    if (info) {
+      allThemes.push(...info.themes);
+      heroSpecies = info.heroSpecies;
+    } else {
+      allThemes.push(interest.toLowerCase());
+    }
+  }
+
+  console.log("Creating fresh universe...");
+
+  // Generate universe concept via Claude
+  const conceptMsg = await anthropic.messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2000,
+    temperature: 0.9,
+    system: "You create unique, imaginative worlds for children's stories. Return ONLY valid JSON. No markdown fences.",
+    messages: [{
+      role: "user",
+      content: `Create a unique children's story universe.
+INTERESTS: ${JSON.stringify(interestList)}
+MOOD: ${mood}
+HERO NAME: ${heroName}
+
+Return JSON:
+{
+  "name": "A unique universe name",
+  "settingDescription": "2-3 vivid sentences",
+  "heroSpecies": "species for the hero",
+  "heroAppearance": "Complete body specification (no clothing)",
+  "heroOutfit": "ALWAYS WEARS AND CARRIES:\\n- #hex item..."
+}`,
+    }],
+  });
+
+  const conceptText = conceptMsg.content.find((b) => b.type === "text");
+  let conceptRaw = conceptText?.type === "text" ? conceptText.text.trim() : "";
+  if (conceptRaw.startsWith("```")) conceptRaw = conceptRaw.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+  const concept = JSON.parse(conceptRaw);
+
+  console.log(`  Universe: ${concept.name}`);
+
+  // Find or create a user for eval
+  let user = await prisma.user.findFirst();
+  if (!user) {
+    user = await prisma.user.create({
+      data: { googleId: "eval-user", email: "eval@test.com", name: "Eval User" },
+    });
+  }
+
+  // Create universe
+  const universe = await prisma.universe.create({
+    data: {
+      userId: user.id,
+      name: concept.name,
+      settingDescription: concept.settingDescription,
+      themes: JSON.stringify(allThemes),
+      mood,
+      avoidThemes: "",
+    },
+  });
+
+  // Create hero
+  await prisma.character.create({
+    data: {
+      universeId: universe.id,
+      name: heroName,
+      speciesOrType: concept.heroSpecies || heroSpecies,
+      personalityTraits: JSON.stringify(["brave", "curious", "funny"]),
+      appearance: concept.heroAppearance || `A friendly ${heroSpecies.toLowerCase()} with bright eyes`,
+      outfit: concept.heroOutfit || "",
+      role: "main",
+    },
+  });
+
+  console.log(`  Hero: ${heroName} (${concept.heroSpecies || heroSpecies})`);
+
+  // Generate supporting characters
+  console.log("  Generating supporting characters...");
+  await generateSecondaryCharacters(universe.id);
+
+  const chars = await prisma.character.findMany({ where: { universeId: universe.id } });
+  console.log(`  Characters: ${chars.map((c) => c.name).join(", ")}`);
+  console.log(`  Universe ready: ${universe.id.slice(0, 8)}\n`);
+
+  return universe.id;
 }
 
 async function generateStory(
@@ -116,16 +226,18 @@ async function generateStory(
 async function main() {
   const opts = parseArgs();
   console.log("\n=== STORYVERSE PROMPT EVAL ===");
-  console.log(`Count: ${opts.count} | Age: ${opts.ageGroup} | Structure: ${opts.structure} | Length: ${opts.length} | Mood: ${opts.mood} | Judge: ${opts.judge}\n`);
+  console.log(`Count: ${opts.count} | Age: ${opts.ageGroup} | Structure: ${opts.structure} | Length: ${opts.length} | Mood: ${opts.mood} | Judge: ${opts.judge} | Fresh: ${opts.fresh}\n`);
 
-  // Find a universe to use
+  // Find or create a universe
   let universeId = opts.universeId;
-  if (!universeId) {
+  if (opts.fresh) {
+    universeId = await createFreshUniverse(opts.interests, opts.heroName, opts.mood);
+  } else if (!universeId) {
     const universe = await prisma.universe.findFirst({
       include: { characters: true },
     });
     if (!universe) {
-      console.error("No universe found. Create one first.");
+      console.error("No universe found. Use --fresh to create one, or create one in the app.");
       process.exit(1);
     }
     universeId = universe.id;
