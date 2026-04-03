@@ -88,7 +88,6 @@ router.post("/generate", async (req, res) => {
     const {
       universeId,
       characterIds,
-      mood,
       language,
       ageGroup,
       structure: requestedStructure,
@@ -102,6 +101,10 @@ router.post("/generate", async (req, res) => {
     const structure = requestedStructure && structures.includes(requestedStructure)
       ? requestedStructure
       : structures[Math.floor(Math.random() * structures.length)];
+
+    // Pick mood randomly for each story
+    const moods = ["gentle", "funny", "exciting", "mysterious"];
+    const mood = moods[Math.floor(Math.random() * moods.length)];
 
     if (!universeId || !characterIds?.length || !ageGroup) {
       return sendError("universeId, characterIds, and ageGroup are required");
@@ -126,7 +129,7 @@ router.post("/generate", async (req, res) => {
     const { userMessage, ageGroup: resolvedAgeGroup } = await buildPrompt({
       universeId,
       characterIds,
-      mood: mood || "exciting adventures",
+      mood: mood,
       language: language || "en",
       ageGroup,
       structure,
@@ -158,7 +161,7 @@ router.post("/generate", async (req, res) => {
       data: {
         universeId,
         title: generated.title,
-        mood: mood || "exciting adventures",
+        mood: mood,
         language: language || "en",
         ageGroup,
         status: "published",
@@ -175,7 +178,7 @@ router.post("/generate", async (req, res) => {
       const imageMap = await generateStoryImages(
         universeId,
         characterIds,
-        mood || "exciting adventures",
+        mood,
         ageGroup,
         generated.pages,
         (pageNum, total, _imageUrl) => {
