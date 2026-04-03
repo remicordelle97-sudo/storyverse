@@ -155,7 +155,6 @@ router.post("/", async (req, res) => {
         name,
         settingDescription,
         themes: typeof themes === "string" ? themes : JSON.stringify(themes),
-        mood: "",
         avoidThemes: avoidThemes || "",
         illustrationStyle: illustrationStyle || "storybook",
       },
