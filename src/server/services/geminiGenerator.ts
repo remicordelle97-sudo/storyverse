@@ -177,13 +177,24 @@ export async function generateAllCharacterSheets(
     debug.image(`Chat turn ${i + 1}/${characters.length}: generating sheet for "${character.name}"`);
     const startTime = Date.now();
 
+    // Collect descriptions of previously generated characters for contrast
+    const previousChars = characters.slice(0, i).filter(c => c.referenceImageUrl);
+    const previousDescriptions = previousChars.map(c =>
+      `${c.name}: ${c.speciesOrType}, primary color: ${c.appearance.slice(0, 100)}`
+    ).join("\n");
+
     let prompt: string;
     if (i === 0) {
       // First character: establish the art style
       prompt = buildCharacterSheetPrompt(character);
     } else {
-      // Subsequent characters: reference the established style
-      prompt = `Now create a CHARACTER MODEL SHEET for a COMPLETELY DIFFERENT character. Use the EXACT SAME art style, line quality, and illustration technique as the previous sheet(s), but this is a totally different individual with different body, colors, and clothing.
+      // Subsequent characters: reference the established style but demand visual contrast
+      prompt = `Now create a CHARACTER MODEL SHEET for a COMPLETELY DIFFERENT character. Use the EXACT SAME art style, line quality, and illustration technique as the previous sheet(s).
+
+IMPORTANT: This character must look NOTHING like the previous character(s). Different body shape, different proportions, different size, different color palette. A child must be able to instantly tell them apart.
+
+Previously generated characters (do NOT make this one look like any of them):
+${previousDescriptions}
 
 ${buildCharacterSheetPrompt(character)}`;
     }

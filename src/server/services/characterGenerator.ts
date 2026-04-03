@@ -106,6 +106,12 @@ RULES:
 - For the hero: leave contrast_with_hero, story_function, and relationship_archetype as empty strings.
 - For supporting characters: fill in contrast_with_hero, story_function, and relationship_archetype.
 
+CRITICAL VISUAL DISTINCTNESS RULES:
+- Every character MUST have a completely different SILHOUETTE. Vary body shapes dramatically: one tall and thin, one short and round, one angular, one soft/blobby. A child should be able to tell them apart from their shadow alone.
+- Every character MUST have a different PRIMARY COLOR. No two characters should share a dominant body color. Use contrasting palettes (e.g., warm orange vs cool blue vs earthy green vs bright purple).
+- Every character MUST have a different SIZE relative to the others. Vary heights and proportions significantly.
+- Even if all characters are the same general type (e.g., all robots, all fairies), they must look NOTHING alike. Different head shapes, different body proportions, different limb styles, different features. Think how different R2-D2, C-3PO, Wall-E, and Baymax look — all robots, but instantly distinguishable.
+
 Return exactly this JSON:
 {
   "characters": [
