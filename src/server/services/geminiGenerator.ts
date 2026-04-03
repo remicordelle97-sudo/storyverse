@@ -212,13 +212,13 @@ function buildCharacterSheetPrompt(character: any): string {
 
   return `CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
 
-ART STYLE — follow these rules precisely:
-- Medium: Soft gouache and oil pastel illustration on textured paper. Thick, creamy, opaque paint strokes with soft chalky pastel blending. Colors are rich and velvety, not transparent.
-- Edges: ABSOLUTELY NO outlines, linework, or drawn borders around ANY shape. Every shape is formed ONLY by areas of color placed next to other areas of color. Edges are soft and painterly — sometimes sharp where two bold colors meet, sometimes blurry where colors blend together. Think of cutting shapes out of colored paper, not drawing them with a pen.
-- Texture: Visible paper grain and brush/pastel strokes. Gouache areas should show subtle brushwork. Pastel areas should have a soft chalky texture. Nothing should look digitally smooth.
-- Colors: Rich, warm, slightly muted. Gouache gives opaque saturated areas; pastel gives soft blended transitions. Layer both for depth.
-- Feel: Handmade, warm, tactile — like illustrations from a premium picture book. Think Brianne Farley, Oliver Jeffers, or Komako Sakai. Painterly and expressive, not precise.
-- FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours of ANY kind.
+ART STYLE — oil pastel on textured paper:
+- Medium: Oil pastel illustration on heavy textured paper. Soft, waxy, chalky strokes that blend and smudge into each other. Colors are rich, saturated, and slightly grainy.
+- Edges: ABSOLUTELY NO outlines, linework, or drawn borders. Shapes are formed by pressing colored pastel into paper — edges are soft, smudgy, and blended where colors meet. Like finger-painting with crayons.
+- Texture: Heavy visible paper grain showing through the pastel. Strokes should look thick, waxy, and layered. Areas of color should be uneven and organic with visible stick marks.
+- Colors: Bold, warm, saturated. Oil pastel gives rich opaque color with a slight sheen. Colors blend where they overlap, creating soft transitions.
+- Feel: Handmade, warm, tactile, childlike. Like illustrations a talented art teacher would make. Think Komako Sakai or Miroco Machiko.
+- FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours.
 
 REPEAT: NO OUTLINES. NO LINEWORK. Shapes are defined by COLOR ONLY.
 
@@ -267,7 +267,7 @@ export async function generateLocationSheet(
 
   const prompt = `CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
 
-ART STYLE: Soft gouache and oil pastel on textured paper. Thick creamy paint strokes with soft chalky blending. NO outlines, NO linework, NO drawn borders — shapes formed ONLY by areas of color next to each other. Visible paper grain, brush strokes, chalky pastel texture. Rich warm colors. Handmade and painterly, not precise. FORBIDDEN: outlines, linework, ink borders, cel shading, vector art, digital art, 3D, photorealism.
+ART STYLE: Oil pastel on heavy textured paper. Soft, waxy, chalky strokes that blend and smudge. NO outlines, NO linework, NO drawn borders — shapes formed by pressing colored pastel into paper, edges soft and smudgy. Heavy paper grain, thick layered strokes, visible stick marks. Bold warm saturated colors. Handmade and childlike, not precise. Think Komako Sakai. FORBIDDEN: outlines, linework, ink borders, cel shading, vector art, digital art, 3D, photorealism.
 
 Create a LOCATION REFERENCE SHEET. Show this location 8-10 times on a plain white background.
 
@@ -433,7 +433,7 @@ ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
 
     try {
       const response = await chat.sendMessage({
-        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: Gouache and oil pastel style — NO outlines, NO linework, shapes defined by color only. Characters must match their reference sheets exactly.`,
+        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: Oil pastel style — soft waxy smudgy strokes, NO outlines, NO linework. Characters must match their reference sheets exactly.`,
       });
 
       const imageUrl = extractImage(response);

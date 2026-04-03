@@ -5,13 +5,13 @@
  * and mood-specific rules injected into every image prompt.
  */
 
-const ART_STYLE = `ART STYLE:
+const ART_STYLE = `ART STYLE — oil pastel on textured paper:
 CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
-- Medium: Soft gouache and oil pastel illustration on textured paper. Thick, creamy, opaque paint strokes with soft chalky pastel blending. Colors are rich and velvety, not transparent.
-- Edges: ABSOLUTELY NO outlines, linework, or drawn borders around ANY shape. Every shape is formed ONLY by areas of color placed next to other areas of color. Edges are soft and painterly. Think of cutting shapes out of colored paper, not drawing them with a pen.
-- Texture: Visible paper grain and brush/pastel strokes. Nothing should look digitally smooth.
-- Colors: Rich, warm, slightly muted. Gouache gives opaque saturated areas; pastel gives soft blended transitions.
-- Aesthetic: Handmade, warm, tactile — like illustrations from a premium picture book. Think Brianne Farley, Oliver Jeffers, or Komako Sakai. Painterly and expressive, not precise.
+- Medium: Oil pastel illustration on heavy textured paper. Soft, waxy, chalky strokes that blend and smudge into each other. Colors are rich, saturated, and slightly grainy.
+- Edges: ABSOLUTELY NO outlines, linework, or drawn borders. Shapes are formed by pressing colored pastel into paper — edges are soft, smudgy, and blended where colors meet.
+- Texture: Heavy visible paper grain showing through the pastel. Strokes should look thick, waxy, and layered. Areas of color should be uneven and organic with visible stick marks.
+- Colors: Bold, warm, saturated. Rich opaque color with a slight sheen. Colors blend where they overlap.
+- Aesthetic: Handmade, warm, tactile, childlike. Think Komako Sakai or Miroco Machiko. Expressive, not precise.
 - FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours.`;
 
 const COLOR_RULES = `COLOR PALETTE:
