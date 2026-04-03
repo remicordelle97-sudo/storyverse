@@ -137,13 +137,9 @@ async function main() {
     include: { characters: true },
   });
 
-  // Hero + max 2 supporting = 3 characters max (matches StoryBuilder limit)
   const hero = universe.characters.find((c) => c.role === "main");
-  const supporting = universe.characters.filter((c) => c.role !== "main").slice(0, 2);
-  const selectedChars = hero ? [hero, ...supporting] : supporting.slice(0, 3);
-  const characterIds = selectedChars.map((c) => c.id);
-  const characterNames = selectedChars.map((c) => c.name);
-  console.log(`Characters (${characterIds.length}/3 max): ${characterNames.join(", ")}\n`);
+  const allSupporting = universe.characters.filter((c) => c.role !== "main");
+  console.log(`Available: hero=${hero?.name || "none"}, supporting=${allSupporting.map(c => c.name).join(", ") || "none"}\n`);
 
   const results: EvalResult[] = [];
 
@@ -152,7 +148,15 @@ async function main() {
       ? STRUCTURES[Math.floor(Math.random() * STRUCTURES.length)]
       : opts.structure;
 
-    console.log(`--- Story ${i + 1}/${opts.count} (${structure}) ---`);
+    // Randomly pick 0, 1, or 2 supporting characters
+    const supportingCount = Math.floor(Math.random() * 3); // 0, 1, or 2
+    const shuffled = [...allSupporting].sort(() => Math.random() - 0.5);
+    const selectedSupporting = shuffled.slice(0, supportingCount);
+    const selectedChars = hero ? [hero, ...selectedSupporting] : selectedSupporting;
+    const characterIds = selectedChars.map((c) => c.id);
+    const characterNames = selectedChars.map((c) => c.name);
+
+    console.log(`--- Story ${i + 1}/${opts.count} (${structure}, ${characterNames.length} chars: ${characterNames.join(", ")}) ---`);
 
     try {
       const { story, timeMs, systemPrompt, userPrompt } = await generateStory(
