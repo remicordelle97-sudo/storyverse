@@ -91,8 +91,9 @@
 </div>
 
 <div class="drop-zone" id="dropZone">
-  <p>Drop eval JSON files here, or click to browse</p>
+  <p>Drop eval JSON files here, or click the button below</p>
   <input type="file" id="fileInput" accept=".json" multiple>
+  <button onclick="document.getElementById('fileInput').click()" style="margin-top:1rem;padding:0.6rem 1.5rem;background:#534AB7;color:white;border:none;border-radius:8px;cursor:pointer;font-size:0.9rem">Choose JSON files</button>
 </div>
 
 <div id="content"></div>
