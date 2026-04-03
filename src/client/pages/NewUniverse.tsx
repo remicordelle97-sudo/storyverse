@@ -93,6 +93,9 @@ export default function NewUniverse() {
         appearance: concept.heroAppearance || `A friendly ${(concept.heroSpecies || "character").toLowerCase()} with bright, curious eyes`,
         outfit: concept.heroOutfit || "",
         specialDetail: heroDetail,
+        dominantTrait: concept.heroDominantTrait || "",
+        personalWant: concept.heroPersonalWant || "",
+        signatureBehavior: concept.heroSignatureBehavior || "",
         role: "main",
       });
 
