@@ -55,7 +55,7 @@ router.post("/generate-concept", async (req, res) => {
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
       max_tokens: 2000,
-      temperature: 0.9,
+      temperature: 0.75,
       system: "You create unique, imaginative worlds for children's stories. Return ONLY valid JSON. No markdown fences.",
       messages: [
         {
