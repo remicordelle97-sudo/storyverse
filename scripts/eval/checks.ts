@@ -161,5 +161,28 @@ export function runAutomatedChecks(
     detail: `"${story.title}" (${story.title.length} chars)`,
   });
 
+  // 10. Banned vocabulary check
+  const bannedByAge: Record<string, string[]> = {
+    "2-3": ["magnificent", "enormous", "glistened", "endeavored", "peculiar", "exclaimed", "whispered", "murmured", "pondered", "gazed", "glimmered", "spectacular", "extraordinary", "remarkable", "determined", "cautiously", "approached", "discovered", "adventure", "realized", "suddenly", "certainly", "absolutely", "particularly", "gently"],
+    "4-5": ["endeavored", "contemplated", "magnificent", "glistened", "murmured", "pondered", "peculiar", "extraordinary", "spectacle", "remarkable", "commenced", "exclaimed", "determination", "reluctantly", "presumably", "consequently", "nevertheless"],
+    "6-8": ["endeavored", "contemplated", "commenced", "nevertheless", "consequently", "presumably", "furthermore", "henceforth", "subsequently", "wherein", "albeit", "moreover"],
+  };
+  const banned = bannedByAge[params.ageGroup] || bannedByAge["4-5"];
+  const foundBanned: string[] = [];
+  const lowerText = allText.toLowerCase();
+  for (const word of banned) {
+    if (lowerText.includes(word.toLowerCase())) {
+      foundBanned.push(word);
+    }
+  }
+  results.push({
+    name: "Banned vocabulary",
+    passed: foundBanned.length === 0,
+    score: Math.max(0, 1 - foundBanned.length * 0.15),
+    detail: foundBanned.length === 0
+      ? `No banned words found for age ${params.ageGroup}`
+      : `Found ${foundBanned.length} banned words: ${foundBanned.join(", ")}`,
+  });
+
   return results;
 }
