@@ -210,13 +210,17 @@ function buildCharacterSheetPrompt(character: any): string {
     ? `\nOUTFIT (character is ALWAYS wearing/carrying ALL of these):\n${character.outfit}`
     : "";
 
-  return `ART STYLE — follow these rules precisely:
-- Medium: Traditional watercolor on textured paper. Colors should look like they were painted with a wet brush — soft edges where colors BLEED into each other, visible water blooms, and pigment pooling in darker areas.
-- Edges: NO hard outlines or sharp contours. Shapes are defined by color meeting color, not by drawn lines. Where edges exist, they should be soft, feathered, and broken — like real watercolor where the paint naturally fades at the boundary.
-- Texture: Visible paper grain showing through the paint. Areas of wash should be uneven and organic, not smooth gradients. Let the white of the paper show through in highlights.
-- Colors: Warm, slightly muted palette. Colors should look transparent and layered, not opaque or flat. You should sense the lighter wash underneath darker strokes.
-- Feel: Loose, expressive, handmade. Think Quentin Blake or E.H. Shepard — charming imperfection, not digital precision. The art should feel like someone painted it by hand on a rainy afternoon.
-- NOT: digital art, vector art, cel shading, anime, 3D rendering, photorealistic, clean/sharp outlines, flat colors.
+  return `CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
+
+ART STYLE — follow these rules precisely:
+- Medium: Soft gouache and oil pastel illustration on textured paper. Thick, creamy, opaque paint strokes with soft chalky pastel blending. Colors are rich and velvety, not transparent.
+- Edges: ABSOLUTELY NO outlines, linework, or drawn borders around ANY shape. Every shape is formed ONLY by areas of color placed next to other areas of color. Edges are soft and painterly — sometimes sharp where two bold colors meet, sometimes blurry where colors blend together. Think of cutting shapes out of colored paper, not drawing them with a pen.
+- Texture: Visible paper grain and brush/pastel strokes. Gouache areas should show subtle brushwork. Pastel areas should have a soft chalky texture. Nothing should look digitally smooth.
+- Colors: Rich, warm, slightly muted. Gouache gives opaque saturated areas; pastel gives soft blended transitions. Layer both for depth.
+- Feel: Handmade, warm, tactile — like illustrations from a premium picture book. Think Brianne Farley, Oliver Jeffers, or Komako Sakai. Painterly and expressive, not precise.
+- FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours of ANY kind.
+
+REPEAT: NO OUTLINES. NO LINEWORK. Shapes are defined by COLOR ONLY.
 
 Create a CHARACTER MODEL SHEET. Show this character 12-15 times on a plain white background in a natural grid layout. Mix of full body views and close-up head/upper body views.
 
@@ -261,7 +265,9 @@ export async function generateLocationSheet(
   debug.image(`Generating location sheet for "${location.name}" via Gemini`);
   const startTime = Date.now();
 
-  const prompt = `ART STYLE: Traditional watercolor on textured paper. Soft edges where colors bleed into each other, visible water blooms, pigment pooling. NO hard outlines or sharp contours — shapes defined by color meeting color. Visible paper grain, uneven organic washes. Loose, expressive, handmade. NOT digital art, NOT 3D, NOT photorealistic, NOT sharp outlines.
+  const prompt = `CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
+
+ART STYLE: Soft gouache and oil pastel on textured paper. Thick creamy paint strokes with soft chalky blending. NO outlines, NO linework, NO drawn borders — shapes formed ONLY by areas of color next to each other. Visible paper grain, brush strokes, chalky pastel texture. Rich warm colors. Handmade and painterly, not precise. FORBIDDEN: outlines, linework, ink borders, cel shading, vector art, digital art, 3D, photorealism.
 
 Create a LOCATION REFERENCE SHEET. Show this location 8-10 times on a plain white background.
 
@@ -427,7 +433,7 @@ ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
 
     try {
       const response = await chat.sendMessage({
-        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: Traditional watercolor style — soft bleedy edges, NO hard outlines, visible paper texture. Characters must match their reference sheets exactly.`,
+        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: Gouache and oil pastel style — NO outlines, NO linework, shapes defined by color only. Characters must match their reference sheets exactly.`,
       });
 
       const imageUrl = extractImage(response);

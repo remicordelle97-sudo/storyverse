@@ -6,12 +6,13 @@
  */
 
 const ART_STYLE = `ART STYLE:
-- Medium: Traditional watercolor on textured paper. Colors should look like they were painted with a wet brush — soft edges where colors BLEED into each other, visible water blooms, and pigment pooling in darker areas.
-- Edges: NO hard outlines or sharp contours. Shapes are defined by color meeting color, not by drawn lines. Where edges exist, they should be soft, feathered, and broken — like real watercolor where the paint naturally fades at the boundary.
-- Texture: Visible paper grain showing through the paint. Areas of wash should be uneven and organic, not smooth gradients. Let the white of the paper show through in highlights.
-- Colors: Warm, slightly muted. Colors should look transparent and layered, not opaque or flat. You should sense the lighter wash underneath darker strokes.
-- Aesthetic: Loose, expressive, handmade. Think Quentin Blake or E.H. Shepard — charming imperfection, not digital precision. Warm, inviting, and slightly whimsical.
-- NOT: digital art, vector art, cel shading, anime, 3D rendering, photorealistic, clean/sharp outlines, flat colors.`;
+CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
+- Medium: Soft gouache and oil pastel illustration on textured paper. Thick, creamy, opaque paint strokes with soft chalky pastel blending. Colors are rich and velvety, not transparent.
+- Edges: ABSOLUTELY NO outlines, linework, or drawn borders around ANY shape. Every shape is formed ONLY by areas of color placed next to other areas of color. Edges are soft and painterly. Think of cutting shapes out of colored paper, not drawing them with a pen.
+- Texture: Visible paper grain and brush/pastel strokes. Nothing should look digitally smooth.
+- Colors: Rich, warm, slightly muted. Gouache gives opaque saturated areas; pastel gives soft blended transitions.
+- Aesthetic: Handmade, warm, tactile — like illustrations from a premium picture book. Think Brianne Farley, Oliver Jeffers, or Komako Sakai. Painterly and expressive, not precise.
+- FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours.`;
 
 const COLOR_RULES = `COLOR PALETTE:
 - Build every image from a limited palette of 5-7 hues. Do not introduce random colors.
