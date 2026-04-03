@@ -215,30 +215,6 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
     orderBy: { createdAt: "asc" },
   });
 
-  // Fetch timeline: last 4 events + 5 most recent major events, deduplicated
-  const recentEvents = await prisma.timelineEvent.findMany({
-    where: { universeId: input.universeId },
-    orderBy: { storyDate: "desc" },
-    take: 4,
-    include: { character: true },
-  });
-
-  const majorEvents = await prisma.timelineEvent.findMany({
-    where: { universeId: input.universeId, significance: "major" },
-    orderBy: { storyDate: "desc" },
-    take: 5,
-    include: { character: true },
-  });
-
-  // Merge and deduplicate
-  const eventMap = new Map<string, (typeof recentEvents)[0]>();
-  for (const e of [...recentEvents, ...majorEvents]) {
-    eventMap.set(e.id, e);
-  }
-  const allEvents = Array.from(eventMap.values()).sort(
-    (a, b) => b.storyDate.getTime() - a.storyDate.getTime()
-  );
-
   // Build the featured character IDs set for relationship filtering
   const featuredIds = new Set(input.characterIds);
 
@@ -300,15 +276,6 @@ Use ONLY these locations in the story. Do not invent new locations. Reference th
     prompt += `\n`;
   }
 
-  if (allEvents.length > 0) {
-    prompt += `=== RECENT HISTORY ===
-These events have happened in previous stories. You may reference them briefly for continuity, but do NOT build the new story around them. Focus on a fresh, new adventure with new situations and discoveries. Avoid revisiting the same locations or plot points.\n`;
-    for (const event of allEvents) {
-      prompt += `[${event.character.name}] ${event.eventSummary} (${event.significance})\n`;
-    }
-    prompt += `\n`;
-  }
-
   prompt += `${structureGuide}
 
 === STORY REQUEST ===
@@ -352,7 +319,6 @@ Characters must look IDENTICAL across all pages. Use the exact same descriptors 
     universe: universe.name,
     characters: characters.map((c) => c.name).join(", "),
     relationships: relationships.length,
-    timelineEvents: allEvents.length,
     structure: input.structure,
     ageGroup: input.ageGroup,
     pageCount,

@@ -115,12 +115,12 @@ export function runAutomatedChecks(
     detail: `Avg ${avgSentenceLength.toFixed(1)} words/sentence (target: ${range.min}-${range.max} for age ${params.ageGroup})`,
   });
 
-  // 6. Timeline events (1-3)
+  // 6. Timeline events (0-3)
   const eventCount = story.timeline_events?.length || 0;
   results.push({
-    name: "Timeline events (1-3)",
-    passed: eventCount >= 1 && eventCount <= 3,
-    score: eventCount >= 1 && eventCount <= 3 ? 1 : eventCount === 0 ? 0 : Math.max(0, 1 - (eventCount - 3) * 0.2),
+    name: "Timeline events (0-3)",
+    passed: eventCount <= 3,
+    score: eventCount <= 3 ? 1 : Math.max(0, 1 - (eventCount - 3) * 0.2),
     detail: `${eventCount} timeline events`,
   });
 
