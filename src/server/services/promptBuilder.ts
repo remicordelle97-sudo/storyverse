@@ -263,14 +263,15 @@ Themes: ${universe.themes}
 Mood: ${universe.mood}
 Avoid: ${universe.avoidThemes}
 
-=== CHARACTERS ===
+=== CHARACTERS (for storytelling) ===
 `;
 
   for (const char of characters) {
+    // Brief description for story writing — personality-focused
+    const briefAppearance = char.speciesOrType + (char.specialDetail ? `. ${char.specialDetail}` : "");
     prompt += `Name: ${char.name} (${char.speciesOrType})
 Personality: ${char.personalityTraits}
-Appearance: ${char.appearance}${char.outfit ? `\nOutfit: ${char.outfit}` : ""}
-Special detail: ${char.specialDetail}
+Brief look: ${briefAppearance}
 Role: ${char.role}
 
 `;
@@ -311,12 +312,20 @@ Return exactly this JSON structure and nothing else.
 The "pages" array must contain exactly ${pageCount} page objects.
 
 CRITICAL IMAGE PROMPT RULES:
-Every image_prompt MUST include the FULL visual description of every character who appears on that page. Do NOT use just names. Always describe:
+Every image_prompt MUST include the FULL visual description of every character who appears on that page. Use the CHARACTER VISUAL REFERENCE below — copy the exact descriptions into every image_prompt. Do NOT use just names. Always describe:
 - Species/type and physical features (size, color, distinguishing marks)
-- What they are wearing or carrying (especially special details like Leo's blue backpack)
+- What they are wearing or carrying
 - Their expression and body language matching the scene's emotion
 - The setting/environment for that specific moment
 Characters must look IDENTICAL across all pages. Use the exact same descriptors every time a character appears.
+
+=== CHARACTER VISUAL REFERENCE (use ONLY in image_prompt fields, NOT in story text) ===
+${characters.map((char) => {
+    let desc = `${char.name}:\n  Body: ${char.appearance}`;
+    if (char.outfit) desc += `\n  Outfit: ${char.outfit}`;
+    if (char.specialDetail) desc += `\n  Key detail: ${char.specialDetail}`;
+    return desc;
+  }).join("\n\n")}
 
 {
   "title": "Story title",
