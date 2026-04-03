@@ -222,7 +222,7 @@ ART STYLE — oil pastel on textured paper:
 
 REPEAT: NO OUTLINES. NO LINEWORK. Shapes are defined by COLOR ONLY.
 
-Create a CHARACTER MODEL SHEET. Show this character 12-15 times on a plain white background in a natural grid layout. Mix of full body views and close-up head/upper body views.
+Create a page of OIL PASTEL PAINTED STUDIES of this character. Show this character 12-15 times on a warm cream-colored paper background. Mix of full body views and close-up head/upper body views. Each study should look like an individual oil pastel painting — soft, smudgy, painterly. NOT a clean technical model sheet. NOT a cartoon turnaround. These are PAINTED STUDIES, like pages from an artist's sketchbook done entirely in oil pastel.
 
 IMPORTANT: This character is a ${character.speciesOrType}. Follow the body description below EXACTLY. This character has its own unique body shape, colors, proportions, and clothing.
 
@@ -238,9 +238,9 @@ Include:
 - Full body: front, side, back, 3/4, running, sitting, reaching
 - Close-up: happy, sad, surprised, determined, laughing
 
-CONSISTENCY: The character must look identical in every view. Same proportions, colors, features. All clothing/accessories visible in every view. Wings, tails, antennae never disappear. Head shape stays the same in close-ups.
+CONSISTENCY: The character must look identical in every study. Same proportions, colors, features. All clothing/accessories visible in every view. Wings, tails, antennae never disappear. Head shape stays the same in close-ups.
 
-ONE character drawn many times. NOT multiple characters.`;
+ONE character painted many times in oil pastel. NOT multiple characters. NOT outlined cartoon art.`;
 }
 
 /**
