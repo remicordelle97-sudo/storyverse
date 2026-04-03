@@ -267,14 +267,16 @@ Avoid: ${universe.avoidThemes}
 `;
 
   for (const char of characters) {
-    // Brief description for story writing — personality-focused
-    const briefAppearance = char.speciesOrType + (char.specialDetail ? `. ${char.specialDetail}` : "");
-    prompt += `Name: ${char.name} (${char.speciesOrType})
-Personality: ${char.personalityTraits}
-Brief look: ${briefAppearance}
-Role: ${char.role}
-
-`;
+    prompt += `Name: ${char.name} (${char.speciesOrType})`;
+    prompt += `\nPersonality: ${char.personalityTraits}`;
+    if (char.dominantTrait) prompt += `\nDefining trait: ${char.dominantTrait}`;
+    if (char.contrastWithHero && char.role !== "main") prompt += `\nContrast with hero: ${char.contrastWithHero}`;
+    if (char.personalWant) prompt += `\nPersonal want: ${char.personalWant}`;
+    if (char.storyFunction) prompt += `\nStory role: ${char.storyFunction}`;
+    if (char.signatureBehavior) prompt += `\nSignature behavior (USE THIS in the story): ${char.signatureBehavior}`;
+    if (char.relationshipArchetype) prompt += `\nArchetype: ${char.relationshipArchetype}`;
+    if (char.specialDetail) prompt += `\nSpecial detail: ${char.specialDetail}`;
+    prompt += `\nRole: ${char.role}\n\n`;
   }
 
   if (relationships.length > 0) {

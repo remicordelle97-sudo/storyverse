@@ -53,12 +53,18 @@ model Character {
   universeId        String
   name              String
   speciesOrType     String
-  personalityTraits String
-  appearance        String
-  outfit            String           @default("")
-  specialDetail     String           @default("")
-  referenceImageUrl String           @default("")
-  role              String           @default("main")
+  personalityTraits    String
+  appearance           String
+  outfit               String           @default("")
+  specialDetail        String           @default("")
+  dominantTrait        String           @default("")
+  contrastWithHero     String           @default("")
+  personalWant         String           @default("")
+  storyFunction        String           @default("")
+  signatureBehavior    String           @default("")
+  relationshipArchetype String          @default("")
+  referenceImageUrl    String           @default("")
+  role                 String           @default("main")
   createdAt         DateTime         @default(now())
   universe          Universe         @relation(fields: [universeId], references: [id])
   storyAppearances  StoryCharacter[]

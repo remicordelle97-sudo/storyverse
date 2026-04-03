@@ -11,6 +11,12 @@ interface GeneratedCharacter {
   appearance: string;
   outfit: string;
   special_detail: string;
+  dominant_trait: string;
+  contrast_with_hero: string;
+  personal_want: string;
+  story_function: string;
+  signature_behavior: string;
+  relationship_archetype: string;
   relationship_to_hero: string;
 }
 
@@ -54,39 +60,33 @@ export async function generateSecondaryCharacters(
 
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 4000,
+    max_tokens: 6000,
     temperature: 0.85,
     system: `You create supporting characters for children's story universes. Each character should be distinct, memorable, and complement the hero.
 
-CRITICAL: You must provide TWO separate visual fields:
+=== CHARACTER DEPTH ===
+Great secondary characters need more than a name and a look. For EACH character, you must provide:
 
-1. "appearance" — the CHARACTER'S BODY only (no clothing, no accessories, no carried items). This is what the character looks like naked/bare. Include ALL of the following:
-  BODY: Overall body shape and size (tall/short, thin/stocky/round), posture, primary body color
-  HEAD: Shape (round, elongated, angular), size relative to body, color
-  EYES: Count, shape, size, color, pupil style (round, slit, compound)
-  NOSE/MOUTH/BEAK/SNOUT: Type, shape, color
-  EARS: Count, shape, size, position (or "none")
-  ARMS: Count, length, thickness, color, ending (hands/paws/claws, finger count)
-  LEGS: Count, length, thickness, color, ending (feet/hooves/claws)
-  WINGS: Count, size, shape, color, transparency, attachment point (or "none")
-  TAIL: Length, thickness, shape, color (or "none")
-  ANTENNAE/HORNS: Count, shape, length, tip details (or "none")
-  MARKINGS: Stripes, spots, patches, scars, unique patterns, locations on body
+- "dominant_trait": The ONE trait that defines this character above all others. Everything they do is colored by this trait. Not a list — one single word or short phrase. (e.g., "cautious to a fault", "uncontrollably curious", "stubbornly optimistic")
+
+- "contrast_with_hero": How this character differs from the hero in a way that makes BOTH more interesting. What does this character bring out in the hero? (e.g., "Where the hero charges ahead, this character hesitates — forcing the hero to explain their reasoning and sometimes realize they're wrong")
+
+- "personal_want": A small, specific, ongoing desire this character has for THEMSELVES — not related to the hero. This makes them feel like a real person with their own life. (e.g., "Desperately wants to taste every type of berry in the forest", "Is secretly building a tiny boat to sail across the pond someday")
+
+- "story_function": How this character typically pushes stories forward. What narrative role do they play? (e.g., "The one who accidentally causes problems through over-enthusiasm", "The voice of caution who turns out to be right half the time", "Asks the obvious question no one else thought to ask")
+
+- "signature_behavior": One specific, repeatable action or verbal habit that children can anticipate and join in on. This should appear in EVERY story featuring this character. (e.g., "Always counts things out loud — 'one, two, three, four — four acorns!'", "Sneezes whenever nervous", "Says 'well, technically...' before correcting someone")
+
+- "relationship_archetype": What familiar relationship from a child's life does this character represent? (e.g., "the best friend who's always up for anything", "the cautious older sibling", "the funny classmate who gets distracted easily", "the patient grandparent figure")
+
+=== VISUAL FIELDS ===
+
+1. "appearance" — BODY ONLY (no clothing). Include:
+  BODY, HEAD, EYES (count, shape, color), NOSE/MOUTH/BEAK, EARS, ARMS (count, fingers), LEGS (count, feet), WINGS, TAIL, ANTENNAE/HORNS, MARKINGS.
   Be SPECIFIC with numbers: "2 large translucent teal wings" not "wings"
 
-2. "outfit" — EVERYTHING the character wears, carries, or has on them. This is SEPARATE from their body. List each item with:
-  - The item name
-  - Its EXACT color as a hex code (e.g., "#2A7A6B teal")
-  - Where on the body it sits
-  - Any distinguishing details (buckles, patterns, patches, logos)
-  Format as a bulleted list starting with "ALWAYS WEARS AND CARRIES (never remove any item):"
-  Example:
-  "ALWAYS WEARS AND CARRIES (never remove any item):
-  - #E85C33 orange-red bandana tied around forehead
-  - #2A7A6B teal sleeveless vest with #1D5C4F darker trim at edges
-  - #4A4A3A dark olive shorts reaching just above the knees
-  - Small #C9A84C gold circular pendant on a #5C3A1E brown cord around neck
-  - #6B4226 brown leather satchel with a shoulder strap, worn on left side, with a small brass buckle"
+2. "outfit" — Everything they wear/carry. Each item with hex color code, position, and details.
+  Format: "ALWAYS WEARS AND CARRIES (never remove any item):" + bulleted list
 
 Return ONLY valid JSON. No markdown fences.`,
     messages: [
@@ -123,8 +123,14 @@ Return exactly this JSON:
       "name": "Full name like Zuri the Zebra",
       "species_or_type": "Zebra",
       "personality_traits": ["funny", "loyal", "cautious"],
-      "appearance": "A small, slender zebra about half the height of a lion. Round head with 2 large bright hazel eyes with round pupils, a short flat snout with a dark nose, 3 whiskers on each side of the snout, and 2 tall pointed ears on top. 2 thin arms with 3-fingered dark gray hooves. 2 slightly longer legs with rounded dark gray hooves. Short bushy black tail. Black and white striped body with one distinctive zigzag stripe on the left shoulder. Short fluffy black mane that sticks up at the front",
-      "outfit": "ALWAYS WEARS AND CARRIES (never remove any item):\n- #C4A882 tan canvas satchel bag worn across the chest on a #5C3A1E brown leather strap with a small brass buckle\n- #8B7355 woven grass bracelet on right wrist",
+      "dominant_trait": "cautious to a fault",
+      "contrast_with_hero": "Where Leo charges ahead without thinking, Zuri stops to count the risks — which forces Leo to slow down and sometimes saves them both",
+      "personal_want": "Secretly wants to cross the wide river alone someday, but is too afraid to try",
+      "story_function": "The voice of caution who is right just often enough that Leo has learned to listen — but wrong just often enough that Leo still has to be brave",
+      "signature_behavior": "Counts everything out loud when nervous — 'one, two, three rocks... four, five, six rocks... that is too many rocks'",
+      "relationship_archetype": "the cautious best friend who worries enough for both of them",
+      "appearance": "A small, slender zebra about half the height of a lion...",
+      "outfit": "ALWAYS WEARS AND CARRIES (never remove any item):\n- #C4A882 tan canvas satchel bag...",
       "special_detail": "Has one stripe that zigzags differently from all the others",
       "relationship_to_hero": "Best friends since they were young. Zuri is the cautious voice when Leo gets too adventurous."
     }
@@ -170,6 +176,12 @@ Return exactly this JSON:
         appearance: char.appearance,
         outfit: char.outfit || "",
         specialDetail: char.special_detail || "",
+        dominantTrait: char.dominant_trait || "",
+        contrastWithHero: char.contrast_with_hero || "",
+        personalWant: char.personal_want || "",
+        storyFunction: char.story_function || "",
+        signatureBehavior: char.signature_behavior || "",
+        relationshipArchetype: char.relationship_archetype || "",
         role: "supporting",
       },
     });

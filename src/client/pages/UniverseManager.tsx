@@ -206,7 +206,14 @@ export default function UniverseManager() {
                       name={char.name}
                       subtitle={`${char.speciesOrType} · ${char.role}`}
                       description={char.appearance}
-                      detail={[char.outfit, char.specialDetail].filter(Boolean).join(" | ")}
+                      detail={[
+                        char.dominantTrait ? `Defining trait: ${char.dominantTrait}` : "",
+                        char.signatureBehavior ? `Signature: ${char.signatureBehavior}` : "",
+                        char.personalWant ? `Wants: ${char.personalWant}` : "",
+                        char.storyFunction ? `Story role: ${char.storyFunction}` : "",
+                        char.outfit ? `Outfit: ${char.outfit}` : "",
+                        char.specialDetail ? `Detail: ${char.specialDetail}` : "",
+                      ].filter(Boolean).join("\n")}
                       imageUrl={char.referenceImageUrl}
                       onPreview={() => setSheetPreview(char.referenceImageUrl)}
                       onGenerate={() =>
