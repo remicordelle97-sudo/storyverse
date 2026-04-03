@@ -376,16 +376,15 @@ export async function generateStoryImages(
   const setupParts: any[] = [];
 
   setupParts.push({
-    text: `ART STYLE: Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic.
+    text: `You are illustrating a children's picture book. I will give you scene descriptions one at a time. For each one, generate ONE illustration.
 
-You are illustrating a children's picture book. I will give you scene descriptions one at a time. For each one, generate ONE illustration.
+IMPORTANT — Read the following style guide carefully. Every illustration you generate MUST follow these rules exactly.
 
+${styleGuide}
 CRITICAL: Maintain PERFECT visual consistency across ALL pages:
 - Characters must look IDENTICAL on every page (same body, same colors, same outfit, same proportions)
 - Locations must look the same when revisited (same landmarks, same colors, same geography)
 - Art style, color palette, and lighting approach must stay consistent throughout
-
-${styleGuide}
 
 CHARACTERS:\n${charDesc}
 ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
@@ -435,7 +434,7 @@ ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
 
     try {
       const response = await chat.sendMessage({
-        message: `Page ${page.page_number}: ${page.image_prompt}`,
+        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: Use the watercolor storybook style from the style guide. Characters must match their reference sheets exactly.`,
       });
 
       const imageUrl = extractImage(response);
