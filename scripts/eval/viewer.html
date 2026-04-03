@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Storyverse Eval Results</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f3ef; color: #333; padding: 2rem; }
+    h1 { font-size: 1.5rem; color: #1a1a1a; margin-bottom: 0.5rem; }
+    h2 { font-size: 1.1rem; color: #555; margin: 1.5rem 0 0.75rem; }
+    h3 { font-size: 0.95rem; color: #333; margin-bottom: 0.5rem; }
+    .header { margin-bottom: 2rem; }
+    .header p { color: #888; font-size: 0.85rem; }
+    .controls { display: flex; gap: 1rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .controls label { font-size: 0.8rem; color: #666; }
+    .controls select, .controls input { padding: 0.4rem 0.6rem; border: 1px solid #ccc; border-radius: 6px; font-size: 0.85rem; }
+    .controls button { padding: 0.4rem 1rem; background: #534AB7; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+    .controls button:hover { background: #443da0; }
+
+    /* Summary */
+    .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card { background: white; border-radius: 12px; padding: 1.25rem; border: 1px solid #e5e2dc; }
+    .stat-card .value { font-size: 1.8rem; font-weight: 700; color: #534AB7; }
+    .stat-card .label { font-size: 0.75rem; color: #888; margin-top: 0.25rem; }
+
+    /* Category chart */
+    .category-chart { background: white; border-radius: 12px; padding: 1.25rem; border: 1px solid #e5e2dc; margin-bottom: 1.5rem; }
+    .cat-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
+    .cat-label { width: 200px; font-size: 0.75rem; color: #555; text-align: right; flex-shrink: 0; }
+    .cat-bar-bg { flex: 1; height: 20px; background: #f0ede8; border-radius: 4px; overflow: hidden; }
+    .cat-bar { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
+    .cat-score { width: 45px; font-size: 0.8rem; font-weight: 600; color: #333; text-align: right; flex-shrink: 0; }
+
+    /* Story cards */
+    .story-card { background: white; border-radius: 12px; border: 1px solid #e5e2dc; margin-bottom: 1.5rem; overflow: hidden; }
+    .story-header { padding: 1rem 1.25rem; border-bottom: 1px solid #f0ede8; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+    .story-header:hover { background: #faf9f7; }
+    .story-title { font-weight: 600; font-size: 0.95rem; }
+    .story-meta { display: flex; gap: 0.75rem; font-size: 0.75rem; color: #888; }
+    .story-meta .badge { background: #f0ede8; padding: 0.15rem 0.5rem; border-radius: 999px; }
+    .story-body { padding: 1.25rem; display: none; }
+    .story-body.open { display: block; }
+
+    /* Checks */
+    .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
+    .check { display: flex; align-items: start; gap: 0.5rem; font-size: 0.8rem; padding: 0.4rem 0.6rem; border-radius: 6px; }
+    .check.pass { background: #ecfdf5; color: #065f46; }
+    .check.fail { background: #fef2f2; color: #991b1b; }
+    .check-icon { flex-shrink: 0; margin-top: 1px; }
+    .check-name { font-weight: 600; }
+
+    /* Judge scores */
+    .judge-scores { margin-top: 1rem; }
+    .judge-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; font-size: 0.8rem; }
+    .judge-label { width: 180px; color: #555; flex-shrink: 0; }
+    .judge-bar-bg { width: 120px; height: 14px; background: #f0ede8; border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+    .judge-bar { height: 100%; border-radius: 3px; }
+    .judge-val { width: 30px; font-weight: 600; color: #333; flex-shrink: 0; }
+    .judge-reason { color: #888; font-size: 0.75rem; }
+
+    /* Story text */
+    .story-text { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f0ede8; }
+    .page-block { margin-bottom: 0.75rem; }
+    .page-num { font-size: 0.7rem; color: #999; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.2rem; }
+    .page-content { font-size: 0.85rem; line-height: 1.6; color: #444; font-family: Georgia, serif; }
+
+    /* Colors for scores */
+    .score-1 { background: #ef4444; }
+    .score-2 { background: #f97316; }
+    .score-3 { background: #eab308; }
+    .score-4 { background: #22c55e; }
+    .score-5 { background: #0ea5e9; }
+
+    .notes { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.8rem; color: #92400e; margin-top: 0.75rem; }
+
+    .drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 3rem; text-align: center; color: #999; margin-bottom: 2rem; cursor: pointer; transition: border-color 0.2s; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: #534AB7; color: #534AB7; }
+    .drop-zone input { display: none; }
+
+    .compare-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .compare-table th { text-align: left; padding: 0.5rem; color: #888; font-weight: 500; border-bottom: 1px solid #e5e2dc; }
+    .compare-table td { padding: 0.5rem; border-bottom: 1px solid #f0ede8; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Storyverse Prompt Eval</h1>
+  <p>Drag and drop eval result JSON files to visualize and compare</p>
+</div>
+
+<div class="drop-zone" id="dropZone">
+  <p>Drop eval JSON files here, or click to browse</p>
+  <input type="file" id="fileInput" accept=".json" multiple>
+</div>
+
+<div id="content"></div>
+
+<script>
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const content = document.getElementById('content');
+  let allFiles = [];
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+  function handleFiles(files) {
+    for (const file of files) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          allFiles.push({ name: file.name, data: Array.isArray(data) ? data : [data] });
+          render();
+        } catch (err) {
+          alert(`Failed to parse ${file.name}: ${err.message}`);
+        }
+      };
+      reader.readAsText(file);
+    }
+  }
+
+  function barColor(score, max) {
+    const pct = score / max;
+    if (pct >= 0.9) return '#0ea5e9';
+    if (pct >= 0.7) return '#22c55e';
+    if (pct >= 0.5) return '#eab308';
+    if (pct >= 0.3) return '#f97316';
+    return '#ef4444';
+  }
+
+  function render() {
+    if (allFiles.length === 0) { content.innerHTML = ''; return; }
+
+    let html = '';
+
+    // If multiple files, show comparison
+    if (allFiles.length > 1) {
+      html += renderComparison();
+    }
+
+    // Render each file
+    for (const file of allFiles) {
+      html += renderFile(file);
+    }
+
+    content.innerHTML = html;
+
+    // Wire up toggles
+    document.querySelectorAll('.story-header').forEach(el => {
+      el.addEventListener('click', () => {
+        el.nextElementSibling.classList.toggle('open');
+      });
+    });
+  }
+
+  function renderComparison() {
+    let html = '<h2>File Comparison</h2>';
+    html += '<div class="category-chart"><table class="compare-table"><thead><tr>';
+    html += '<th>File</th><th>Stories</th><th>Auto Score</th><th>Judge Score</th><th>Avg Time</th><th>Common Failures</th>';
+    html += '</tr></thead><tbody>';
+
+    for (const file of allFiles) {
+      const results = file.data;
+      const avgAuto = results.reduce((s, r) => s + (r.automatedScore || 0), 0) / results.length;
+      const judged = results.filter(r => r.judgeResult);
+      const avgJudge = judged.length > 0 ? judged.reduce((s, r) => s + r.judgeResult.averageScore, 0) / judged.length : null;
+      const avgTime = results.reduce((s, r) => s + (r.generationTimeMs || 0), 0) / results.length;
+
+      const failCounts = {};
+      results.forEach(r => r.automatedChecks?.forEach(c => { if (!c.passed) failCounts[c.name] = (failCounts[c.name] || 0) + 1; }));
+      const topFails = Object.entries(failCounts).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, v]) => `${k} (${v})`).join(', ') || 'None';
+
+      html += `<tr>
+        <td><strong>${file.name}</strong></td>
+        <td>${results.length}</td>
+        <td>${(avgAuto * 100).toFixed(0)}%</td>
+        <td>${avgJudge !== null ? avgJudge.toFixed(1) + '/5' : '—'}</td>
+        <td>${(avgTime / 1000).toFixed(1)}s</td>
+        <td style="font-size:0.75rem;color:#888">${topFails}</td>
+      </tr>`;
+    }
+
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  function renderFile(file) {
+    const results = file.data;
+    let html = `<h2>${file.name} (${results.length} stories)</h2>`;
+
+    // Summary stats
+    const avgAuto = results.reduce((s, r) => s + (r.automatedScore || 0), 0) / results.length;
+    const judged = results.filter(r => r.judgeResult);
+    const avgJudge = judged.length > 0 ? judged.reduce((s, r) => s + r.judgeResult.averageScore, 0) / judged.length : null;
+    const avgTime = results.reduce((s, r) => s + (r.generationTimeMs || 0), 0) / results.length;
+    const avgPages = results.reduce((s, r) => s + (r.pageCount || 0), 0) / results.length;
+
+    html += '<div class="summary">';
+    html += `<div class="stat-card"><div class="value">${(avgAuto * 100).toFixed(0)}%</div><div class="label">Automated Score</div></div>`;
+    if (avgJudge !== null) html += `<div class="stat-card"><div class="value">${avgJudge.toFixed(1)}</div><div class="label">Judge Score /5</div></div>`;
+    html += `<div class="stat-card"><div class="value">${(avgTime / 1000).toFixed(1)}s</div><div class="label">Avg Generation</div></div>`;
+    html += `<div class="stat-card"><div class="value">${avgPages.toFixed(0)}</div><div class="label">Avg Pages</div></div>`;
+    html += '</div>';
+
+    // Category averages (judge)
+    if (judged.length > 0) {
+      const categories = judged[0].judgeResult.scores.map(s => s.category);
+      html += '<div class="category-chart"><h3>Judge Category Averages</h3>';
+      for (const cat of categories) {
+        const avg = judged.reduce((s, r) => s + (r.judgeResult.scores.find(sc => sc.category === cat)?.score || 0), 0) / judged.length;
+        const pct = (avg / 5) * 100;
+        const label = cat.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+        html += `<div class="cat-row">
+          <div class="cat-label">${label}</div>
+          <div class="cat-bar-bg"><div class="cat-bar" style="width:${pct}%;background:${barColor(avg, 5)}"></div></div>
+          <div class="cat-score">${avg.toFixed(1)}/5</div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+
+    // Individual stories
+    for (const result of results) {
+      html += renderStory(result);
+    }
+
+    return html;
+  }
+
+  function renderStory(r) {
+    const autoScore = r.automatedScore || 0;
+    const judgeScore = r.judgeResult?.averageScore;
+    const failCount = r.automatedChecks?.filter(c => !c.passed).length || 0;
+
+    let html = `<div class="story-card">`;
+    html += `<div class="story-header">
+      <div>
+        <span class="story-title">${r.title || 'Untitled'}</span>
+        <div class="story-meta">
+          <span class="badge">${r.structure || '?'}</span>
+          <span class="badge">${r.ageGroup || '?'}</span>
+          <span class="badge">${r.pageCount || 0} pages</span>
+          <span>${((r.generationTimeMs || 0) / 1000).toFixed(1)}s</span>
+        </div>
+      </div>
+      <div class="story-meta">
+        <span>Auto: ${(autoScore * 100).toFixed(0)}%</span>
+        ${judgeScore !== undefined ? `<span>Judge: ${judgeScore.toFixed(1)}/5</span>` : ''}
+        ${failCount > 0 ? `<span style="color:#991b1b">${failCount} failed</span>` : '<span style="color:#065f46">All passed</span>'}
+      </div>
+    </div>`;
+
+    html += `<div class="story-body">`;
+
+    // Automated checks
+    html += '<h3>Automated Checks</h3><div class="checks">';
+    for (const c of (r.automatedChecks || [])) {
+      const cls = c.passed ? 'pass' : 'fail';
+      const icon = c.passed ? '✓' : '✗';
+      html += `<div class="check ${cls}"><span class="check-icon">${icon}</span><div><span class="check-name">${c.name}</span><br>${c.detail}</div></div>`;
+    }
+    html += '</div>';
+
+    // Judge scores
+    if (r.judgeResult) {
+      html += '<div class="judge-scores"><h3>Judge Evaluation</h3>';
+      for (const s of r.judgeResult.scores) {
+        const pct = (s.score / 5) * 100;
+        const label = s.category.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+        html += `<div class="judge-row">
+          <div class="judge-label">${label}</div>
+          <div class="judge-bar-bg"><div class="judge-bar" style="width:${pct}%;background:${barColor(s.score, 5)}"></div></div>
+          <div class="judge-val">${s.score}/5</div>
+          <div class="judge-reason">${s.reasoning}</div>
+        </div>`;
+      }
+      if (r.judgeResult.overallNotes) {
+        html += `<div class="notes">${r.judgeResult.overallNotes}</div>`;
+      }
+      html += '</div>';
+    }
+
+    // Full story text
+    if (r.fullText) {
+      html += '<div class="story-text"><h3>Full Story</h3>';
+      const pages = r.fullText.split('\n\n');
+      pages.forEach((text, i) => {
+        html += `<div class="page-block"><div class="page-num">Page ${i + 1}</div><div class="page-content">${text}</div></div>`;
+      });
+      html += '</div>';
+    }
+
+    html += '</div></div>';
+    return html;
+  }
+</script>
+
+</body>
+</html>
