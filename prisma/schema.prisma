@@ -32,7 +32,6 @@ model Universe {
   characters           Character[]
   locations            Location[]
   stories              Story[]
-  timelineEvents       TimelineEvent[]
 }
 
 model Location {
@@ -63,7 +62,6 @@ model Character {
   createdAt         DateTime         @default(now())
   universe          Universe         @relation(fields: [universeId], references: [id])
   storyAppearances  StoryCharacter[]
-  timelineEvents    TimelineEvent[]
   relationshipsA    Relationship[]   @relation("CharA")
   relationshipsB    Relationship[]   @relation("CharB")
 }
@@ -90,7 +88,6 @@ model Story {
   universe         Universe         @relation(fields: [universeId], references: [id])
   scenes           Scene[]
   characters       StoryCharacter[]
-  timelineEvents   TimelineEvent[]
 }
 
 model Scene {
@@ -114,15 +111,3 @@ model StoryCharacter {
   @@id([storyId, characterId])
 }
 
-model TimelineEvent {
-  id           String    @id @default(uuid())
-  universeId   String
-  storyId      String
-  characterId  String
-  eventSummary String
-  significance String    @default("minor")
-  storyDate    DateTime  @default(now())
-  universe     Universe  @relation(fields: [universeId], references: [id])
-  story        Story     @relation(fields: [storyId], references: [id])
-  character    Character @relation(fields: [characterId], references: [id])
-}

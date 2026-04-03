@@ -3,7 +3,6 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
-import { writeTimelineEvents } from "../services/timelineWriter.js";
 import { generateStoryImages } from "../services/geminiGenerator.js";
 
 const router = Router();
@@ -150,7 +149,6 @@ router.post("/generate", async (req, res) => {
     debug.story(`Story generated in ${Date.now() - storyStart}ms`, {
       title: generated.title,
       pages: generated.pages.length,
-      timelineEvents: generated.timeline_events?.length || 0,
     });
 
     // Step 3: Save to database
@@ -224,10 +222,6 @@ router.post("/generate", async (req, res) => {
         },
       });
     }
-
-    // Write timeline events
-    sendProgress("finishing", "Adding to the timeline...");
-    await writeTimelineEvents(story.id, universeId, generated);
 
     // Fetch the full story to return
     const fullStory = await prisma.story.findUnique({

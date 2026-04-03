@@ -257,24 +257,6 @@ export default function UniverseManager() {
                 )}
               </div>
 
-              {/* Timeline */}
-              {universe.timelineEvents?.length > 0 && (
-                <div className="bg-white rounded-xl border border-stone-200 p-5">
-                  <h3 className="font-semibold text-stone-700 text-sm mb-3">
-                    Timeline ({universe.timelineEvents.length} events)
-                  </h3>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                    {universe.timelineEvents.map((e: any) => (
-                      <div key={e.id} className="flex items-start gap-2 text-xs">
-                        <div className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${e.significance === "major" ? "bg-primary" : "bg-stone-300"}`} />
-                        <span className="text-stone-500">
-                          <strong className="text-stone-600">{e.character?.name}</strong>: {e.eventSummary}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>

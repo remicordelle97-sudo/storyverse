@@ -12,7 +12,6 @@ interface PageData {
 interface StoryData {
   title: string;
   pages: PageData[];
-  timeline_events: { character_name: string; event_summary: string; significance: string }[];
 }
 
 interface CheckResult {
@@ -115,16 +114,7 @@ export function runAutomatedChecks(
     detail: `Avg ${avgSentenceLength.toFixed(1)} words/sentence (target: ${range.min}-${range.max} for age ${params.ageGroup})`,
   });
 
-  // 6. Timeline events (0-3)
-  const eventCount = story.timeline_events?.length || 0;
-  results.push({
-    name: "Timeline events (0-3)",
-    passed: eventCount <= 3,
-    score: eventCount <= 3 ? 1 : Math.max(0, 1 - (eventCount - 3) * 0.2),
-    detail: `${eventCount} timeline events`,
-  });
-
-  // 7. Characters referenced
+  // 6. Characters referenced
   const allText = story.pages.map((p) => p.content).join(" ");
   const referencedChars = params.characterNames.filter((name) => {
     const firstName = name.split(" ")[0];

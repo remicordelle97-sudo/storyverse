@@ -21,7 +21,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Single universe with characters and recent timeline
+// Single universe with characters and locations
 router.get("/:id", async (req, res) => {
   try {
     const universe = await prisma.universe.findUnique({
@@ -35,11 +35,6 @@ router.get("/:id", async (req, res) => {
         },
         locations: {
           orderBy: { createdAt: "asc" },
-        },
-        timelineEvents: {
-          orderBy: { storyDate: "desc" },
-          take: 20,
-          include: { character: true },
         },
       },
     });

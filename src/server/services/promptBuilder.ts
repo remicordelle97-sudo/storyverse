@@ -305,13 +305,6 @@ Characters must look IDENTICAL across all pages. Use the exact same descriptors 
       "content": "Page text here...",
       "image_prompt": "A young lion with a golden mane and warm amber eyes, carrying a tiny blue backpack, standing under a baobab tree on a golden savanna at sunset, looking curiously at a glowing object in the grass. Storybook illustration style, warm colors."
     }
-  ],
-  "timeline_events": [
-    {
-      "character_name": "Leo",
-      "event_summary": "Leo found an ancient map hidden behind the waterfall",
-      "significance": "major"
-    }
   ]
 }`;
 

@@ -9,16 +9,9 @@ interface StoryPage {
   image_prompt: string;
 }
 
-interface StoryTimelineEvent {
-  character_name: string;
-  event_summary: string;
-  significance: "major" | "minor";
-}
-
 export interface GeneratedStory {
   title: string;
   pages: StoryPage[];
-  timeline_events: StoryTimelineEvent[];
 }
 
 export async function generateStory(

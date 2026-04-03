@@ -137,7 +137,3 @@ export function generateStory(
       .catch(reject);
   });
 }
-
-// Timeline
-export const getTimeline = (universeId: string) =>
-  request<any[]>(`/timeline?universeId=${universeId}`);

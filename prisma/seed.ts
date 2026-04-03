@@ -4,7 +4,6 @@ const prisma = new PrismaClient();
 
 async function main() {
   // Clean existing data
-  await prisma.timelineEvent.deleteMany();
   await prisma.storyCharacter.deleteMany();
   await prisma.scene.deleteMany();
   await prisma.story.deleteMany();

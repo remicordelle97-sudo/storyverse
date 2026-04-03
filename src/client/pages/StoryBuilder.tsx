@@ -12,7 +12,6 @@ const STEP_LABELS: Record<string, string> = {
   writing: "Writing the story",
   saving: "Saving pages",
   illustrating: "Creating illustrations",
-  finishing: "Adding to the timeline",
 };
 
 export default function StoryBuilder() {
@@ -107,8 +106,8 @@ export default function StoryBuilder() {
   };
 
   const allSteps = generateImages
-    ? ["building", "writing", "saving", "illustrating", "finishing"]
-    : ["building", "writing", "saving", "finishing"];
+    ? ["building", "writing", "saving", "illustrating"]
+    : ["building", "writing", "saving"];
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">

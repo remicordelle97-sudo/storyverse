@@ -6,7 +6,6 @@ import universesRouter from "./routes/universes.js";
 import charactersRouter from "./routes/characters.js";
 import storiesRouter from "./routes/stories.js";
 import locationsRouter from "./routes/locations.js";
-import timelineRouter from "./routes/timeline.js";
 import { authMiddleware } from "./middleware/auth.js";
 
 const app = express();
@@ -26,7 +25,6 @@ app.use("/api/universes", authMiddleware, universesRouter);
 app.use("/api/characters", authMiddleware, charactersRouter);
 app.use("/api/stories", authMiddleware, storiesRouter);
 app.use("/api/locations", authMiddleware, locationsRouter);
-app.use("/api/timeline", authMiddleware, timelineRouter);
 
 app.listen(PORT, () => {
   console.log(`Storyverse API running on http://localhost:${PORT}`);
