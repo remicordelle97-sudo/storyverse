@@ -22,6 +22,9 @@ model Universe {
   userId               String
   name                 String
   settingDescription   String
+  sensoryDetails       String          @default("")
+  worldRules           String          @default("")
+  scaleAndGeography    String          @default("")
   themes               String
   illustrationStyle    String          @default("storybook")
   illustrationsEnabled Boolean         @default(true)

@@ -54,9 +54,9 @@ router.post("/generate-concept", async (req, res) => {
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
-      max_tokens: 1000,
+      max_tokens: 2000,
       temperature: 0.75,
-      system: "You create unique, imaginative worlds for children's stories. Return ONLY valid JSON. No markdown fences.",
+      system: "You create unique, imaginative worlds for children's stories. These worlds need to be rich enough to support hundreds of stories. Return ONLY valid JSON. No markdown fences.",
       messages: [
         {
           role: "user",
@@ -64,14 +64,28 @@ router.post("/generate-concept", async (req, res) => {
 
 INTERESTS: ${JSON.stringify(interests)}
 
-Generate a creative, evocative universe name and a rich setting description. The name should be unique and memorable, not generic (avoid "The [Adjective] [Noun]" patterns every time — be creative with the naming).
+=== UNIVERSE NAME ===
+Generate a creative, evocative name. It should be unique and memorable, not generic (avoid "The [Adjective] [Noun]" patterns every time — be creative).
 
-The setting description should be 2-3 sentences that paint a vivid picture of this world: what it looks, sounds, and feels like. Include specific, surprising details that make it feel alive.
+=== SETTING DESCRIPTION ===
+2-3 sentences that paint a vivid picture of this world. What does it LOOK like? Include specific, surprising details that make it feel alive and lived-in.
+
+=== SENSORY DETAILS ===
+What does this world SOUND like? SMELL like? FEEL like? Give 2-3 specific sensory details beyond visuals that make a child feel immersed. (e.g., "The air always tastes faintly of cinnamon near the bakery tree", "The ground hums gently underfoot when the big gears turn below", "Everything has a soft mossy texture, even the buildings")
+
+=== WORLD RULES ===
+Every great children's world has 1-2 unique rules or mechanics that make it special — things that are true in THIS world but not in ours. These create built-in story hooks. (e.g., "When someone tells a lie, their shadow turns a different color", "Every animal discovers their one special talent on their Bloom Day", "The weather changes based on what the oldest tree is dreaming about"). Rules should be simple enough for a 4-year-old to understand and exciting enough to build stories around.
+
+=== SCALE & GEOGRAPHY ===
+How big is this world? What are its boundaries? Give children a mental map. (e.g., "The whole world fits inside a single hollow oak tree — each branch is a different neighborhood", "A cluster of seven tiny islands connected by rope bridges, surrounded by an endless warm sea", "A valley between two mountains, small enough to walk across in a morning but full of hidden paths"). Include 2-3 landmark types that define the geography.
 
 Return exactly this JSON:
 {
   "name": "A unique universe name",
-  "settingDescription": "2-3 sentences describing this world vividly"
+  "settingDescription": "2-3 sentences describing what this world looks like",
+  "sensoryDetails": "2-3 specific non-visual sensory details (sounds, smells, textures)",
+  "worldRules": "1-2 unique rules or mechanics that make this world special",
+  "scaleAndGeography": "The size, boundaries, and key landmark types of this world"
 }`,
         },
       ],
@@ -103,6 +117,9 @@ router.post("/", async (req, res) => {
     const {
       name,
       settingDescription,
+      sensoryDetails,
+      worldRules,
+      scaleAndGeography,
       themes,
       avoidThemes,
       illustrationStyle,
@@ -115,6 +132,9 @@ router.post("/", async (req, res) => {
         userId: req.userId!,
         name,
         settingDescription,
+        sensoryDetails: sensoryDetails || "",
+        worldRules: worldRules || "",
+        scaleAndGeography: scaleAndGeography || "",
         themes: typeof themes === "string" ? themes : JSON.stringify(themes),
         avoidThemes: avoidThemes || "",
         illustrationStyle: illustrationStyle || "storybook",

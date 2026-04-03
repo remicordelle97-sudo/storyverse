@@ -263,6 +263,9 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
   let prompt = `=== UNIVERSE ===
 Name: ${universe.name}
 Setting: ${universe.settingDescription}
+${universe.sensoryDetails ? `Sensory details: ${universe.sensoryDetails}` : ""}
+${universe.worldRules ? `World rules: ${universe.worldRules}` : ""}
+${universe.scaleAndGeography ? `Scale & geography: ${universe.scaleAndGeography}` : ""}
 Themes: ${universe.themes}
 Avoid: ${universe.avoidThemes}
 
