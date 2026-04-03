@@ -441,17 +441,38 @@ For each page, I may include character reference images. These are for CHARACTER
     });
 
     try {
-      const response = await chat.sendMessage({
-        message: pageParts,
-      });
+      let imageUrl: string | null = null;
+      let attempts = 0;
+      const maxAttempts = 2;
 
-      const imageUrl = extractImage(response);
+      while (!imageUrl && attempts < maxAttempts) {
+        attempts++;
+        const response = await chat.sendMessage({
+          message: pageParts,
+        });
+
+        imageUrl = extractImage(response);
+
+        if (!imageUrl) {
+          // Log what Gemini returned instead of an image
+          const textParts = response?.candidates?.[0]?.content?.parts
+            ?.filter((p: any) => p.text)
+            ?.map((p: any) => p.text)
+            ?.join(" ") || "no content";
+          debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt ${attempts}/${maxAttempts}). Gemini said: ${textParts.slice(0, 200)}`);
+
+          if (attempts < maxAttempts) {
+            debug.image(`Retrying page ${i + 1}...`);
+          }
+        }
+      }
+
       if (imageUrl) {
         results.set(page.page_number, imageUrl);
         debug.image(`Chat page ${i + 1}/${pages.length}: done in ${Date.now() - startTime}ms`, { imageUrl });
         onProgress?.(page.page_number, pages.length, imageUrl);
       } else {
-        debug.error(`Chat page ${i + 1}/${pages.length}: no image in response`);
+        debug.error(`Chat page ${i + 1}/${pages.length}: failed after ${maxAttempts} attempts`);
       }
     } catch (e: any) {
       debug.error(`Chat page ${i + 1}/${pages.length}: failed: ${e.message}`);
