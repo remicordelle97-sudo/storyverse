@@ -5,7 +5,7 @@
  * and mood-specific rules injected into every image prompt.
  */
 
-const ART_STYLE = `ART STYLE — soft chalk pastel on textured paper:
+export const ART_STYLE = `ART STYLE — soft chalk pastel on textured paper:
 CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
 - Medium: Soft chalk pastel illustration on heavy textured paper. Powdery, dreamy strokes that smudge and blur into each other. Colors are soft, dusty, and luminous.
 - Edges: ABSOLUTELY NO outlines, linework, or drawn borders. Shapes are formed by smudging colored chalk into paper — edges are diffused, powdery, and feathered. Every boundary is soft and hazy.
@@ -81,6 +81,8 @@ const CONTINUITY_RULES = `CONTINUITY:
 /**
  * Build the complete style guide for a specific story context.
  */
+export const ART_STYLE_REMINDER = `Soft chalk pastel style — powdery dreamy smudged strokes, NO outlines, NO linework.`;
+
 export function buildImageStyleGuide(
   mood: string,
   illustrationStyle?: string
