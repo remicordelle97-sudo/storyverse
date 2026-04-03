@@ -7,6 +7,7 @@ interface StoryPage {
   page_number: number;
   content: string;
   image_prompt: string;
+  characters_in_scene: string[];
 }
 
 export interface GeneratedStory {

@@ -286,7 +286,7 @@ export async function generateStoryImages(
   universeId: string,
   characterIds: string[],
   mood: string,
-  pages: { page_number: number; image_prompt: string }[],
+  pages: { page_number: number; image_prompt: string; characters_in_scene?: string[] }[],
   onProgress?: (pageNum: number, total: number, imageUrl: string) => void
 ): Promise<Map<number, string>> {
   const styleGuide = buildImageStyleGuide(mood);
@@ -390,20 +390,38 @@ For each page, I may include character reference images. These are for CHARACTER
     });
     const startTime = Date.now();
 
-    // Find which characters appear in this page's prompt
+    // Attach reference images for characters in this scene
     const pageParts: any[] = [];
-    const promptLower = page.image_prompt.toLowerCase();
     const matchedChars: string[] = [];
+    const sceneCharacters = page.characters_in_scene || [];
 
-    for (const [nameLower, ref] of characterRefs) {
-      if (promptLower.includes(nameLower)) {
-        pageParts.push({
-          inlineData: { data: ref.data, mimeType: ref.mimeType },
-        });
-        pageParts.push({
-          text: `[Reference for ${ref.name} — use for character identity ONLY, not style or layout]`,
-        });
-        matchedChars.push(ref.name);
+    if (sceneCharacters.length > 0) {
+      // Use explicit character list from Claude
+      for (const charName of sceneCharacters) {
+        const ref = characterRefs.get(charName.toLowerCase());
+        if (ref) {
+          pageParts.push({
+            inlineData: { data: ref.data, mimeType: ref.mimeType },
+          });
+          pageParts.push({
+            text: `[Reference for ${ref.name} — use for character identity ONLY, not style or layout]`,
+          });
+          matchedChars.push(ref.name);
+        }
+      }
+    } else {
+      // Fallback: search prompt text for character names
+      const promptLower = page.image_prompt.toLowerCase();
+      for (const [nameLower, ref] of characterRefs) {
+        if (promptLower.includes(nameLower)) {
+          pageParts.push({
+            inlineData: { data: ref.data, mimeType: ref.mimeType },
+          });
+          pageParts.push({
+            text: `[Reference for ${ref.name} — use for character identity ONLY, not style or layout]`,
+          });
+          matchedChars.push(ref.name);
+        }
       }
     }
 

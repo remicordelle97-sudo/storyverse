@@ -333,7 +333,8 @@ ${characters.map((char) => {
     {
       "page_number": 1,
       "content": "Page text here...",
-      "image_prompt": "A young lion with a golden mane and warm amber eyes, carrying a tiny blue backpack, standing under a baobab tree on a golden savanna at sunset, looking curiously at a glowing object in the grass. Storybook illustration style, warm colors."
+      "image_prompt": "A young lion with a golden mane and warm amber eyes, carrying a tiny blue backpack, standing under a baobab tree on a golden savanna at sunset, looking curiously at a glowing object in the grass. Storybook illustration style, warm colors.",
+      "characters_in_scene": ["Leo the Lion", "Zuri the Zebra"]
     }
   ]
 }`;
