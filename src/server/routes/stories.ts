@@ -4,6 +4,7 @@ import { debug } from "../lib/debug.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { generateStoryImages } from "../services/geminiGenerator.js";
+import { verifyUniverseOwnership } from "../lib/ownership.js";
 
 const router = Router();
 
@@ -14,6 +15,9 @@ router.get("/", async (req, res) => {
     const where: any = {};
 
     if (universeId && typeof universeId === "string") {
+      if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       where.universeId = universeId;
     } else {
       // All stories across user's universes
@@ -52,6 +56,9 @@ router.get("/:id", async (req, res) => {
     });
     if (!story) {
       return res.status(404).json({ error: "Story not found" });
+    }
+    if (!await verifyUniverseOwnership(story.universeId, req.userId!)) {
+      return res.status(403).json({ error: "Access denied" });
     }
     res.json(story);
   } catch (e) {
@@ -108,6 +115,10 @@ router.post("/generate", async (req, res) => {
 
     if (!universeId || !characterIds?.length || !ageGroup) {
       return sendError("universeId, characterIds, and ageGroup are required");
+    }
+
+    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+      return sendError("Access denied");
     }
 
     debug.story("=== STORY GENERATION START ===");
