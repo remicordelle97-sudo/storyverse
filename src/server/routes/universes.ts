@@ -163,7 +163,8 @@ router.post("/", async (req, res) => {
 
     debug.universe("Universe created", { id: universe.id, name: universe.name });
     res.status(201).json(universe);
-  } catch (e) {
+  } catch (e: any) {
+    debug.error(`Universe creation failed: ${e.message}`);
     res.status(500).json({ error: "Failed to create universe" });
   }
 });
