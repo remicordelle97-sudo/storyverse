@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { createUniverse, createCharacter, generateUniverseConcept } from "../api/client";
+import { createUniverse, createCharacter, generateUniverseConcept, generateCharacters } from "../api/client";
 import Chip from "../components/Chip";
 
 const INTERESTS = [
@@ -96,7 +96,9 @@ export default function NewUniverse() {
         role: "main",
       });
 
-      console.log("Hero created, navigating to universe manager");
+      setSavingStep("Creating supporting characters...");
+      await generateCharacters(universe.id);
+
       queryClient.invalidateQueries({ queryKey: ["universes"] });
       localStorage.setItem("universeId", universe.id);
       navigate("/universe-manager");
