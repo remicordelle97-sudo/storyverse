@@ -137,9 +137,13 @@ async function main() {
     include: { characters: true },
   });
 
-  const characterIds = universe.characters.map((c) => c.id);
-  const characterNames = universe.characters.map((c) => c.name);
-  console.log(`Characters: ${characterNames.join(", ")}\n`);
+  // Hero + max 2 supporting = 3 characters max (matches StoryBuilder limit)
+  const hero = universe.characters.find((c) => c.role === "main");
+  const supporting = universe.characters.filter((c) => c.role !== "main").slice(0, 2);
+  const selectedChars = hero ? [hero, ...supporting] : supporting.slice(0, 3);
+  const characterIds = selectedChars.map((c) => c.id);
+  const characterNames = selectedChars.map((c) => c.name);
+  console.log(`Characters (${characterIds.length}/3 max): ${characterNames.join(", ")}\n`);
 
   const results: EvalResult[] = [];
 
