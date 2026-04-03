@@ -292,6 +292,20 @@
 
     // Full story text
     if (r.fullText) {
+    // Prompts
+    if (r.systemPrompt || r.userPrompt) {
+      html += '<div class="story-text"><h3>Prompts</h3>';
+      if (r.systemPrompt) {
+        html += `<details style="margin-bottom:0.75rem"><summary style="cursor:pointer;font-size:0.8rem;color:#534AB7;font-weight:600">System Prompt (${r.systemPrompt.length} chars)</summary><pre style="white-space:pre-wrap;font-size:0.75rem;color:#555;background:#f9f8f6;padding:0.75rem;border-radius:6px;margin-top:0.5rem;max-height:400px;overflow-y:auto">${r.systemPrompt.replace(/</g, '&lt;')}</pre></details>`;
+      }
+      if (r.userPrompt) {
+        html += `<details><summary style="cursor:pointer;font-size:0.8rem;color:#534AB7;font-weight:600">User Prompt (${r.userPrompt.length} chars)</summary><pre style="white-space:pre-wrap;font-size:0.75rem;color:#555;background:#f9f8f6;padding:0.75rem;border-radius:6px;margin-top:0.5rem;max-height:400px;overflow-y:auto">${r.userPrompt.replace(/</g, '&lt;')}</pre></details>`;
+      }
+      html += '</div>';
+    }
+
+    // Full story text
+    if (r.fullText) {
       html += '<div class="story-text"><h3>Full Story</h3>';
       const pages = r.fullText.split('\n\n');
       pages.forEach((text, i) => {

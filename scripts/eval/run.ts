@@ -32,6 +32,8 @@ interface EvalResult {
   length: string;
   pageCount: number;
   generationTimeMs: number;
+  systemPrompt?: string;
+  userPrompt?: string;
   automatedChecks: { name: string; passed: boolean; score: number; detail: string }[];
   automatedScore: number;
   judgeResult?: {
@@ -73,7 +75,7 @@ async function generateStory(
   structure: string,
   length: "short" | "long",
   mood: string
-): Promise<{ story: any; timeMs: number }> {
+): Promise<{ story: any; timeMs: number; systemPrompt: string; userPrompt: string }> {
   const start = Date.now();
 
   const { userMessage, ageGroup: resolvedAge } = await buildPrompt({
@@ -108,7 +110,7 @@ async function generateStory(
   }
 
   const story = JSON.parse(raw);
-  return { story, timeMs: Date.now() - start };
+  return { story, timeMs: Date.now() - start, systemPrompt, userPrompt: userMessage };
 }
 
 async function main() {
@@ -149,7 +151,7 @@ async function main() {
     console.log(`--- Story ${i + 1}/${opts.count} (${structure}) ---`);
 
     try {
-      const { story, timeMs } = await generateStory(
+      const { story, timeMs, systemPrompt, userPrompt } = await generateStory(
         universeId,
         characterIds,
         opts.ageGroup,
@@ -186,6 +188,8 @@ async function main() {
         generationTimeMs: timeMs,
         automatedChecks: checks,
         automatedScore,
+        systemPrompt,
+        userPrompt,
       };
 
       // Claude-as-judge

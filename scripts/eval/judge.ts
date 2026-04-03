@@ -32,7 +32,7 @@ export async function judgeStory(
     model: "claude-sonnet-4-6",
     max_tokens: 2000,
     temperature: 0,
-    system: `You are an expert children's book editor evaluating AI-generated stories. Score each category 1-5 and explain your reasoning briefly. Return ONLY valid JSON. No markdown fences.`,
+    system: `You are a harsh, exacting children's book editor evaluating AI-generated stories. You have very high standards — a score of 5 means "publishable by a top children's press." Most AI-generated stories deserve a 2-3. Only give a 4 if genuinely impressed and a 5 if it's exceptional. Be specific about flaws. A 3 is "adequate but needs work." Return ONLY valid JSON. No markdown fences.`,
     messages: [
       {
         role: "user",

@@ -51,10 +51,14 @@ export default function StoryBuilder() {
   const [progressDetail, setProgressDetail] = useState("");
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
 
+  const MAX_SUPPORTING = 2; // hero + 2 supporting = 3 max
+
   const toggleCharacter = (id: string) =>
-    setSelectedCharacters((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setSelectedCharacters((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= MAX_SUPPORTING) return prev; // already at max
+      return [...prev, id];
+    });
 
   const hero = universe?.characters?.find((c: any) => c.role === "main");
   const secondaryCharacters = (universe?.characters || []).filter(
@@ -206,7 +210,7 @@ export default function StoryBuilder() {
               {secondaryCharacters.length > 0 && (
                 <section className="mb-8">
                   <label className="block text-sm font-medium text-stone-700 mb-3">
-                    Supporting characters (optional)
+                    Supporting characters (optional, max {MAX_SUPPORTING})
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {secondaryCharacters.map((c: any) => (
