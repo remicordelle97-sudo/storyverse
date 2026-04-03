@@ -143,8 +143,9 @@ export async function generateCharacterSheet(
 }
 
 /**
- * Generate ALL character sheets for a universe in a single multi-turn
- * chat session. Gemini maintains visual style consistency across turns.
+ * Generate ALL character sheets for a universe. Each character gets its
+ * own independent Gemini call to prevent visual blending between characters.
+ * Style consistency is maintained via identical style guide text in each prompt.
  */
 export async function generateAllCharacterSheets(
   universeId: string
@@ -157,14 +158,7 @@ export async function generateAllCharacterSheets(
 
   if (characters.length === 0) return;
 
-  debug.image(`Generating ${characters.length} character sheets in multi-turn chat`);
-
-  const chat = ai.chats.create({
-    model: "gemini-2.5-flash-image",
-    config: {
-      responseModalities: ["Image", "Text"],
-    },
-  });
+  debug.image(`Generating ${characters.length} character sheets (separate sessions)`);
 
   for (let i = 0; i < characters.length; i++) {
     const character = characters[i];
@@ -174,37 +168,18 @@ export async function generateAllCharacterSheets(
       continue;
     }
 
-    debug.image(`Chat turn ${i + 1}/${characters.length}: generating sheet for "${character.name}"`);
+    debug.image(`Sheet ${i + 1}/${characters.length}: generating for "${character.name}"`);
     const startTime = Date.now();
 
-    // Collect descriptions of previously generated characters for contrast
-    const previousChars = characters.slice(0, i).filter(c => c.referenceImageUrl);
-    const previousDescriptions = previousChars.map(c =>
-      `${c.name}: ${c.speciesOrType}, primary color: ${c.appearance.slice(0, 100)}`
-    ).join("\n");
-
-    let prompt: string;
-    if (i === 0) {
-      // First character: establish the art style
-      prompt = buildCharacterSheetPrompt(character);
-    } else {
-      // Subsequent characters: reference the established style but demand visual contrast
-      prompt = `Now create a CHARACTER MODEL SHEET for a COMPLETELY DIFFERENT character. Use the EXACT SAME art style, line quality, and illustration technique as the previous sheet(s).
-
-IMPORTANT: This character must look NOTHING like the previous character(s). Different body shape, different proportions, different size, different color palette. A child must be able to instantly tell them apart.
-
-Previously generated characters (do NOT make this one look like any of them):
-${previousDescriptions}
-
-${buildCharacterSheetPrompt(character)}`;
-    }
+    const prompt = buildCharacterSheetPrompt(character);
 
     try {
-      const response = await chat.sendMessage({ message: prompt });
-
-      debug.image("Gemini chat response:", {
-        parts: response?.candidates?.[0]?.content?.parts?.length || 0,
-        partTypes: response?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ? "text" : p.inlineData ? `image(${p.inlineData.mimeType})` : "unknown").join(", ") || "none",
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-image",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        config: {
+          responseModalities: ["Image", "Text"],
+        },
       });
 
       const imageUrl = extractImage(response);
@@ -224,7 +199,7 @@ ${buildCharacterSheetPrompt(character)}`;
     }
   }
 
-  debug.image("All character sheets generated via multi-turn chat");
+  debug.image("All character sheets generated");
 }
 
 /**
