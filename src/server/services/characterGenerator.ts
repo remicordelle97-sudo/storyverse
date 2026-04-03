@@ -17,7 +17,6 @@ interface GeneratedCharacter {
   story_function: string;
   signature_behavior: string;
   relationship_archetype: string;
-  relationship_to_hero: string;
 }
 
 interface GeneratedCharacters {
@@ -131,8 +130,7 @@ Return exactly this JSON:
       "relationship_archetype": "the cautious best friend who worries enough for both of them",
       "appearance": "A small, slender zebra about half the height of a lion...",
       "outfit": "ALWAYS WEARS AND CARRIES (never remove any item):\n- #C4A882 tan canvas satchel bag...",
-      "special_detail": "Has one stripe that zigzags differently from all the others",
-      "relationship_to_hero": "Best friends since they were young. Zuri is the cautious voice when Leo gets too adventurous."
+      "special_detail": "Has one stripe that zigzags differently from all the others"
     }
   ]
 }`,
@@ -165,7 +163,7 @@ Return exactly this JSON:
   for (const char of parsed.characters) {
     debug.character(`Creating: ${char.name} (${char.species_or_type})`, {
       traits: char.personality_traits.join(", "),
-      relationship: char.relationship_to_hero,
+      dominantTrait: char.dominant_trait,
     });
     const created = await prisma.character.create({
       data: {
@@ -186,14 +184,5 @@ Return exactly this JSON:
       },
     });
 
-    if (char.relationship_to_hero) {
-      await prisma.relationship.create({
-        data: {
-          characterAId: hero.id,
-          characterBId: created.id,
-          description: char.relationship_to_hero,
-        },
-      });
-    }
   }
 }

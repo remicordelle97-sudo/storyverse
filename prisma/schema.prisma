@@ -68,17 +68,6 @@ model Character {
   createdAt         DateTime         @default(now())
   universe          Universe         @relation(fields: [universeId], references: [id])
   storyAppearances  StoryCharacter[]
-  relationshipsA    Relationship[]   @relation("CharA")
-  relationshipsB    Relationship[]   @relation("CharB")
-}
-
-model Relationship {
-  id           String    @id @default(uuid())
-  characterAId String
-  characterBId String
-  description  String
-  characterA   Character @relation("CharA", fields: [characterAId], references: [id])
-  characterB   Character @relation("CharB", fields: [characterBId], references: [id])
 }
 
 model Story {

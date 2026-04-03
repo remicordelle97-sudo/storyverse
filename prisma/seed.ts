@@ -7,7 +7,6 @@ async function main() {
   await prisma.storyCharacter.deleteMany();
   await prisma.scene.deleteMany();
   await prisma.story.deleteMany();
-  await prisma.relationship.deleteMany();
   await prisma.character.deleteMany();
   await prisma.universe.deleteMany();
   await prisma.user.deleteMany();
@@ -54,15 +53,6 @@ async function main() {
       specialDetail:
         "Has one stripe that zigzags differently from all the others",
       role: "supporting",
-    },
-  });
-
-  await prisma.relationship.create({
-    data: {
-      characterAId: leo.id,
-      characterBId: zuri.id,
-      description:
-        "Best friends since they were young. Leo is braver, Zuri is wiser.",
     },
   });
 

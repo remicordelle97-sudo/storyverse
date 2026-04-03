@@ -27,12 +27,7 @@ router.get("/:id", async (req, res) => {
     const universe = await prisma.universe.findUnique({
       where: { id: req.params.id },
       include: {
-        characters: {
-          include: {
-            relationshipsA: { include: { characterB: true } },
-            relationshipsB: { include: { characterA: true } },
-          },
-        },
+        characters: true,
         locations: {
           orderBy: { createdAt: "asc" },
         },

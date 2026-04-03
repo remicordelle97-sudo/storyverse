@@ -15,10 +15,6 @@ router.get("/", async (req, res) => {
     }
     const characters = await prisma.character.findMany({
       where: { universeId },
-      include: {
-        relationshipsA: { include: { characterB: true } },
-        relationshipsB: { include: { characterA: true } },
-      },
       orderBy: { createdAt: "asc" },
     });
     res.json(characters);
@@ -27,7 +23,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Create a character (with optional relationship to hero)
+// Create a character
 router.post("/", async (req, res) => {
   try {
     const {
@@ -39,7 +35,6 @@ router.post("/", async (req, res) => {
       outfit,
       specialDetail,
       role,
-      relationshipToHero,
     } = req.body;
 
     debug.character("Creating character", { name, speciesOrType: speciesOrType, role, hasOutfit: !!outfit, hasAppearance: !!appearance });
@@ -59,22 +54,6 @@ router.post("/", async (req, res) => {
         role: role || "main",
       },
     });
-
-    // If a relationship description is provided, link to the hero
-    if (relationshipToHero) {
-      const hero = await prisma.character.findFirst({
-        where: { universeId, role: "main" },
-      });
-      if (hero) {
-        await prisma.relationship.create({
-          data: {
-            characterAId: hero.id,
-            characterBId: character.id,
-            description: relationshipToHero,
-          },
-        });
-      }
-    }
 
     res.status(201).json(character);
   } catch (e) {
@@ -101,10 +80,6 @@ router.post("/generate", async (req, res) => {
 
     const fullCharacters = await prisma.character.findMany({
       where: { universeId },
-      include: {
-        relationshipsA: { include: { characterB: true } },
-        relationshipsB: { include: { characterA: true } },
-      },
     });
     res.status(201).json(fullCharacters);
   } catch (e) {

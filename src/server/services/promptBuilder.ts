@@ -222,10 +222,6 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
 
   const characters = await prisma.character.findMany({
     where: { id: { in: input.characterIds } },
-    include: {
-      relationshipsA: { include: { characterB: true } },
-      relationshipsB: { include: { characterA: true } },
-    },
   });
 
   const pageCount = input.length === "short" ? 10 : 32;
@@ -235,21 +231,6 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
     where: { universeId: input.universeId },
     orderBy: { createdAt: "asc" },
   });
-
-  // Build the featured character IDs set for relationship filtering
-  const featuredIds = new Set(input.characterIds);
-
-  // Collect relationships between featured characters
-  const relationships: string[] = [];
-  for (const char of characters) {
-    for (const rel of char.relationshipsA) {
-      if (featuredIds.has(rel.characterBId)) {
-        relationships.push(
-          `${char.name} and ${rel.characterB.name}: ${rel.description}`
-        );
-      }
-    }
-  }
 
   // Story structure
   const structureGuide =
@@ -277,14 +258,6 @@ Avoid: ${universe.avoidThemes}
     if (char.relationshipArchetype) prompt += `\nArchetype: ${char.relationshipArchetype}`;
     if (char.specialDetail) prompt += `\nSpecial detail: ${char.specialDetail}`;
     prompt += `\nRole: ${char.role}\n\n`;
-  }
-
-  if (relationships.length > 0) {
-    prompt += `=== RELATIONSHIPS ===\n`;
-    for (const rel of relationships) {
-      prompt += `${rel}\n`;
-    }
-    prompt += `\n`;
   }
 
   if (locations.length > 0) {
@@ -343,7 +316,7 @@ ${characters.map((char) => {
   debug.prompt("Prompt assembled", {
     universe: universe.name,
     characters: characters.map((c) => c.name).join(", "),
-    relationships: relationships.length,
+
     structure: input.structure,
     ageGroup: input.ageGroup,
     pageCount,
