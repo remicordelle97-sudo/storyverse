@@ -45,7 +45,7 @@ VOCABULARY — Ages 2-3:
 - SHOW emotions through actions, body language, and dialogue — never state them. Write "Zuri's ears went flat" not "Zuri felt scared."
 - Include at least 2-3 sensory details per page: what things look, sound, smell, feel, or taste like.
 - Use light humour, funny sounds, and playful dialogue.
-- Be bold and surprising — children love the outrageous and unexpected. Think big: a waterfall that flows upward, a cave that sings, a cloud you can bounce on.
+- Be bold and surprising — children love the outrageous and unexpected. Think big: a puddle that leads to an underground garden, a tree that grows a new door every morning, a rock that's warm like a sleeping animal.
 - Always resolve uncertainty before the story ends.
 
 SENTENCE STRUCTURE — Ages 4-5:
