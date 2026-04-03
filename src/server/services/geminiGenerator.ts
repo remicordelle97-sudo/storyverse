@@ -261,7 +261,6 @@ export async function generateLocationSheet(
 
   const styleGuide = buildImageStyleGuide(
     location.universe.mood,
-    "4-5",
     location.universe.illustrationStyle
   );
 
@@ -345,11 +344,10 @@ export async function generateStoryImages(
   universeId: string,
   characterIds: string[],
   mood: string,
-  ageGroup: string,
   pages: { page_number: number; image_prompt: string }[],
   onProgress?: (pageNum: number, total: number, imageUrl: string) => void
 ): Promise<Map<number, string>> {
-  const styleGuide = buildImageStyleGuide(mood, ageGroup);
+  const styleGuide = buildImageStyleGuide(mood);
   const results = new Map<number, string>();
 
   // Build character descriptions

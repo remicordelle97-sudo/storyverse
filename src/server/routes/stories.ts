@@ -190,7 +190,6 @@ router.post("/generate", async (req, res) => {
         universeId,
         characterIds,
         mood,
-        ageGroup,
         generated.pages,
         (pageNum, total, _imageUrl) => {
           sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);

@@ -70,32 +70,6 @@ const MOOD_PALETTES: Record<string, string> = {
 - Lighting: Low ambient light with strong warm accents from magical sources (glowing crystals, starlight, fireflies).`,
 };
 
-const AGE_COMPLEXITY: Record<string, string> = {
-  "2-3": `SCENE COMPLEXITY — Ages 2-3:
-- Maximum 1-2 characters per image. Never more.
-- Backgrounds: Very simple. A single color gradient, a few gentle shapes (hills, clouds). No complex environments.
-- Character size: LARGE relative to the frame. The character should fill at least 40-50% of the image.
-- Detail level: Minimal. Clear, bold shapes. No tiny intricate details that a toddler can't parse.
-- Colors: High contrast between character and background. Bold, primary-leaning colors.
-- Expressions: Simple and exaggerated. A big smile, wide surprised eyes. Readable from across a room.`,
-
-  "4-5": `SCENE COMPLEXITY — Ages 4-5:
-- Maximum 3-4 characters per image.
-- Backgrounds: Moderate detail. Recognizable environments (a forest, a room, a path) with some texture and props, but not overwhelming.
-- Character size: Medium-large in the frame. Main character clearly dominant.
-- Detail level: Some fun details that reward close looking (a ladybug on a leaf, a funny sign, a hidden mouse). These create re-reading value.
-- Colors: Bold and saturated, with more variety than toddler images. Can use 6-8 colors.
-- Expressions: Clear and readable, with more nuance than toddler images (nervous smile, curious tilt of the head).`,
-
-  "6-8": `SCENE COMPLEXITY — Ages 6-8:
-- Can include 4-5 characters if the scene calls for it.
-- Backgrounds: Rich, detailed environments that reward exploration. Texture, depth, atmospheric perspective.
-- Character size: Varies by scene. Can be small in a vast landscape for adventure/wonder, or large close-up for emotional moments.
-- Detail level: Rich. Hidden details, visual jokes, environmental storytelling (objects that tell a story even without text). Foreshadowing through visual clues.
-- Colors: Sophisticated palette. Can include subtle tones alongside bold accents. More color variety and nuance.
-- Expressions: Full emotional range conveyed through subtle body language, not just faces. Posture, hand position, eye direction all matter.`,
-};
-
 const CONTINUITY_RULES = `CONTINUITY:
 - Every image in a story must feel like it belongs to the same book. Same art style, same palette family, same lighting approach, same level of detail.
 - Characters must look identical to their reference images. Same proportions, same colors, same distinguishing features. If a character has a blue backpack, it appears in EVERY image where that character appears.
@@ -107,12 +81,10 @@ const CONTINUITY_RULES = `CONTINUITY:
  */
 export function buildImageStyleGuide(
   mood: string,
-  ageGroup: string,
   illustrationStyle?: string
 ): string {
   const moodKey = mood.toLowerCase().split(" ")[0]; // "exciting adventures" → "exciting"
   const moodPalette = MOOD_PALETTES[moodKey] || MOOD_PALETTES["exciting"];
-  const ageComplexity = AGE_COMPLEXITY[ageGroup] || AGE_COMPLEXITY["4-5"];
 
   let guide = `=== ILLUSTRATION STYLE GUIDE ===\n\n`;
 
@@ -124,7 +96,6 @@ export function buildImageStyleGuide(
 
   guide += `${COLOR_RULES}\n\n`;
   guide += `${moodPalette}\n\n`;
-  guide += `${ageComplexity}\n\n`;
   guide += `${CHARACTER_RENDERING}\n\n`;
   guide += `${COMPOSITION_RULES}\n\n`;
   guide += `${LIGHTING_RULES}\n\n`;
