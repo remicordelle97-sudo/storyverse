@@ -210,7 +210,13 @@ function buildCharacterSheetPrompt(character: any): string {
     ? `\nOUTFIT (character is ALWAYS wearing/carrying ALL of these):\n${character.outfit}`
     : "";
 
-  return `ART STYLE: Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic.
+  return `ART STYLE — follow these rules precisely:
+- Medium: Traditional watercolor on textured paper. Colors should look like they were painted with a wet brush — soft edges where colors BLEED into each other, visible water blooms, and pigment pooling in darker areas.
+- Edges: NO hard outlines or sharp contours. Shapes are defined by color meeting color, not by drawn lines. Where edges exist, they should be soft, feathered, and broken — like real watercolor where the paint naturally fades at the boundary.
+- Texture: Visible paper grain showing through the paint. Areas of wash should be uneven and organic, not smooth gradients. Let the white of the paper show through in highlights.
+- Colors: Warm, slightly muted palette. Colors should look transparent and layered, not opaque or flat. You should sense the lighter wash underneath darker strokes.
+- Feel: Loose, expressive, handmade. Think Quentin Blake or E.H. Shepard — charming imperfection, not digital precision. The art should feel like someone painted it by hand on a rainy afternoon.
+- NOT: digital art, vector art, cel shading, anime, 3D rendering, photorealistic, clean/sharp outlines, flat colors.
 
 Create a CHARACTER MODEL SHEET. Show this character 12-15 times on a plain white background in a natural grid layout. Mix of full body views and close-up head/upper body views.
 
@@ -255,7 +261,7 @@ export async function generateLocationSheet(
   debug.image(`Generating location sheet for "${location.name}" via Gemini`);
   const startTime = Date.now();
 
-  const prompt = `ART STYLE: Soft watercolor children's book illustration. Warm hand-painted feel with visible paper texture, gentle color bleeds, and sketchy brown outlines. NOT digital art, NOT 3D, NOT photorealistic.
+  const prompt = `ART STYLE: Traditional watercolor on textured paper. Soft edges where colors bleed into each other, visible water blooms, pigment pooling. NO hard outlines or sharp contours — shapes defined by color meeting color. Visible paper grain, uneven organic washes. Loose, expressive, handmade. NOT digital art, NOT 3D, NOT photorealistic, NOT sharp outlines.
 
 Create a LOCATION REFERENCE SHEET. Show this location 8-10 times on a plain white background.
 
@@ -421,7 +427,7 @@ ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}`,
 
     try {
       const response = await chat.sendMessage({
-        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: Use the watercolor storybook style from the style guide. Characters must match their reference sheets exactly.`,
+        message: `Page ${page.page_number}: ${page.image_prompt}\n\nReminder: Traditional watercolor style — soft bleedy edges, NO hard outlines, visible paper texture. Characters must match their reference sheets exactly.`,
       });
 
       const imageUrl = extractImage(response);

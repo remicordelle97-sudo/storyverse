@@ -6,16 +6,17 @@
  */
 
 const ART_STYLE = `ART STYLE:
-- Medium: Soft digital painting with a handmade watercolor feel. Visible texture and gentle color bleeds at edges. NOT flat vector art, NOT photorealistic.
-- Lines: Soft, slightly sketchy outlines in a warm dark brown (not pure black). Lines should feel hand-drawn, not computer-perfect.
-- Texture: Subtle paper grain across the entire image. Paint-like texture in filled areas. Gentle noise, not smooth gradients.
-- Aesthetic: Warm, inviting, and slightly whimsical. Think Oliver Jeffers meets Jon Klassen. Approachable, not precious.`;
+- Medium: Traditional watercolor on textured paper. Colors should look like they were painted with a wet brush — soft edges where colors BLEED into each other, visible water blooms, and pigment pooling in darker areas.
+- Edges: NO hard outlines or sharp contours. Shapes are defined by color meeting color, not by drawn lines. Where edges exist, they should be soft, feathered, and broken — like real watercolor where the paint naturally fades at the boundary.
+- Texture: Visible paper grain showing through the paint. Areas of wash should be uneven and organic, not smooth gradients. Let the white of the paper show through in highlights.
+- Colors: Warm, slightly muted. Colors should look transparent and layered, not opaque or flat. You should sense the lighter wash underneath darker strokes.
+- Aesthetic: Loose, expressive, handmade. Think Quentin Blake or E.H. Shepard — charming imperfection, not digital precision. Warm, inviting, and slightly whimsical.
+- NOT: digital art, vector art, cel shading, anime, 3D rendering, photorealistic, clean/sharp outlines, flat colors.`;
 
 const COLOR_RULES = `COLOR PALETTE:
 - Build every image from a limited palette of 5-7 hues. Do not introduce random colors.
 - Shadows: Use cool muted blues and soft purples. NEVER use pure black for shadows.
-- Highlights: Warm pale yellows and soft pinks. NEVER use pure white for highlights.
-- Outlines and details: Warm dark brown, not black.
+- Highlights: Let the white of the paper show through. Use warm pale yellows sparingly. NEVER use pure white paint for highlights.
 - Reserve the most saturated, vivid colors for the focal point of the scene (usually the main character or the key action).
 - Background colors should be softer and more muted than foreground elements to create natural depth.`;
 
