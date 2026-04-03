@@ -264,7 +264,6 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
 Name: ${universe.name}
 Setting: ${universe.settingDescription}
 Themes: ${universe.themes}
-Mood: ${universe.mood}
 Avoid: ${universe.avoidThemes}
 
 === CHARACTERS (for storytelling) ===

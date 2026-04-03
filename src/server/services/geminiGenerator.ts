@@ -259,8 +259,10 @@ export async function generateLocationSheet(
     include: { universe: true },
   });
 
+  const moods = ["gentle", "funny", "exciting", "mysterious"];
+  const randomMood = moods[Math.floor(Math.random() * moods.length)];
   const styleGuide = buildImageStyleGuide(
-    location.universe.mood,
+    randomMood,
     location.universe.illustrationStyle
   );
 
@@ -274,7 +276,6 @@ Create a LOCATION REFERENCE SHEET. Show this location 8-10 times on a plain whit
 LOCATION: ${location.name}
 ROLE: ${location.role}
 DESCRIPTION: ${location.description}
-MOOD: ${location.mood}
 LIGHTING: ${location.lighting}
 KEY LANDMARKS (must appear every time): ${location.landmarks}
 

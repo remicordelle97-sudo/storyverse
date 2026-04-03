@@ -23,7 +23,7 @@ model Universe {
   name                 String
   settingDescription   String
   themes               String
-  mood                 String
+  mood                 String          @default("")
   illustrationStyle    String          @default("storybook")
   illustrationsEnabled Boolean         @default(true)
   avoidThemes          String          @default("")

@@ -17,14 +17,6 @@ const INTERESTS = [
   "Something else",
 ];
 
-const MOODS = [
-  "Gentle & calming",
-  "Funny & silly",
-  "Exciting adventures",
-  "Mysterious & magical",
-  "Mix it up",
-];
-
 const PERSONALITIES = [
   "Brave",
   "Curious",
@@ -42,7 +34,6 @@ export default function NewUniverse() {
 
   const [interests, setInterests] = useState<string[]>([]);
   const [customInterest, setCustomInterest] = useState("");
-  const [mood, setMood] = useState("");
   const [avoidThemes, setAvoidThemes] = useState("");
   const [heroName, setHeroName] = useState("");
   const [heroTraits, setHeroTraits] = useState<string[]>([]);
@@ -61,7 +52,7 @@ export default function NewUniverse() {
 
   const canNext = () => {
     if (step === 1) return interests.length > 0;
-    if (step === 2) return !!mood;
+    if (step === 2) return true;
     if (step === 3) return heroName.trim() && heroTraits.length > 0;
     return true;
   };
@@ -78,7 +69,6 @@ export default function NewUniverse() {
       setSavingStep("Imagining your world...");
       const concept = await generateUniverseConcept({
         interests: allThemes,
-        mood: mood || "exciting adventures",
         heroName,
       });
 
@@ -89,7 +79,6 @@ export default function NewUniverse() {
         name: concept.name,
         settingDescription: concept.settingDescription,
         themes: JSON.stringify(allThemes),
-        mood: mood || "exciting adventures",
         avoidThemes,
       });
 
@@ -172,22 +161,9 @@ export default function NewUniverse() {
         {step === 2 && (
           <div>
             <h2 className="text-2xl font-bold text-stone-800 mb-2">
-              What kind of stories?
+              Anything to avoid?
             </h2>
-            <p className="text-stone-500 mb-6">Pick the overall vibe.</p>
-            <div className="flex flex-wrap gap-2 mb-6">
-              {MOODS.map((m) => (
-                <Chip
-                  key={m}
-                  label={m}
-                  selected={mood === m}
-                  onClick={() => setMood(m)}
-                />
-              ))}
-            </div>
-            <label className="block text-sm font-medium text-stone-700 mb-1">
-              Anything to avoid? (optional)
-            </label>
+            <p className="text-stone-500 mb-6">Optional — let us know if there are themes to skip.</p>
             <input
               type="text"
               value={avoidThemes}

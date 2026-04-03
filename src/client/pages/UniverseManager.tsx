@@ -161,7 +161,6 @@ export default function UniverseManager() {
                 <h2 className="text-lg font-bold text-stone-800 mb-1">{universe.name}</h2>
                 <p className="text-sm text-stone-500 mb-3">{universe.settingDescription}</p>
                 <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div><span className="text-stone-400">Mood:</span> <span className="text-stone-600">{universe.mood}</span></div>
                   <div><span className="text-stone-400">Themes:</span> <span className="text-stone-600">{themes.join(", ")}</span></div>
                   <div><span className="text-stone-400">Avoid:</span> <span className="text-stone-600">{universe.avoidThemes || "None"}</span></div>
                   <div><span className="text-stone-400">ID:</span> <span className="text-stone-400 font-mono">{universe.id.slice(0, 8)}</span></div>

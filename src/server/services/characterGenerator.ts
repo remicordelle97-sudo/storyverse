@@ -96,7 +96,6 @@ Return ONLY valid JSON. No markdown fences.`,
 UNIVERSE: ${universe.name}
 SETTING: ${universe.settingDescription}
 THEMES: ${themes.join(", ")}
-MOOD: ${universe.mood}
 
 HERO: ${hero.name} (${hero.speciesOrType})
 Hero personality: ${heroTraits.join(", ")}

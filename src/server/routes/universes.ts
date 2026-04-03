@@ -48,9 +48,9 @@ router.get("/:id", async (req, res) => {
 // Generate a unique universe concept (name, description, hero species)
 router.post("/generate-concept", async (req, res) => {
   try {
-    const { interests, mood, heroName } = req.body;
+    const { interests, heroName } = req.body;
 
-    debug.universe("Generating universe concept via Claude", { interests, mood, heroName });
+    debug.universe("Generating universe concept via Claude", { interests, heroName });
 
     const message = await anthropic.messages.create({
       model: "claude-sonnet-4-6",
@@ -63,7 +63,6 @@ router.post("/generate-concept", async (req, res) => {
           content: `Create a unique children's story universe based on these inputs:
 
 INTERESTS: ${JSON.stringify(interests)}
-MOOD: ${mood}
 HERO NAME: ${heroName}
 
 Generate a creative, evocative universe name and a rich setting description. The name should be unique and memorable, not generic (avoid "The [Adjective] [Noun]" patterns every time — be creative with the naming).
@@ -132,12 +131,11 @@ router.post("/", async (req, res) => {
       name,
       settingDescription,
       themes,
-      mood,
       avoidThemes,
       illustrationStyle,
     } = req.body;
 
-    debug.universe("Creating universe", { name, mood, themes: typeof themes === "string" ? themes : JSON.stringify(themes) });
+    debug.universe("Creating universe", { name, themes: typeof themes === "string" ? themes : JSON.stringify(themes) });
 
     const universe = await prisma.universe.create({
       data: {
@@ -145,7 +143,6 @@ router.post("/", async (req, res) => {
         name,
         settingDescription,
         themes: typeof themes === "string" ? themes : JSON.stringify(themes),
-        mood,
         avoidThemes: avoidThemes || "",
         illustrationStyle: illustrationStyle || "storybook",
       },

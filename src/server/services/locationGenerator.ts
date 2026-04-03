@@ -42,7 +42,6 @@ export async function generateLocationConcepts(
 UNIVERSE: ${universe.name}
 SETTING: ${universe.settingDescription}
 THEMES: ${themes.join(", ")}
-MOOD: ${universe.mood}
 HERO: ${hero?.name || "the hero"} (${hero?.speciesOrType || "adventurer"})
 
 Create exactly 6 locations with these roles:
