@@ -137,3 +137,73 @@ export function generateStory(
       .catch(reject);
   });
 }
+
+export function regenerateStoryImages(
+  storyId: string,
+  onProgress?: (step: string, detail?: string) => void
+): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const token = getAccessToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    fetch(`${BASE}/stories/${storyId}/regenerate-images`, {
+      method: "POST",
+      headers,
+    })
+      .then((res) => {
+        if (!res.ok) {
+          return res.json().then((body) => {
+            throw new Error(body.error || `HTTP ${res.status}`);
+          });
+        }
+
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error("No response stream");
+
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        function read(): Promise<void> {
+          return reader!.read().then(({ done, value }) => {
+            if (done) {
+              reject(new Error("Stream ended without completion"));
+              return;
+            }
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const event = JSON.parse(line.slice(6));
+                  if (event.type === "progress" && onProgress) {
+                    onProgress(event.step, event.detail);
+                  } else if (event.type === "complete") {
+                    resolve(event.story);
+                    return;
+                  } else if (event.type === "error") {
+                    reject(new Error(event.error));
+                    return;
+                  }
+                } catch {
+                  // skip malformed events
+                }
+              }
+            }
+
+            return read();
+          });
+        }
+
+        return read();
+      })
+      .catch(reject);
+  });
+}

@@ -259,4 +259,88 @@ router.post("/generate", async (req, res) => {
   }
 });
 
+// Regenerate images for an existing story
+router.post("/:id/regenerate-images", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  function sendProgress(step: string, detail?: string) {
+    res.write(`data: ${JSON.stringify({ type: "progress", step, detail })}\n\n`);
+  }
+  function sendError(message: string) {
+    res.write(`data: ${JSON.stringify({ type: "error", error: message })}\n\n`);
+    res.end();
+  }
+  function sendComplete(story: any) {
+    res.write(`data: ${JSON.stringify({ type: "complete", story })}\n\n`);
+    res.end();
+  }
+
+  try {
+    const story = await prisma.story.findUnique({
+      where: { id: req.params.id },
+      include: {
+        scenes: { orderBy: { sceneNumber: "asc" } },
+        characters: { include: { character: true } },
+        universe: true,
+      },
+    });
+
+    if (!story) return sendError("Story not found");
+    if (!await verifyUniverseOwnership(story.universeId, req.userId!)) {
+      return sendError("Access denied");
+    }
+
+    const characterIds = story.characters.map((sc: any) => sc.characterId);
+    const pages = story.scenes.map((s: any) => ({
+      page_number: s.sceneNumber,
+      image_prompt: s.imagePrompt,
+    }));
+
+    const moods = ["gentle", "funny", "exciting", "mysterious"];
+    const mood = moods[Math.floor(Math.random() * moods.length)];
+
+    sendProgress("illustrating", `Regenerating ${pages.length} illustrations...`);
+
+    const imageMap = await generateStoryImages(
+      story.universeId,
+      characterIds,
+      mood,
+      pages,
+      (pageNum, total, _imageUrl) => {
+        sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);
+      }
+    );
+
+    // Update scenes with new images
+    for (const scene of story.scenes) {
+      const newUrl = imageMap.get(scene.sceneNumber);
+      if (newUrl) {
+        await prisma.scene.update({
+          where: { id: scene.id },
+          data: {
+            imageUrl: newUrl,
+            imageEngine: "gemini",
+          },
+        });
+      }
+    }
+
+    const fullStory = await prisma.story.findUnique({
+      where: { id: story.id },
+      include: {
+        scenes: { orderBy: { sceneNumber: "asc" } },
+        characters: { include: { character: true } },
+      },
+    });
+
+    sendComplete(fullStory);
+  } catch (e: any) {
+    debug.error(`Image regeneration failed: ${e.message}`);
+    sendError("Image regeneration failed. Please try again.");
+  }
+});
+
 export default router;

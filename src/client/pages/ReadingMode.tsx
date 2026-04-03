@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getStory } from "../api/client";
+import { getStory, regenerateStoryImages } from "../api/client";
 import { jsPDF } from "jspdf";
 
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
@@ -140,6 +140,8 @@ export default function ReadingMode() {
   const [controlsVisible, setControlsVisible] = useState(true);
   const [controlsTimer, setControlsTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+  const [regenProgress, setRegenProgress] = useState("");
 
   const { data: story, isLoading } = useQuery({
     queryKey: ["story", storyId],
@@ -296,23 +298,48 @@ export default function ReadingMode() {
             ))}
           </div>
         )}
-        <button
-          onClick={async (e) => {
-            e.stopPropagation();
-            if (exporting || !story) return;
-            setExporting(true);
-            try {
-              await exportStoryAsPdf(story);
-            } catch (err) {
-              console.error("PDF export failed:", err);
-            }
-            setExporting(false);
-          }}
-          disabled={exporting}
-          className="text-white/60 hover:text-white text-sm transition-colors disabled:opacity-40"
-        >
-          {exporting ? "Saving..." : "Save PDF"}
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (regenerating || !storyId) return;
+              setRegenerating(true);
+              setRegenProgress("Starting...");
+              try {
+                await regenerateStoryImages(storyId, (_step, detail) => {
+                  setRegenProgress(detail || "Generating...");
+                });
+                // Refetch story data to show new images
+                window.location.reload();
+              } catch (err) {
+                console.error("Regeneration failed:", err);
+                setRegenProgress("");
+                setRegenerating(false);
+              }
+            }}
+            disabled={regenerating}
+            className="text-white/60 hover:text-white text-sm transition-colors disabled:opacity-40"
+          >
+            {regenerating ? regenProgress : "Regen images"}
+          </button>
+          <button
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (exporting || !story) return;
+              setExporting(true);
+              try {
+                await exportStoryAsPdf(story);
+              } catch (err) {
+                console.error("PDF export failed:", err);
+              }
+              setExporting(false);
+            }}
+            disabled={exporting}
+            className="text-white/60 hover:text-white text-sm transition-colors disabled:opacity-40"
+          >
+            {exporting ? "Saving..." : "Save PDF"}
+          </button>
+        </div>
       </div>
 
       {/* Tap zones */}
