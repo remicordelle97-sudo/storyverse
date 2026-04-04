@@ -60,9 +60,9 @@ For SUPPORTING characters only:
 === VISUAL FIELDS (required for ALL characters) ===
 
 1. "appearance" — BODY ONLY (no clothing). A COMPLETE VISUAL SPECIFICATION detailed enough for an illustrator to draw the character identically across 50 different images. Include ALL of:
-  BODY (shape, size, posture, primary color), HEAD (shape, size relative to body), EYES (count, shape, size, color, pupil style), NOSE/MOUTH/BEAK/SNOUT (type, shape, color), EARS (count, shape, size, position — or "none"), ARMS (count, length, thickness, color, what's at the end — hands/paws/claws, finger count), LEGS (count, length, thickness, color, feet/hooves/claws), WINGS (count, size, shape, color, transparency — or "none"), TAIL (length, shape, color — or "none"), ANTENNAE/HORNS (count, shape, length — or "none"), MARKINGS (stripes, spots, patterns, locations on body).
-  Be SPECIFIC with numbers: "2 large translucent teal wings" not "wings".
-  If the character has WHISKERS, specify: count per side, length, color.
+  BODY (shape, size, posture, primary color with hex code), HEAD (shape, size relative to body, color with hex code), EYES (count, shape, size, color with hex code, pupil style), NOSE/MOUTH/BEAK/SNOUT (type, shape, color with hex code), EARS (count, shape, size, position — or "none"), ARMS (count, length, thickness, color with hex code, what's at the end — hands/paws/claws, finger count), LEGS (count, length, thickness, color with hex code, feet/hooves/claws), WINGS (count, size, shape, color with hex code, transparency — or "none"), TAIL (length, shape, color with hex code — or "none"), ANTENNAE/HORNS (count, shape, length — or "none"), MARKINGS (stripes, spots, patterns with hex codes, locations on body).
+  Be SPECIFIC with numbers: "2 large translucent #40E0D0 teal wings" not "wings".
+  Every color mentioned MUST include its hex code (e.g., "#D4920A warm amber eyes" not just "warm amber eyes").
 
 2. "outfit" — Everything they wear/carry. Each item with hex color code, position, and details.
   Format: "ALWAYS WEARS AND CARRIES (never remove any item):" + bulleted list with hex codes.
