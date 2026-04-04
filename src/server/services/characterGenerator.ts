@@ -79,7 +79,7 @@ THEMES: ${themes.join(", ")}
 HERO NAME: ${heroName}
 
 RULES:
-- The FIRST character must be the hero "${heroName}" with role "main". Choose an appropriate species/type for them based on the universe.
+- The FIRST character must be the hero "${heroName}" with role "main". Choose a SURPRISING and UNUSUAL species/type for them — avoid the most obvious or stereotypical choice for this universe. A farm hero does NOT have to be a rooster or pig. A space hero does NOT have to be an astronaut. Pick something unexpected and delightful.
 - Create 3 supporting characters with role "supporting".
 - ALL characters should be DIFFERENT species/types from each other.
 - Design them as an ensemble — their species, personalities, and looks should contrast and complement each other.
