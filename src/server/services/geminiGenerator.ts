@@ -529,7 +529,7 @@ Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body sh
         })
         .filter(Boolean);
       if (anchors.length > 0) {
-        anchorText = `\n\nCHARACTER IDENTITY CHECKLIST (these features MUST be correct):\n${anchors.join("\n")}`;
+        anchorText = `\n\nCHARACTER IDENTITY CHECK — draw each character from their reference image first, then verify these details are correct:\n${anchors.join("\n")}`;
       }
     }
 
