@@ -66,7 +66,13 @@ router.post("/generate-concept", async (req, res) => {
 INTERESTS: ${JSON.stringify(interests)}
 
 === UNIVERSE NAME ===
-Generate a creative, evocative name. It should be unique and memorable, not generic (avoid "The [Adjective] [Noun]" patterns every time — be creative).
+Generate a creative, evocative name. Vary your naming style — don't always use the same pattern. Mix between these approaches:
+- Made-up words that sound fun to say (e.g., "Plonkton", "Zubblebee")
+- Real words combined unexpectedly (e.g., "Kettle Falls", "Pocketwatch Bay")
+- Sounds or onomatopoeia (e.g., "Tiktokka", "The Buzzing")
+- Place-sounding names (e.g., "Little Dundry", "Port Marmalade")
+- Single evocative words (e.g., "Underfoot", "Brambles")
+Do NOT always combine [nature word] + [landform] (no more "Clovermill Hollow" or "Thunderfoot Valley" patterns).
 
 === SETTING DESCRIPTION ===
 2-3 sentences that paint a vivid picture of this world. What does it LOOK like? Include specific, surprising details that make it feel alive and lived-in.
