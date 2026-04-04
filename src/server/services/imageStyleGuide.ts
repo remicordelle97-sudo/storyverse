@@ -5,14 +5,14 @@
  * and mood-specific rules injected into every image prompt.
  */
 
-export const ART_STYLE = `ART STYLE — soft chalk pastel on textured paper:
+export const ART_STYLE = `ART STYLE — watercolor on textured paper:
 CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use linework.
-- Medium: Soft chalk pastel illustration on heavy textured paper. Powdery, dreamy strokes that smudge and blur into each other. Colors are soft, dusty, and luminous.
-- Edges: ABSOLUTELY NO outlines, linework, or drawn borders. Shapes are formed by smudging colored chalk into paper — edges are diffused, powdery, and feathered. Every boundary is soft and hazy.
-- Texture: Heavy visible paper grain showing through the chalk. Powdery layered strokes, areas rubbed smooth mixed with visible individual strokes.
-- Colors: Soft, warm, luminous. Dusty matte quality. Colors glow from within. Gentle blending where colors meet.
-- Aesthetic: Dreamy, gentle, ethereal. Think Iwasaki Chihiro or Komako Sakai. Tender and atmospheric, not precise.
-- FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours.`;
+- Medium: Traditional watercolor illustration on cold-pressed watercolor paper. Transparent washes of color that bleed and bloom into each other. Pigment pools in darker areas, paper shows through in highlights.
+- Edges: NO hard outlines or drawn borders. Shapes are defined by wet color meeting wet color — soft, feathered, organic edges. Some edges crisp where a wet wash meets dry paper, others blurry where colors bleed together. This variation is natural and beautiful.
+- Texture: Visible watercolor paper grain throughout. Uneven washes with water blooms, pigment granulation, and soft cauliflower edges where washes dried unevenly. Nothing digitally smooth.
+- Colors: Warm, transparent, luminous. Colors glow because light passes through the paint and bounces off the white paper underneath. Layer transparent washes for depth — never opaque.
+- Aesthetic: Loose, expressive, handmade. Think Iwasaki Chihiro, E.H. Shepard, or Beatrix Potter. Warm and tender, with the charming imperfection of real hand-painted watercolor.
+- FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours, opaque flat colors.`;
 
 const COLOR_RULES = `COLOR PALETTE:
 - Build every image from a limited palette of 5-7 hues. Do not introduce random colors.
@@ -87,7 +87,7 @@ const CONTINUITY_RULES = `CONTINUITY:
 /**
  * Build the complete style guide for a specific story context.
  */
-export const ART_STYLE_REMINDER = `Soft chalk pastel style — powdery dreamy smudged strokes, NO outlines, NO linework.`;
+export const ART_STYLE_REMINDER = `Watercolor style — soft transparent washes, NO outlines, NO linework, visible paper texture.`;
 
 export function buildImageStyleGuide(
   mood: string,
