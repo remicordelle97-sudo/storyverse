@@ -374,7 +374,7 @@ For each page, I may include character reference images. These are for CHARACTER
     config: {
       responseModalities: ["Image", "Text"],
       imageConfig: {
-        aspectRatio: "4:3",
+        aspectRatio: "3:4",
         imageSize: IMAGE_SIZE,
       },
     },
