@@ -489,89 +489,40 @@ Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body sh
     });
   }
 
-  debug.image(`Starting story generation: ${pages.length} pages, ${characterRefs.size} character refs available, styleRef=${!!styleRef}`);
+  debug.image(`Starting story generation: ${pages.length} pages, ${characterRefs.size} character refs, styleRef=${!!styleRef}`);
 
-  // Track generated images by location for context passing
-  // Key: location name, Value: most recent generated image at that location
-  const locationImages = new Map<string, { data: string; mimeType: string }>();
+  // Single multi-turn chat session for the whole story
+  const chat = ai.chats.create({
+    model: IMAGE_MODEL,
+    config: {
+      responseModalities: ["Image", "Text"],
+      imageConfig: {
+        aspectRatio: "4:3",
+        imageSize: IMAGE_SIZE,
+      },
+    },
+  });
 
-  // Generate each page in its own fresh chat session
+  // Send setup message with style ref + all character refs
+  try {
+    await chat.sendMessage({ message: setupParts });
+    debug.image("Setup message sent");
+  } catch (e: any) {
+    debug.error(`Setup message failed: ${e.message}`);
+  }
+
+  // Generate each page as a text-only message in the same chat
   for (let i = 0; i < pages.length; i++) {
     const page = pages[i];
     if (!page.image_prompt) continue;
 
     const startTime = Date.now();
 
-    // Build setup parts for this page: base setup + scene-specific character refs
-    const pageSetupParts: any[] = [];
-
-    // Style reference
-    if (styleRef) {
-      pageSetupParts.push({
-        text: `[STYLE REFERENCE IMAGE — every illustration you generate MUST match this exact art style, brushwork, color palette, texture, and level of detail. This is the visual standard for the entire book.]`,
-      });
-      pageSetupParts.push({
-        inlineData: { data: styleRef.data, mimeType: styleRef.mimeType },
-      });
-    }
-
-    // Character references — only characters in this scene
+    // Build identity anchor text for characters in this scene
     const sceneCharacters = page.characters_in_scene || [];
-    const sceneCharRefs: string[] = [];
-    for (const charName of sceneCharacters) {
-      const ref = characterRefs.get(charName.toLowerCase());
-      if (ref) {
-        pageSetupParts.push({ text: `[CHARACTER REFERENCE — ${ref.name}]` });
-        pageSetupParts.push({ inlineData: { data: ref.data, mimeType: ref.mimeType } });
-        sceneCharRefs.push(ref.name);
-      }
-    }
-    // Fallback: if no characters_in_scene, search prompt text
-    if (sceneCharacters.length === 0) {
-      const promptLower = page.image_prompt.toLowerCase();
-      for (const [nameLower, ref] of characterRefs) {
-        if (promptLower.includes(nameLower)) {
-          pageSetupParts.push({ text: `[CHARACTER REFERENCE — ${ref.name}]` });
-          pageSetupParts.push({ inlineData: { data: ref.data, mimeType: ref.mimeType } });
-          sceneCharRefs.push(ref.name);
-        }
-      }
-    }
-
-    // Location context — pass the most recent image from the same location
-    const pageLocation = page.location?.trim() || "";
-    const locationPrior = pageLocation ? locationImages.get(pageLocation) : null;
-    if (locationPrior) {
-      pageSetupParts.push({
-        text: `[PREVIOUS ILLUSTRATION AT "${pageLocation}" — this page takes place at the same location as the image below. Match the environment, landmarks, colors, and layout of this location exactly. Do NOT reproduce the same scene — show the new action described in the prompt, but keep the location looking the same.]`,
-      });
-      pageSetupParts.push({
-        inlineData: { data: locationPrior.data, mimeType: locationPrior.mimeType },
-      });
-      debug.image(`Page ${i + 1}: attaching prior image for location "${pageLocation}"`);
-    }
-
-    // Setup text
-    pageSetupParts.push({
-      text: `You are illustrating a children's picture book. Generate ONE illustration — a full scene with characters, background, and atmosphere.
-
-IMPORTANT — Read the following style guide carefully. This illustration MUST follow these rules exactly.${styleRef ? " The STYLE REFERENCE IMAGE above is the visual anchor — match its exact style." : ""}
-
-${styleGuide}
-CHARACTERS:\n${charDesc}
-${locDesc ? `LOCATIONS:\n${locDesc}` : ""}
-
-Character reference images above are for CHARACTER IDENTITY ONLY:
-- Use them to match the character's body shape, colors, proportions, outfit, and accessories
-- Do NOT copy the style, pose, layout, background, or artistic technique from the reference images
-- Do NOT reproduce the grid/multi-pose layout of reference sheets — generate a SINGLE scene illustration
-- The reference images may be in a different art style — IGNORE their style and follow the style guide above instead`,
-    });
-
-    // Build identity anchor text
     let anchorText = "";
-    if (characterAnchors && sceneCharRefs.length > 0) {
-      const anchors = sceneCharRefs
+    if (characterAnchors && sceneCharacters.length > 0) {
+      const anchors = sceneCharacters
         .map((name) => {
           const anchor = characterAnchors[name];
           return anchor ? `${name}: ${anchor}` : null;
@@ -582,53 +533,25 @@ Character reference images above are for CHARACTER IDENTITY ONLY:
       }
     }
 
-    const characterNames = sceneCharRefs.length > 0
-      ? sceneCharRefs.join(" and ")
+    const characterNames = sceneCharacters.length > 0
+      ? sceneCharacters.join(" and ")
       : "";
 
-    // Log exactly what we're passing to this page
-    const imageCount = pageSetupParts.filter((p: any) => p.inlineData).length;
-    debug.image(`Page ${i + 1}/${pages.length}: generating (fresh session)`, {
-      location: pageLocation || "none",
-      characterRefs: sceneCharRefs.length > 0 ? sceneCharRefs.join(", ") : "none",
-      styleRef: !!styleRef,
-      locationPrior: locationPrior ? `yes (from "${pageLocation}")` : "no",
-      totalImages: imageCount,
+    debug.image(`Page ${i + 1}/${pages.length}: generating...`, {
+      characters: characterNames || "none",
       prompt: page.image_prompt.slice(0, 100),
     });
 
-    // Create a fresh chat session for this page
-    const chat = ai.chats.create({
-      model: IMAGE_MODEL,
-      config: {
-        responseModalities: ["Image", "Text"],
-        imageConfig: {
-          aspectRatio: "4:3",
-          imageSize: IMAGE_SIZE,
-        },
-      },
-    });
-
-    // Send setup
-    try {
-      await chat.sendMessage({ message: pageSetupParts });
-    } catch (e: any) {
-      debug.error(`Page ${i + 1}: setup failed: ${e.message}`);
-    }
-
-    // Send page prompt
     const pageParts: any[] = [{
       text: `Page ${page.page_number}: ${page.image_prompt}${anchorText}\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration.${characterNames ? ` Match ${characterNames} to their reference images provided in the setup (body, colors, outfit).` : ""}`,
     }];
 
     try {
       let imageUrl: string | null = null;
-      let rawImageData: { data: string; mimeType: string } | null = null;
 
       // Attempt 1
       const response1 = await chat.sendMessage({ message: pageParts });
-      const extracted1 = extractImageWithData(response1);
-      if (extracted1) { imageUrl = extracted1.url; rawImageData = extracted1; }
+      imageUrl = extractImage(response1);
 
       if (!imageUrl) {
         const candidate = response1?.candidates?.[0];
@@ -639,18 +562,16 @@ Character reference images above are for CHARACTER IDENTITY ONLY:
           ?.join(" ") || "no content";
         debug.error(`Page ${i + 1}/${pages.length}: no image (attempt 1). finishReason=${finishReason}, text="${textParts.slice(0, 200)}"`);
 
-        // Attempt 2: retry
+        // Attempt 2: retry same prompt
         debug.image(`Retrying page ${i + 1}...`);
         const response2 = await chat.sendMessage({ message: pageParts });
-        const extracted2 = extractImageWithData(response2);
-        if (extracted2) { imageUrl = extracted2.url; rawImageData = extracted2; }
+        imageUrl = extractImage(response2);
 
         if (!imageUrl) {
           // Attempt 3: simplified prompt
           debug.image(`Retrying page ${i + 1} with simplified prompt...`);
           const response3 = await chat.sendMessage({ message: [{ text: `Page ${page.page_number}: ${page.image_prompt}\n\n${ART_STYLE_REMINDER}` }] });
-          const extracted3 = extractImageWithData(response3);
-          if (extracted3) { imageUrl = extracted3.url; rawImageData = extracted3; }
+          imageUrl = extractImage(response3);
 
           if (!imageUrl) {
             debug.error(`Page ${i + 1}/${pages.length}: no image after 3 attempts`);
@@ -660,10 +581,6 @@ Character reference images above are for CHARACTER IDENTITY ONLY:
 
       if (imageUrl) {
         results.set(page.page_number, imageUrl);
-        // Store this image as the latest for its location
-        if (rawImageData && pageLocation) {
-          locationImages.set(pageLocation, { data: rawImageData.data, mimeType: rawImageData.mimeType });
-        }
         debug.image(`Page ${i + 1}/${pages.length}: done in ${Date.now() - startTime}ms`, { imageUrl });
         onProgress?.(page.page_number, pages.length, imageUrl);
       } else {
