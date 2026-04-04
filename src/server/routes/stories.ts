@@ -197,7 +197,8 @@ router.post("/generate", async (req, res) => {
         generated.pages,
         (pageNum, total, _imageUrl) => {
           sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);
-        }
+        },
+        generated.characterAnchors
       );
 
       // Save all pages with their images

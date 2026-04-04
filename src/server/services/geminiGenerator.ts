@@ -389,7 +389,8 @@ export async function generateStoryImages(
   characterIds: string[],
   mood: string,
   pages: { page_number: number; image_prompt: string; characters_in_scene?: string[] }[],
-  onProgress?: (pageNum: number, total: number, imageUrl: string) => void
+  onProgress?: (pageNum: number, total: number, imageUrl: string) => void,
+  characterAnchors?: Record<string, string>
 ): Promise<Map<number, string>> {
   const styleGuide = buildImageStyleGuide(mood);
   const results = new Map<number, string>();
@@ -541,8 +542,22 @@ For each page, I may include character reference images. These are for CHARACTER
       }
     }
 
+    // Build identity anchor text for characters in this scene
+    let anchorText = "";
+    if (characterAnchors && matchedChars.length > 0) {
+      const anchors = matchedChars
+        .map((name) => {
+          const anchor = characterAnchors[name];
+          return anchor ? `${name}: ${anchor}` : null;
+        })
+        .filter(Boolean);
+      if (anchors.length > 0) {
+        anchorText = `\n\nCHARACTER IDENTITY CHECKLIST (these features MUST be correct):\n${anchors.join("\n")}`;
+      }
+    }
+
     pageParts.push({
-      text: `Page ${page.page_number}: ${page.image_prompt}\n\nSTYLE: Maintain the SAME level of stylization on every page — close-ups and wide shots should look equally soft and painterly. No photorealistic textures.\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration — do NOT include any reference images in the output. ${matchedChars.length > 0 ? `Match ${matchedChars.join(" and ")} to their reference images (body, colors, outfit) but use the style guide for art style.` : ""}`,
+      text: `Page ${page.page_number}: ${page.image_prompt}${anchorText}\n\nSTYLE: Maintain the SAME level of stylization on every page — close-ups and wide shots should look equally soft and painterly. No photorealistic textures.\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration — do NOT include any reference images in the output. ${matchedChars.length > 0 ? `Match ${matchedChars.join(" and ")} to their reference images (body, colors, outfit) but use the style guide for art style.` : ""}`,
     });
 
     try {

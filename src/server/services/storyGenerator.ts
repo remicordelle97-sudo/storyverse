@@ -15,6 +15,7 @@ interface StoryPage {
 export interface GeneratedStory {
   title: string;
   pages: StoryPage[];
+  characterAnchors?: Record<string, string>;
 }
 
 interface StoryPlan {
@@ -199,6 +200,8 @@ RULES:
 - Keep prompts to 2-3 sentences each. Be specific and concrete, not vague.
 - Do NOT describe character bodies, species details, clothing, or physical features — only name, expression, action, and setting.
 
+ALSO: For each character that appears in the story, write a short IDENTITY ANCHOR — the 3-5 most visually distinctive features that MUST stay consistent across every illustration. Focus on: eye color/shape, key accessories, signature colors, unique markings. These anchors will be sent to the illustrator with every page to prevent visual drift.
+
 Return ONLY valid JSON. No markdown fences.`,
     messages: [
       {
@@ -209,6 +212,9 @@ ${JSON.stringify(promptList, null, 2)}
 
 Return exactly this JSON:
 {
+  "characterAnchors": {
+    "Character Full Name": "eye color/shape, key accessory, signature color, unique marking, other distinctive feature"
+  },
   "pages": [
     { "page_number": 1, "image_prompt": "rewritten prompt", "characters_in_scene": ["Character Name"] }
   ]
@@ -236,6 +242,12 @@ Return exactly this JSON:
   try {
     const refined = JSON.parse(raw);
     if (!Array.isArray(refined.pages)) throw new Error("No pages array");
+
+    // Store character anchors
+    if (refined.characterAnchors) {
+      story.characterAnchors = refined.characterAnchors;
+      debug.story("Character anchors generated", Object.keys(refined.characterAnchors));
+    }
 
     // Merge refined prompts back into the story
     for (const refinedPage of refined.pages) {
