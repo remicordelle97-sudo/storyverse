@@ -78,6 +78,15 @@ const MOOD_PALETTES: Record<string, string> = {
 - Lighting: Low ambient light with strong warm accents from magical sources (glowing crystals, starlight, fireflies).`,
 };
 
+const SIMPLICITY_RULES = `SIMPLICITY:
+- Every image should read clearly at a glance. A child should instantly understand WHO is in the scene and WHAT is happening.
+- Use simple, uncluttered backgrounds. A few well-chosen elements (one tree, a path, a hill) are better than a dense forest of details. Let the watercolor paper breathe.
+- Limit objects in each scene to what the story text mentions. Do not fill empty space with extra props, decorations, or background clutter.
+- Characters are the focal point. The background supports them, it does not compete with them.
+- Prefer large, clear shapes over intricate patterns. A single bold flower is better than a field of tiny detailed ones.
+- Avoid busy textures, complex patterns on clothing or surfaces, and fine crosshatching. Keep surfaces soft and simple.
+- When in doubt, leave it out. Negative space and soft washes are more beautiful than noise.`;
+
 const CONTINUITY_RULES = `CONTINUITY:
 - Every image in a story must feel like it belongs to the same book. Same art style, same palette family, same lighting approach, same level of detail.
 - Characters must look identical to their reference images. Same proportions, same colors, same distinguishing features. If a character has a blue backpack, it appears in EVERY image where that character appears.
@@ -108,6 +117,7 @@ export function buildImageStyleGuide(
   guide += `${moodPalette}\n\n`;
   guide += `${CHARACTER_RENDERING}\n\n`;
   guide += `${COMPOSITION_RULES}\n\n`;
+  guide += `${SIMPLICITY_RULES}\n\n`;
   guide += `${LIGHTING_RULES}\n\n`;
   guide += `${CONTINUITY_RULES}\n\n`;
 
