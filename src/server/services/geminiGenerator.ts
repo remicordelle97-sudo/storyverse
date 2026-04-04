@@ -543,7 +543,7 @@ Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body sh
     });
 
     const pageParts: any[] = [{
-      text: `Page ${page.page_number}: ${page.image_prompt}${anchorText}\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration.${characterNames ? ` Match ${characterNames} to their reference images provided in the setup (body, colors, outfit).` : ""}`,
+      text: `${ART_STYLE_REMINDER}\n\nPage ${page.page_number}: ${page.image_prompt}${anchorText}\n\nGenerate a SINGLE scene illustration.${characterNames ? ` Match ${characterNames} to their reference images provided in the setup (body, colors, outfit).` : ""}`,
     }];
 
     try {
