@@ -66,7 +66,7 @@ export async function generateCharacterSheet(
   const parts: any[] = [{ text: prompt }];
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-05-20",
+    model: "gemini-3-pro-image-preview",
     contents: [{ role: "user", parts }],
     config: {
       responseModalities: ["Image", "Text"],
@@ -128,7 +128,7 @@ export async function generateAllCharacterSheets(
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-05-20",
+        model: "gemini-3-pro-image-preview",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           responseModalities: ["Image", "Text"],
@@ -252,7 +252,7 @@ ONE location shown from many angles and times of day. NOT multiple locations.`;
   parts.push({ text: prompt });
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash-preview-05-20",
+    model: "gemini-3-pro-image-preview",
     contents: [{ role: "user", parts }],
     config: {
       responseModalities: ["Image", "Text"],
@@ -361,7 +361,7 @@ For each page, I may include character reference images. These are for CHARACTER
 
   // Create chat session
   const chat = ai.chats.create({
-    model: "gemini-2.5-flash-preview-05-20",
+    model: "gemini-3-pro-image-preview",
     config: {
       responseModalities: ["Image", "Text"],
       imageConfig: {
