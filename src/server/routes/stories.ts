@@ -157,11 +157,18 @@ router.post("/generate", async (req, res) => {
     debug.story("Calling Claude for story generation...");
     const storyStart = Date.now();
 
+    // Fetch character visual data for identity anchors
+    const storyCharacters = await prisma.character.findMany({
+      where: { id: { in: characterIds } },
+      select: { name: true, appearance: true, outfit: true, specialDetail: true },
+    });
+
     const generated = await generateStory(
       userMessage,
       resolvedAgeGroup,
       length || "long",
-      (step, detail) => sendProgress(step, detail)
+      (step, detail) => sendProgress(step, detail),
+      storyCharacters
     );
 
     debug.story(`Story generated in ${Date.now() - storyStart}ms`, {

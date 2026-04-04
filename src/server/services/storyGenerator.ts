@@ -175,7 +175,8 @@ ${userPrompt}`;
  * - Specificity (concrete visual details, not vague descriptions)
  */
 async function refineImagePrompts(
-  story: GeneratedStory
+  story: GeneratedStory,
+  characterData?: { name: string; appearance: string; outfit: string; specialDetail: string }[]
 ): Promise<GeneratedStory> {
   const promptList = story.pages.map((p) => ({
     page_number: p.page_number,
@@ -200,7 +201,7 @@ RULES:
 - Keep prompts to 2-3 sentences each. Be specific and concrete, not vague.
 - Do NOT describe character bodies, species details, clothing, or physical features — only name, expression, action, and setting.
 
-ALSO: For each character that appears in the story, write a short IDENTITY ANCHOR — the 3-5 most visually distinctive features that MUST stay consistent across every illustration. Focus on: eye color/shape, key accessories, signature colors, unique markings. These anchors will be sent to the illustrator with every page to prevent visual drift.
+ALSO: For each character that appears in the story, write a short IDENTITY ANCHOR — the 3-5 most visually distinctive features that MUST stay consistent across every illustration. Focus on: eye color/shape, key accessories with exact hex color codes, signature body colors, unique markings. Use the exact hex codes from the character data provided. These anchors will be sent to the illustrator with every page to prevent visual drift.
 
 Return ONLY valid JSON. No markdown fences.`,
     messages: [
@@ -208,6 +209,7 @@ Return ONLY valid JSON. No markdown fences.`,
         role: "user",
         content: `Review and rewrite these ${promptList.length} image prompts as a cohesive set for a children's picture book titled "${story.title}":
 
+${characterData && characterData.length > 0 ? `CHARACTER VISUAL DATA (use exact hex codes from outfits):\n${characterData.map((c) => `${c.name}:\n  Appearance: ${c.appearance}\n  Outfit: ${c.outfit}\n  Detail: ${c.specialDetail}`).join("\n\n")}\n\n` : ""}IMAGE PROMPTS:
 ${JSON.stringify(promptList, null, 2)}
 
 Return exactly this JSON:
@@ -273,7 +275,8 @@ export async function generateStory(
   userPrompt: string,
   ageGroup: string,
   length: "short" | "long" = "long",
-  onProgress?: (step: string, detail?: string) => void
+  onProgress?: (step: string, detail?: string) => void,
+  characterData?: { name: string; appearance: string; outfit: string; specialDetail: string }[]
 ): Promise<GeneratedStory> {
   // Step 1: Plan
   onProgress?.("planning", "Planning the story...");
@@ -300,7 +303,7 @@ export async function generateStory(
   onProgress?.("refining", "Refining illustrations...");
   debug.story("Refining image prompts...");
   const refineStart = Date.now();
-  const refined = await refineImagePrompts(story);
+  const refined = await refineImagePrompts(story, characterData);
   debug.story(`Image prompts refined in ${Date.now() - refineStart}ms`);
 
   return refined;
