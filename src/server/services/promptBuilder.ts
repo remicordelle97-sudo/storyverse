@@ -228,6 +228,13 @@ CRITICAL RULES:
 - NEVER state a moral or lesson. Do NOT write "and Leo learned that..." or "the moral of the story is..." Let the reader draw their own conclusions from the characters' experiences and choices.
 - NEVER use the em dash character (—). Use commas, periods, or "and" instead.
 - Use exclamation marks sparingly. Most sentences should end with periods. Reserve ! for genuine surprise, outcries, or single emphatic moments (like "Help!" or "Look!"). Never use more than one ! per page. Let word choice and sentence rhythm convey excitement, not punctuation.
+
+CLARITY RULES:
+- Don't tease, deliver. If page 1 mentions a job, task, secret, or mystery, the SAME page or the NEXT page must make it concrete. Never leave the reader wondering "what job?" or "what secret?" for more than one page turn. Vague hooks frustrate young listeners.
+- Every pronoun must have an obvious referent. "It", "the thing", "the secret" can only be used if the reader already knows EXACTLY what it refers to from the same page or the previous page. When in doubt, use the specific noun.
+- Page 1 must ground the reader. The opening page should establish WHO the character is, WHERE they are, and WHAT IS HAPPENING right now. Do not open with a mystery or tease. Save surprises for after the reader is oriented.
+- No orphaned setups. If you introduce a detail, question, or problem, it must connect to the story within 2 pages. If it doesn't, cut it.
+
 - Return ONLY valid JSON. No markdown fences, no preamble, no explanation.
 
 ${guidelines}`;
