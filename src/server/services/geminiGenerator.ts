@@ -8,6 +8,9 @@ import { randomUUID } from "crypto";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_KEY });
 
+const IMAGE_MODEL = "gemini-3-pro-image-preview";
+const IMAGE_SIZE = "2K";
+
 const IMAGES_DIR = path.resolve("public/images");
 
 if (!fs.existsSync(IMAGES_DIR)) {
@@ -66,10 +69,13 @@ export async function generateCharacterSheet(
   const parts: any[] = [{ text: prompt }];
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-pro-image-preview",
+    model: IMAGE_MODEL,
     contents: [{ role: "user", parts }],
     config: {
       responseModalities: ["Image", "Text"],
+      imageConfig: {
+        imageSize: IMAGE_SIZE,
+      },
     },
   });
 
@@ -128,7 +134,7 @@ export async function generateAllCharacterSheets(
 
     try {
       const response = await ai.models.generateContent({
-        model: "gemini-3-pro-image-preview",
+        model: IMAGE_MODEL,
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: {
           responseModalities: ["Image", "Text"],
@@ -252,10 +258,13 @@ ONE location shown from many angles and times of day. NOT multiple locations.`;
   parts.push({ text: prompt });
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-pro-image-preview",
+    model: IMAGE_MODEL,
     contents: [{ role: "user", parts }],
     config: {
       responseModalities: ["Image", "Text"],
+      imageConfig: {
+        imageSize: IMAGE_SIZE,
+      },
     },
   });
 
@@ -361,11 +370,12 @@ For each page, I may include character reference images. These are for CHARACTER
 
   // Create chat session
   const chat = ai.chats.create({
-    model: "gemini-3-pro-image-preview",
+    model: IMAGE_MODEL,
     config: {
       responseModalities: ["Image", "Text"],
       imageConfig: {
         aspectRatio: "4:3",
+        imageSize: IMAGE_SIZE,
       },
     },
   });
