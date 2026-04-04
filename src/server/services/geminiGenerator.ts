@@ -466,12 +466,21 @@ CRITICAL: Maintain PERFECT visual consistency across ALL pages:
 CHARACTERS:\n${charDesc}
 ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}
 
-For each page, I may include character reference images. These are for CHARACTER IDENTITY ONLY:
-- Use them to match the character's body shape, colors, proportions, outfit, and accessories
+Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body shape, colors, proportions, outfit, and accessories throughout the entire book.
 - Do NOT copy the style, pose, layout, background, or artistic technique from the reference images
-- Do NOT reproduce the grid/multi-pose layout of reference sheets — generate a SINGLE scene illustration
+- Do NOT reproduce the grid/multi-pose layout of reference sheets — generate SINGLE scene illustrations
 - The reference images may be in a different art style — IGNORE their style and follow the style guide above instead`,
   });
+
+  // Attach all character reference images to the setup message
+  for (const [, ref] of characterRefs) {
+    setupParts.push({
+      text: `[CHARACTER REFERENCE — ${ref.name}]`,
+    });
+    setupParts.push({
+      inlineData: { data: ref.data, mimeType: ref.mimeType },
+    });
+  }
 
   debug.image(`Starting multi-turn story chat: ${pages.length} pages, ${characterRefs.size} character refs available, styleRef=${!!styleRef}`);
 
@@ -507,45 +516,11 @@ For each page, I may include character reference images. These are for CHARACTER
     });
     const startTime = Date.now();
 
-    // Attach reference images for characters in this scene
-    const pageParts: any[] = [];
-    const matchedChars: string[] = [];
-    const sceneCharacters = page.characters_in_scene || [];
-
-    if (sceneCharacters.length > 0) {
-      // Use explicit character list from Claude
-      for (const charName of sceneCharacters) {
-        const ref = characterRefs.get(charName.toLowerCase());
-        if (ref) {
-          pageParts.push({
-            text: `[REFERENCE IMAGE BELOW — this is a character reference for ${ref.name}. Use it ONLY to identify the character's body, colors, and outfit. Do NOT include this reference image anywhere in the generated illustration. Do NOT paste, composite, or overlay it into the scene. Generate a completely new illustration.]`,
-          });
-          pageParts.push({
-            inlineData: { data: ref.data, mimeType: ref.mimeType },
-          });
-          matchedChars.push(ref.name);
-        }
-      }
-    } else {
-      // Fallback: search prompt text for character names
-      const promptLower = page.image_prompt.toLowerCase();
-      for (const [nameLower, ref] of characterRefs) {
-        if (promptLower.includes(nameLower)) {
-          pageParts.push({
-            text: `[REFERENCE IMAGE BELOW — this is a character reference for ${ref.name}. Use it ONLY to identify the character's body, colors, and outfit. Do NOT include this reference image anywhere in the generated illustration. Do NOT paste, composite, or overlay it into the scene. Generate a completely new illustration.]`,
-          });
-          pageParts.push({
-            inlineData: { data: ref.data, mimeType: ref.mimeType },
-          });
-          matchedChars.push(ref.name);
-        }
-      }
-    }
-
     // Build identity anchor text for characters in this scene
+    const sceneCharacters = page.characters_in_scene || [];
     let anchorText = "";
-    if (characterAnchors && matchedChars.length > 0) {
-      const anchors = matchedChars
+    if (characterAnchors && sceneCharacters.length > 0) {
+      const anchors = sceneCharacters
         .map((name) => {
           const anchor = characterAnchors[name];
           return anchor ? `${name}: ${anchor}` : null;
@@ -556,14 +531,18 @@ For each page, I may include character reference images. These are for CHARACTER
       }
     }
 
-    pageParts.push({
-      text: `Page ${page.page_number}: ${page.image_prompt}${anchorText}\n\nSTYLE: Maintain the SAME level of stylization on every page — close-ups and wide shots should look equally soft and painterly. No photorealistic textures.\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration — do NOT include any reference images in the output. ${matchedChars.length > 0 ? `Match ${matchedChars.join(" and ")} to their reference images (body, colors, outfit) but use the style guide for art style.` : ""}`,
-    });
+    const characterNames = sceneCharacters.length > 0
+      ? sceneCharacters.join(" and ")
+      : "";
+
+    const pageParts: any[] = [{
+      text: `Page ${page.page_number}: ${page.image_prompt}${anchorText}\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration.${characterNames ? ` Match ${characterNames} to their reference images provided in the setup (body, colors, outfit).` : ""}`,
+    }];
 
     try {
       let imageUrl: string | null = null;
 
-      // Attempt 1: with reference images
+      // Attempt 1
       const response1 = await chat.sendMessage({ message: pageParts });
       imageUrl = extractImage(response1);
 
@@ -574,25 +553,22 @@ For each page, I may include character reference images. These are for CHARACTER
           ?.filter((p: any) => p.text)
           ?.map((p: any) => p.text)
           ?.join(" ") || "no content";
-        debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt 1 with refs). finishReason=${finishReason}, refImages=${matchedChars.length}, text="${textParts.slice(0, 200)}"`);
+        debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt 1). finishReason=${finishReason}, text="${textParts.slice(0, 200)}"`);
 
-        // Attempt 2: retry with reference images
-        debug.image(`Retrying page ${i + 1} with refs...`);
+        // Attempt 2: retry same prompt
+        debug.image(`Retrying page ${i + 1}...`);
         const response2 = await chat.sendMessage({ message: pageParts });
         imageUrl = extractImage(response2);
-      }
-
-      if (!imageUrl && matchedChars.length > 0) {
-        // Attempt 3: without reference images (they may be triggering the filter)
-        debug.image(`Retrying page ${i + 1} WITHOUT reference images...`);
-        const textOnlyParts = pageParts.filter((p: any) => p.text && !p.inlineData);
-        const response3 = await chat.sendMessage({ message: textOnlyParts });
-        imageUrl = extractImage(response3);
 
         if (!imageUrl) {
-          const candidate = response3?.candidates?.[0];
-          const finishReason = candidate?.finishReason || "no candidate";
-          debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt 3 without refs). finishReason=${finishReason}`);
+          // Attempt 3: simplified prompt
+          debug.image(`Retrying page ${i + 1} with simplified prompt...`);
+          const response3 = await chat.sendMessage({ message: [{ text: `Page ${page.page_number}: ${page.image_prompt}\n\n${ART_STYLE_REMINDER}` }] });
+          imageUrl = extractImage(response3);
+
+          if (!imageUrl) {
+            debug.error(`Chat page ${i + 1}/${pages.length}: no image after 3 attempts`);
+          }
         }
       }
 
@@ -601,7 +577,7 @@ For each page, I may include character reference images. These are for CHARACTER
         debug.image(`Chat page ${i + 1}/${pages.length}: done in ${Date.now() - startTime}ms`, { imageUrl });
         onProgress?.(page.page_number, pages.length, imageUrl);
       } else {
-        debug.error(`Chat page ${i + 1}/${pages.length}: failed after ${maxAttempts} attempts`);
+        debug.error(`Chat page ${i + 1}/${pages.length}: failed after 3 attempts`);
       }
     } catch (e: any) {
       debug.error(`Chat page ${i + 1}/${pages.length}: failed: ${e.message}`);
