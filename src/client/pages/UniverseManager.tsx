@@ -10,6 +10,7 @@ import {
   generateCharacters,
   generateLocations,
   generateLocationReferenceSheet,
+  generateStyleReference,
 } from "../api/client";
 
 function ActionButton({
@@ -165,6 +166,32 @@ export default function UniverseManager() {
                   <div><span className="text-stone-400">Avoid:</span> <span className="text-stone-600">{universe.avoidThemes || "None"}</span></div>
                   <div><span className="text-stone-400">ID:</span> <span className="text-stone-400 font-mono">{universe.id.slice(0, 8)}</span></div>
                 </div>
+              </div>
+
+              {/* Style Reference */}
+              <div className="bg-white rounded-xl border border-stone-200 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-stone-700 text-sm">Art Style Reference</h3>
+                  <ActionButton
+                    onClick={() => doAction("gen-style-ref", async () => {
+                      await generateStyleReference(selectedId!);
+                      invalidate();
+                    })}
+                    loading={actionLoading === "gen-style-ref"}
+                    loadingText="Generating..."
+                  >
+                    {universe.styleReferenceUrl ? "Regenerate" : "Generate"}
+                  </ActionButton>
+                </div>
+                {universe.styleReferenceUrl ? (
+                  <img
+                    src={universe.styleReferenceUrl}
+                    alt="Art style reference"
+                    className="w-full rounded-lg"
+                  />
+                ) : (
+                  <p className="text-xs text-stone-400">No style reference yet. Generate one to anchor the visual style for all illustrations.</p>
+                )}
               </div>
 
               {/* Characters */}
