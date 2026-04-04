@@ -559,26 +559,16 @@ export default function ReadingMode() {
                   }}
                 >
                   {page.imageUrl ? (
-                    <div
-                      className="w-full h-full flex items-center justify-center p-4"
+                    <img
+                      src={page.imageUrl}
+                      alt={`Illustration for page ${pageIndex + 1}`}
+                      className={`w-full h-full object-contain ${imageOnLeft ? "rounded-l-lg" : "rounded-r-lg"}`}
                       style={{
                         minHeight: "min(85vh, 700px)",
+                        mixBlendMode: "multiply",
                       }}
-                    >
-                      <img
-                        src={page.imageUrl}
-                        alt={`Illustration for page ${pageIndex + 1}`}
-                        className="max-w-full max-h-full"
-                        style={{
-                          objectFit: "contain",
-                          maskImage: "linear-gradient(to top, transparent 0%, black 8%), linear-gradient(to bottom, transparent 0%, black 8%), linear-gradient(to left, transparent 0%, black 8%), linear-gradient(to right, transparent 0%, black 8%)",
-                          maskComposite: "intersect",
-                          WebkitMaskImage: "linear-gradient(to top, transparent 0%, black 8%), linear-gradient(to bottom, transparent 0%, black 8%), linear-gradient(to left, transparent 0%, black 8%), linear-gradient(to right, transparent 0%, black 8%)",
-                          WebkitMaskComposite: "source-in",
-                        }}
-                        draggable={false}
-                      />
-                    </div>
+                      draggable={false}
+                    />
                   ) : (
                     <div
                       className="w-full flex items-center justify-center"
