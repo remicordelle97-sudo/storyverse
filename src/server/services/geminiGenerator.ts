@@ -560,21 +560,27 @@ Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body sh
           ?.filter((p: any) => p.text)
           ?.map((p: any) => p.text)
           ?.join(" ") || "no content";
-        debug.error(`Page ${i + 1}/${pages.length}: no image (attempt 1). finishReason=${finishReason}, text="${textParts.slice(0, 200)}"`);
+        debug.error(`Page ${i + 1}/${pages.length}: no image (attempt 1/3). finishReason=${finishReason}, text="${textParts.slice(0, 200)}"`);
 
         // Attempt 2: retry same prompt
-        debug.image(`Retrying page ${i + 1}...`);
+        debug.image(`Page ${i + 1}/${pages.length}: retrying (attempt 2/3, same prompt)...`);
         const response2 = await chat.sendMessage({ message: pageParts });
         imageUrl = extractImage(response2);
 
-        if (!imageUrl) {
+        if (imageUrl) {
+          debug.image(`Page ${i + 1}/${pages.length}: succeeded on attempt 2/3`);
+        } else {
+          debug.error(`Page ${i + 1}/${pages.length}: no image (attempt 2/3)`);
+
           // Attempt 3: simplified prompt
-          debug.image(`Retrying page ${i + 1} with simplified prompt...`);
+          debug.image(`Page ${i + 1}/${pages.length}: retrying (attempt 3/3, simplified prompt)...`);
           const response3 = await chat.sendMessage({ message: [{ text: `Page ${page.page_number}: ${page.image_prompt}\n\n${ART_STYLE_REMINDER}` }] });
           imageUrl = extractImage(response3);
 
-          if (!imageUrl) {
-            debug.error(`Page ${i + 1}/${pages.length}: no image after 3 attempts`);
+          if (imageUrl) {
+            debug.image(`Page ${i + 1}/${pages.length}: succeeded on attempt 3/3 (simplified)`);
+          } else {
+            debug.error(`Page ${i + 1}/${pages.length}: FAILED — no image after 3 attempts`);
           }
         }
       }
