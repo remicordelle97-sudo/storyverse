@@ -206,10 +206,6 @@ export default function UniverseManager() {
                       subtitle={`${char.speciesOrType} · ${char.role}`}
                       description={char.appearance}
                       detail={[
-                        char.dominantTrait ? `Defining trait: ${char.dominantTrait}` : "",
-                        char.signatureBehavior ? `Signature: ${char.signatureBehavior}` : "",
-                        char.personalWant ? `Wants: ${char.personalWant}` : "",
-                        char.storyFunction ? `Story role: ${char.storyFunction}` : "",
                         char.outfit ? `Outfit: ${char.outfit}` : "",
                         char.specialDetail ? `Detail: ${char.specialDetail}` : "",
                       ].filter(Boolean).join("\n")}

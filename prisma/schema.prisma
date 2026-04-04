@@ -59,11 +59,6 @@ model Character {
   appearance           String
   outfit               String           @default("")
   specialDetail        String           @default("")
-  dominantTrait        String           @default("")
-  contrastWithHero     String           @default("")
-  personalWant         String           @default("")
-  storyFunction        String           @default("")
-  signatureBehavior    String           @default("")
   relationshipArchetype String          @default("")
   referenceImageUrl    String           @default("")
   role                 String           @default("main")

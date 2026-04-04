@@ -38,9 +38,6 @@ router.post("/", async (req, res) => {
       appearance,
       outfit,
       specialDetail,
-      dominantTrait,
-      personalWant,
-      signatureBehavior,
       role,
     } = req.body;
 
@@ -62,9 +59,6 @@ router.post("/", async (req, res) => {
         appearance,
         outfit: outfit || "",
         specialDetail: specialDetail || "",
-        dominantTrait: dominantTrait || "",
-        personalWant: personalWant || "",
-        signatureBehavior: signatureBehavior || "",
         role: role || "main",
       },
     });

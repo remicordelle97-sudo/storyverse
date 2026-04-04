@@ -11,11 +11,6 @@ interface GeneratedCharacter {
   appearance: string;
   outfit: string;
   special_detail: string;
-  dominant_trait: string;
-  personal_want: string;
-  signature_behavior: string;
-  contrast_with_hero: string;
-  story_function: string;
   relationship_archetype: string;
   role: "main" | "supporting";
 }
@@ -58,17 +53,7 @@ export async function generateAllCharacters(
     temperature: 0.85,
     system: `You design complete character ensembles for children's story universes. You generate both the hero and supporting cast together so they work as a group — contrasting species, complementary personalities, and distinct visual designs.
 
-=== CHARACTER DEPTH (required for ALL characters) ===
-
-- "dominant_trait": The ONE trait that defines this character above all others. Everything they do is colored by this trait. Not a list — one single word or short phrase. (e.g., "cautious to a fault", "uncontrollably curious", "stubbornly optimistic")
-
-- "personal_want": A small, specific, ongoing desire this character has for THEMSELVES. This makes them feel like a real person with their own life. (e.g., "Desperately wants to taste every type of berry in the forest", "Is secretly building a tiny boat to sail across the pond someday")
-
-- "signature_behavior": One specific, repeatable action or verbal habit that children can anticipate and join in on. This should appear in EVERY story featuring this character. (e.g., "Always counts things out loud — 'one, two, three, four — four acorns!'", "Sneezes whenever nervous", "Says 'well, technically...' before correcting someone")
-
 For SUPPORTING characters only:
-- "contrast_with_hero": How this character differs from the hero in a way that makes BOTH more interesting. What does this character bring out in the hero?
-- "story_function": How this character typically pushes stories forward. What narrative role do they play?
 - "relationship_archetype": What familiar relationship from a child's life does this character represent? (e.g., "the best friend who's always up for anything", "the cautious older sibling")
 
 === VISUAL FIELDS (required for ALL characters) ===
@@ -103,8 +88,8 @@ RULES:
   * One should be someone the hero barely knows or has just met (low/no relationship yet)
 - Each character needs 2-4 distinct personality traits.
 - Names should be fun and age-appropriate. Include the species in the name (e.g., "Zuri the Zebra", "Pip the Parrot"). The hero's name is "${heroName}" — add their species to it.
-- For the hero: leave contrast_with_hero, story_function, and relationship_archetype as empty strings.
-- For supporting characters: fill in contrast_with_hero, story_function, and relationship_archetype.
+- For the hero: leave relationship_archetype as an empty string.
+- For supporting characters: fill in relationship_archetype.
 
 CRITICAL VISUAL DISTINCTNESS RULES:
 - Every character MUST have a completely different SILHOUETTE. Vary body shapes dramatically: one tall and thin, one short and round, one angular, one soft/blobby. A child should be able to tell them apart from their shadow alone.
@@ -120,11 +105,6 @@ Return exactly this JSON:
       "species_or_type": "Species",
       "role": "main",
       "personality_traits": ["trait1", "trait2", "trait3"],
-      "dominant_trait": "one defining trait",
-      "personal_want": "a specific ongoing desire",
-      "signature_behavior": "a repeatable action or verbal habit",
-      "contrast_with_hero": "",
-      "story_function": "",
       "relationship_archetype": "",
       "appearance": "Complete body-only visual specification...",
       "outfit": "ALWAYS WEARS AND CARRIES (never remove any item):\\n- #hex item...",
@@ -135,11 +115,6 @@ Return exactly this JSON:
       "species_or_type": "Zebra",
       "role": "supporting",
       "personality_traits": ["trait1", "trait2", "trait3"],
-      "dominant_trait": "...",
-      "personal_want": "...",
-      "signature_behavior": "...",
-      "contrast_with_hero": "...",
-      "story_function": "...",
       "relationship_archetype": "...",
       "appearance": "...",
       "outfit": "...",
@@ -178,7 +153,6 @@ Return exactly this JSON:
   if (heroData) {
     debug.character(`Updating hero: ${heroData.name} (${heroData.species_or_type})`, {
       traits: heroData.personality_traits.join(", "),
-      dominantTrait: heroData.dominant_trait,
     });
     await prisma.character.update({
       where: { id: heroPlaceholder.id },
@@ -189,9 +163,6 @@ Return exactly this JSON:
         appearance: heroData.appearance,
         outfit: heroData.outfit || "",
         specialDetail: heroData.special_detail || "",
-        dominantTrait: heroData.dominant_trait || "",
-        personalWant: heroData.personal_want || "",
-        signatureBehavior: heroData.signature_behavior || "",
       },
     });
   }
@@ -201,7 +172,6 @@ Return exactly this JSON:
   for (const char of supporting) {
     debug.character(`Creating: ${char.name} (${char.species_or_type})`, {
       traits: char.personality_traits.join(", "),
-      dominantTrait: char.dominant_trait,
     });
     await prisma.character.create({
       data: {
@@ -212,11 +182,6 @@ Return exactly this JSON:
         appearance: char.appearance,
         outfit: char.outfit || "",
         specialDetail: char.special_detail || "",
-        dominantTrait: char.dominant_trait || "",
-        contrastWithHero: char.contrast_with_hero || "",
-        personalWant: char.personal_want || "",
-        storyFunction: char.story_function || "",
-        signatureBehavior: char.signature_behavior || "",
         relationshipArchetype: char.relationship_archetype || "",
         role: "supporting",
       },
