@@ -411,10 +411,10 @@ For each page, I may include character reference images. These are for CHARACTER
         const ref = characterRefs.get(charName.toLowerCase());
         if (ref) {
           pageParts.push({
-            inlineData: { data: ref.data, mimeType: ref.mimeType },
+            text: `[REFERENCE IMAGE BELOW — this is a character reference for ${ref.name}. Use it ONLY to identify the character's body, colors, and outfit. Do NOT include this reference image anywhere in the generated illustration. Do NOT paste, composite, or overlay it into the scene. Generate a completely new illustration.]`,
           });
           pageParts.push({
-            text: `[Reference for ${ref.name} — use for character identity ONLY, not style or layout]`,
+            inlineData: { data: ref.data, mimeType: ref.mimeType },
           });
           matchedChars.push(ref.name);
         }
@@ -425,10 +425,10 @@ For each page, I may include character reference images. These are for CHARACTER
       for (const [nameLower, ref] of characterRefs) {
         if (promptLower.includes(nameLower)) {
           pageParts.push({
-            inlineData: { data: ref.data, mimeType: ref.mimeType },
+            text: `[REFERENCE IMAGE BELOW — this is a character reference for ${ref.name}. Use it ONLY to identify the character's body, colors, and outfit. Do NOT include this reference image anywhere in the generated illustration. Do NOT paste, composite, or overlay it into the scene. Generate a completely new illustration.]`,
           });
           pageParts.push({
-            text: `[Reference for ${ref.name} — use for character identity ONLY, not style or layout]`,
+            inlineData: { data: ref.data, mimeType: ref.mimeType },
           });
           matchedChars.push(ref.name);
         }
@@ -447,7 +447,7 @@ For each page, I may include character reference images. These are for CHARACTER
     const shotType = shotTypes[i % shotTypes.length];
 
     pageParts.push({
-      text: `Page ${page.page_number}: ${page.image_prompt}\n\nFRAMING: Use a ${shotType}. This MUST look different from the previous page — different angle, different composition, different background emphasis.\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration. ${matchedChars.length > 0 ? `Match ${matchedChars.join(" and ")} to their reference images (body, colors, outfit) but use the style guide for art style.` : ""}`,
+      text: `Page ${page.page_number}: ${page.image_prompt}\n\nFRAMING: Use a ${shotType}. This MUST look different from the previous page — different angle, different composition, different background emphasis.\n\nSTYLE CONSISTENCY: Regardless of whether this is a close-up or wide shot, maintain the SAME level of stylization. Close-ups should still look like children's book illustrations, NOT realistic portraits. Keep the same soft, painterly rendering across all distances. No photorealistic skin textures, no hyper-detailed faces.\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration — do NOT include any reference images in the output. ${matchedChars.length > 0 ? `Match ${matchedChars.join(" and ")} to their reference images (body, colors, outfit) but use the style guide for art style.` : ""}`,
     });
 
     try {
