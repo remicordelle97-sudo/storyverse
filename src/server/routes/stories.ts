@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
+import { MOODS } from "../lib/config.js";
 import { generateStoryImages } from "../services/geminiGenerator.js";
 import { verifyUniverseOwnership } from "../lib/ownership.js";
 
@@ -110,8 +111,7 @@ router.post("/generate", async (req, res) => {
       : structures[Math.floor(Math.random() * structures.length)];
 
     // Pick mood randomly for each story
-    const moods = ["gentle", "funny", "exciting", "mysterious"];
-    const mood = moods[Math.floor(Math.random() * moods.length)];
+    const mood = MOODS[Math.floor(Math.random() * MOODS.length)];
 
     if (!universeId || !characterIds?.length || !ageGroup) {
       return sendError("universeId, characterIds, and ageGroup are required");
@@ -299,8 +299,7 @@ router.post("/:id/regenerate-images", async (req, res) => {
       image_prompt: s.imagePrompt,
     }));
 
-    const moods = ["gentle", "funny", "exciting", "mysterious"];
-    const mood = moods[Math.floor(Math.random() * moods.length)];
+    const mood = MOODS[Math.floor(Math.random() * MOODS.length)];
 
     sendProgress("illustrating", `Regenerating ${pages.length} illustrations...`);
 

@@ -2,6 +2,7 @@ import { Router } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+import { CLAUDE_MODEL, TEMPERATURE_STANDARD, MAX_TOKENS_SMALL } from "../lib/config.js";
 
 const anthropic = new Anthropic();
 
@@ -53,9 +54,9 @@ router.post("/generate-concept", async (req, res) => {
     debug.universe("Generating universe concept via Claude", { interests });
 
     const message = await anthropic.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 2000,
-      temperature: 0.75,
+      model: CLAUDE_MODEL,
+      max_tokens: MAX_TOKENS_SMALL,
+      temperature: TEMPERATURE_STANDARD,
       system: "You create unique, imaginative worlds for children's stories. These worlds need to be rich enough to support hundreds of stories. Return ONLY valid JSON. No markdown fences.",
       messages: [
         {

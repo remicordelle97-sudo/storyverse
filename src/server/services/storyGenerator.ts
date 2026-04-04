@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt } from "./promptBuilder.js";
+import { CLAUDE_MODEL, TEMPERATURE_STANDARD, MAX_TOKENS_SHORT, MAX_TOKENS_LONG } from "../lib/config.js";
 
 const anthropic = new Anthropic();
 
@@ -20,12 +21,12 @@ export async function generateStory(
   ageGroup: string,
   length: "short" | "long" = "long"
 ): Promise<GeneratedStory> {
-  const maxTokens = length === "short" ? 8000 : 16000;
+  const maxTokens = length === "short" ? MAX_TOKENS_SHORT : MAX_TOKENS_LONG;
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
+    model: CLAUDE_MODEL,
     max_tokens: maxTokens,
-    temperature: 0.75,
+    temperature: TEMPERATURE_STANDARD,
     system: buildSystemPrompt(ageGroup),
     messages: [{ role: "user", content: userPrompt }],
   });

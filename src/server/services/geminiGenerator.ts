@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { ART_STYLE, ART_STYLE_REMINDER, buildImageStyleGuide } from "./imageStyleGuide.js";
+import { MOODS } from "../lib/config.js";
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -9,7 +10,7 @@ import { randomUUID } from "crypto";
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_KEY });
 
 const IMAGE_MODEL = "gemini-3-pro-image-preview";
-const IMAGE_SIZE = "2K";
+const IMAGE_SIZE = "1K";
 
 const IMAGES_DIR = path.resolve("public/images");
 
@@ -206,8 +207,7 @@ export async function generateLocationSheet(
     include: { universe: true },
   });
 
-  const moods = ["gentle", "funny", "exciting", "mysterious"];
-  const randomMood = moods[Math.floor(Math.random() * moods.length)];
+  const randomMood = MOODS[Math.floor(Math.random() * MOODS.length)];
   const styleGuide = buildImageStyleGuide(
     randomMood,
     location.universe.illustrationStyle

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+import { CLAUDE_MODEL, TEMPERATURE_CREATIVE, MAX_TOKENS_SMALL } from "../lib/config.js";
 
 const anthropic = new Anthropic();
 
@@ -30,9 +31,9 @@ export async function generateLocationConcepts(
   });
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 2000,
-    temperature: 0.85,
+    model: CLAUDE_MODEL,
+    max_tokens: MAX_TOKENS_SMALL,
+    temperature: TEMPERATURE_CREATIVE,
     system: "You design locations for children's story universes. Return ONLY valid JSON. No markdown fences.",
     messages: [
       {

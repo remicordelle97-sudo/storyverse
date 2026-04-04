@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+import { CLAUDE_MODEL, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT } from "../lib/config.js";
 
 const anthropic = new Anthropic();
 
@@ -48,9 +49,9 @@ export async function generateAllCharacters(
   });
 
   const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-6",
-    max_tokens: 8000,
-    temperature: 0.85,
+    model: CLAUDE_MODEL,
+    max_tokens: MAX_TOKENS_SHORT,
+    temperature: TEMPERATURE_CREATIVE,
     system: `You design complete character ensembles for children's story universes. You generate both the hero and supporting cast together so they work as a group — contrasting species, complementary personalities, and distinct visual designs.
 
 For SUPPORTING characters only:
