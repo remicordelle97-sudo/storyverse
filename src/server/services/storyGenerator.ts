@@ -126,6 +126,8 @@ Page-by-page beats:
 ${plan.pages.map((p) => `Page ${p.page}: ${p.beat} [Characters: ${p.characters.join(", ")}] [Location: ${p.location}]`).join("\n")}
 
 IMPORTANT: Follow the plan above exactly. Each page's content must match its beat. Do not add new plot points not in the plan. Do not skip beats. The plan has already been checked for clarity and logical consistency — your job is to write beautiful prose that brings it to life.
+
+CRITICAL: Obey the SENTENCE COUNT constraint in the output format section. Count sentences on every page. If a beat is too complex for the allowed sentence count, distill it — do not exceed the limit.
 === END PLAN ===
 
 ${userPrompt}`;

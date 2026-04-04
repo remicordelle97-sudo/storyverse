@@ -303,6 +303,13 @@ Use ONLY these locations in the story. Do not invent new locations. Reference th
     prompt += `\n`;
   }
 
+  const sentenceRule: Record<string, string> = {
+    "2-3": "EXACTLY 1-2 sentences per page. Each sentence must be 3-6 words. This is a HARD LIMIT — if a page has 3 or more sentences, you have failed.",
+    "4-5": "EXACTLY 2-3 sentences per page. Each sentence must be 6-12 words. This is a HARD LIMIT — if a page has 4 or more sentences, you have failed.",
+    "6-8": "EXACTLY 3-4 sentences per page. Each sentence must be 8-15 words. This is a HARD LIMIT — if a page has 5 or more sentences, you have failed.",
+  };
+  const sentenceConstraint = sentenceRule[input.ageGroup] || sentenceRule["4-5"];
+
   prompt += `${structureGuide}
 
 === STORY REQUEST ===
@@ -311,6 +318,10 @@ Language: ${input.language}
 Mood: ${input.mood}
 Total pages: ${pageCount}
 Parent's request: "${input.parentPrompt}"
+
+=== SENTENCE COUNT (HARD CONSTRAINT) ===
+${sentenceConstraint}
+Count your sentences on EVERY page before finalizing. If any page exceeds the limit, split it or cut words. This is the single most important formatting rule.
 
 === OUTPUT FORMAT ===
 Return exactly this JSON structure and nothing else.
