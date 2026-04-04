@@ -120,7 +120,7 @@ async function exportStoryAsPdf(story: any) {
         try {
           const availW = halfW;
           const availH = pageH;
-          const imgRatio = 3 / 4;
+          const imgRatio = 4 / 3;
           let imgW = availW;
           let imgH = imgW / imgRatio;
           if (imgH > availH) {
@@ -562,7 +562,7 @@ export default function ReadingMode() {
                     <img
                       src={page.imageUrl}
                       alt={`Illustration for page ${pageIndex + 1}`}
-                      className={`w-full h-full object-cover ${imageOnLeft ? "rounded-l-lg" : "rounded-r-lg"}`}
+                      className={`w-full h-full object-contain ${imageOnLeft ? "rounded-l-lg" : "rounded-r-lg"}`}
                       style={{ minHeight: "min(85vh, 700px)" }}
                       draggable={false}
                     />
