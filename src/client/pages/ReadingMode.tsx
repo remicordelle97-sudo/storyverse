@@ -154,6 +154,8 @@ export default function ReadingMode() {
   const [exporting, setExporting] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [regenProgress, setRegenProgress] = useState("");
+  const [flipping, setFlipping] = useState(false);
+  const [flipDirection, setFlipDirection] = useState<"forward" | "back">("forward");
 
   const { data: story, isLoading } = useQuery({
     queryKey: ["story", storyId],
@@ -184,16 +186,28 @@ export default function ReadingMode() {
 
   const goTo = useCallback(
     (newView: View, newIndex: number, dir: "forward" | "back") => {
-      if (transitioning) return;
+      if (transitioning || flipping) return;
+      setFlipDirection(dir);
       setDirection(dir);
-      setTransitioning(true);
-      setTimeout(() => {
-        setView(newView);
-        setPageIndex(newIndex);
-        setTransitioning(false);
-      }, 300);
+
+      // Use page flip for page-to-page, fade for title/end transitions
+      if (view === "page" && newView === "page") {
+        setFlipping(true);
+        setTimeout(() => {
+          setView(newView);
+          setPageIndex(newIndex);
+          setFlipping(false);
+        }, 500);
+      } else {
+        setTransitioning(true);
+        setTimeout(() => {
+          setView(newView);
+          setPageIndex(newIndex);
+          setTransitioning(false);
+        }, 300);
+      }
     },
-    [transitioning]
+    [transitioning, flipping, view]
   );
 
   const goForward = useCallback(() => {
@@ -370,12 +384,16 @@ export default function ReadingMode() {
 
       {/* Content with transition */}
       <div
-        className={`w-full transition-all duration-300 ease-out ${
+        className={`w-full ${
           transitioning
-            ? direction === "forward"
-              ? "opacity-0 translate-x-[-30px]"
-              : "opacity-0 translate-x-[30px]"
-            : "opacity-100 translate-x-0"
+            ? `transition-all duration-300 ease-out ${
+                direction === "forward"
+                  ? "opacity-0 translate-x-[-30px]"
+                  : "opacity-0 translate-x-[30px]"
+              }`
+            : transitioning === false && !flipping
+            ? "opacity-100 translate-x-0 transition-all duration-300 ease-out"
+            : ""
         }`}
       >
         {/* Title page */}
@@ -385,33 +403,30 @@ export default function ReadingMode() {
             style={{ minHeight: "100vh" }}
             onClick={goForward}
           >
-            {/* Book shell for title */}
             <div
-              className="relative w-full max-w-5xl mx-auto"
+              className="relative w-full max-w-7xl mx-auto"
               style={{
+                perspective: "2000px",
                 filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.5))",
               }}
             >
               <div
-                className="rounded-lg overflow-hidden flex flex-col md:flex-row"
-                style={{
-                  background: "#F5ECD7",
-                  minHeight: "min(75vh, 600px)",
-                }}
+                className="flex flex-col md:flex-row"
+                style={{ minHeight: "min(85vh, 700px)" }}
               >
                 {/* Left page */}
                 <div
-                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 relative"
+                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 relative rounded-l-lg"
                   style={{
                     background: "linear-gradient(to right, #EDE3C8, #F5ECD7)",
+                    transform: "rotateY(1deg)",
+                    transformOrigin: "right center",
+                    boxShadow: "inset -20px 0 30px -15px rgba(0,0,0,0.08)",
                   }}
                 >
-                  {/* Decorative border */}
                   <div
                     className="absolute inset-6 md:inset-10 rounded-sm pointer-events-none"
-                    style={{
-                      border: "2px solid #D4C5A0",
-                    }}
+                    style={{ border: "2px solid #D4C5A0" }}
                   />
                   <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight mb-4 relative z-10">
                     {story.title}
@@ -419,135 +434,177 @@ export default function ReadingMode() {
                   {story.characters?.length > 0 && (
                     <p className="text-stone-500 text-sm relative z-10">
                       featuring{" "}
-                      {story.characters
-                        .map((sc: any) => sc.character.name)
-                        .join(" & ")}
+                      {story.characters.map((sc: any) => sc.character.name).join(" & ")}
                     </p>
                   )}
                 </div>
 
                 {/* Spine */}
                 <div
-                  className="hidden md:block w-[3px] relative z-10"
+                  className="hidden md:block w-[4px] relative z-20 flex-shrink-0"
                   style={{
-                    background: "linear-gradient(to bottom, #C4B48A, #A89668, #C4B48A)",
-                    boxShadow: "-2px 0 8px rgba(0,0,0,0.1), 2px 0 8px rgba(0,0,0,0.1)",
+                    background: "linear-gradient(to bottom, #B8A878, #96845C, #B8A878)",
+                    boxShadow: "-3px 0 12px rgba(0,0,0,0.15), 3px 0 12px rgba(0,0,0,0.15)",
                   }}
                 />
 
                 {/* Right page */}
                 <div
-                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12"
+                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 rounded-r-lg"
                   style={{
                     background: "linear-gradient(to left, #EDE3C8, #F5ECD7)",
+                    transform: "rotateY(-1deg)",
+                    transformOrigin: "left center",
+                    boxShadow: "inset 20px 0 30px -15px rgba(0,0,0,0.08)",
                   }}
                 >
                   <div className="text-stone-400 text-sm italic mb-6">A Storyverse tale</div>
-                  <p className="text-stone-400 text-xs animate-pulse">
-                    Tap to begin
-                  </p>
+                  <p className="text-stone-400 text-xs animate-pulse">Tap to begin</p>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Story page — open book spread */}
-        {view === "page" && page && (
-          <div
-            className="flex items-center justify-center px-4 py-16"
-            style={{ minHeight: "100vh" }}
-          >
+        {/* Story page — open book spread with page flip */}
+        {view === "page" && page && (() => {
+          const imageOnLeft = pageIndex % 2 === 0;
+
+          const illustrationPage = (
             <div
-              className="relative w-full max-w-5xl mx-auto"
+              className={`flex-1 relative flex items-center justify-center ${imageOnLeft ? "rounded-l-lg" : "rounded-r-lg"}`}
               style={{
-                filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.5))",
+                background: imageOnLeft
+                  ? "linear-gradient(to right, #EDE3C8, #F5ECD7)"
+                  : "linear-gradient(to left, #EDE3C8, #F5ECD7)",
+                transform: imageOnLeft ? "rotateY(1deg)" : "rotateY(-1deg)",
+                transformOrigin: imageOnLeft ? "right center" : "left center",
+                boxShadow: imageOnLeft
+                  ? "inset -20px 0 30px -15px rgba(0,0,0,0.08)"
+                  : "inset 20px 0 30px -15px rgba(0,0,0,0.08)",
               }}
             >
+              {page.imageUrl ? (
+                <img
+                  src={page.imageUrl}
+                  alt={`Illustration for page ${pageIndex + 1}`}
+                  className={`w-full h-full object-cover ${imageOnLeft ? "rounded-l-lg" : "rounded-r-lg"}`}
+                  style={{ minHeight: "min(85vh, 700px)" }}
+                  draggable={false}
+                />
+              ) : (
+                <div
+                  className="w-full flex items-center justify-center"
+                  style={{
+                    minHeight: "min(85vh, 700px)",
+                    background: "linear-gradient(135deg, #E8DFC8, #DDD3B8)",
+                  }}
+                >
+                  <div className="text-stone-400/40 text-sm">Illustration</div>
+                </div>
+              )}
+              <div className="absolute bottom-3 left-0 right-0 text-center">
+                <span className="text-stone-500/50 text-xs">
+                  {imageOnLeft ? pageIndex * 2 + 1 : pageIndex * 2 + 2}
+                </span>
+              </div>
+            </div>
+          );
+
+          const textPage = (
+            <div
+              className={`flex-1 flex flex-col justify-between relative ${imageOnLeft ? "rounded-r-lg" : "rounded-l-lg"}`}
+              style={{
+                background: imageOnLeft
+                  ? "linear-gradient(to left, #EDE3C8, #F5ECD7)"
+                  : "linear-gradient(to right, #EDE3C8, #F5ECD7)",
+                minHeight: "min(85vh, 700px)",
+                transform: imageOnLeft ? "rotateY(-1deg)" : "rotateY(1deg)",
+                transformOrigin: imageOnLeft ? "left center" : "right center",
+                boxShadow: imageOnLeft
+                  ? "inset 20px 0 30px -15px rgba(0,0,0,0.08)"
+                  : "inset -20px 0 30px -15px rgba(0,0,0,0.08)",
+              }}
+            >
+              <div className="flex-1 flex items-center px-8 md:px-12 py-8 md:py-10">
+                <p
+                  className="text-stone-800 leading-[1.85] tracking-wide text-left"
+                  style={{
+                    fontSize: "clamp(1rem, 1.8vw + 0.4rem, 1.4rem)",
+                    wordSpacing: "0.05em",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  {page.content}
+                </p>
+              </div>
+              <div className="text-center pb-3">
+                <span className="text-stone-500/50 text-xs">
+                  {imageOnLeft ? pageIndex * 2 + 2 : pageIndex * 2 + 1}
+                </span>
+              </div>
+              <div className="absolute top-3 right-4">
+                <span className="text-stone-400/40 text-[10px]">
+                  {pageIndex + 1} of {totalPages}
+                </span>
+              </div>
+            </div>
+          );
+
+          return (
+            <div
+              className="flex items-center justify-center px-4 py-8"
+              style={{ minHeight: "100vh" }}
+            >
               <div
-                className="rounded-lg overflow-hidden flex flex-col md:flex-row"
+                className="relative w-full max-w-7xl mx-auto"
                 style={{
-                  background: "#F5ECD7",
+                  perspective: "2500px",
+                  filter: "drop-shadow(0 30px 70px rgba(0,0,0,0.5))",
                 }}
               >
-                {/* Left page — illustration */}
-                <div
-                  className="flex-1 relative flex items-center justify-center"
-                  style={{
-                    background: "linear-gradient(to right, #EDE3C8, #F5ECD7)",
-                  }}
-                >
-                  {page.imageUrl ? (
-                    <img
-                      src={page.imageUrl}
-                      alt={`Illustration for page ${pageIndex + 1}`}
-                      className="w-full h-full object-cover"
-                      style={{ minHeight: "min(70vh, 550px)" }}
-                      draggable={false}
-                    />
-                  ) : (
+                {/* Page flip overlay */}
+                {flipping && (
+                  <div
+                    className="absolute inset-0 z-30 pointer-events-none"
+                    style={{
+                      transformStyle: "preserve-3d",
+                    }}
+                  >
                     <div
-                      className="w-full flex items-center justify-center"
+                      className={`absolute ${flipDirection === "forward" ? "right-0" : "left-0"} top-0 w-1/2 h-full`}
                       style={{
-                        minHeight: "min(70vh, 550px)",
-                        background: "linear-gradient(135deg, #E8DFC8, #DDD3B8)",
+                        background: "#F5ECD7",
+                        transformOrigin: flipDirection === "forward" ? "left center" : "right center",
+                        animation: `${flipDirection === "forward" ? "pageFlipForward" : "pageFlipBack"} 500ms ease-in-out forwards`,
+                        boxShadow: "0 0 30px rgba(0,0,0,0.2)",
+                        borderRadius: flipDirection === "forward" ? "0 8px 8px 0" : "8px 0 0 8px",
                       }}
-                    >
-                      <div className="text-stone-400/40 text-sm">Illustration</div>
-                    </div>
-                  )}
-                  {/* Page number — left */}
-                  <div className="absolute bottom-3 left-0 right-0 text-center">
-                    <span className="text-stone-500/50 text-xs">{pageIndex * 2 + 1}</span>
+                    />
                   </div>
-                </div>
+                )}
 
-                {/* Spine */}
                 <div
-                  className="hidden md:block w-[3px] relative z-10 flex-shrink-0"
-                  style={{
-                    background: "linear-gradient(to bottom, #C4B48A, #A89668, #C4B48A)",
-                    boxShadow: "-2px 0 8px rgba(0,0,0,0.1), 2px 0 8px rgba(0,0,0,0.1)",
-                  }}
-                />
-
-                {/* Right page — text */}
-                <div
-                  className="flex-1 flex flex-col justify-between relative"
-                  style={{
-                    background: "linear-gradient(to left, #EDE3C8, #F5ECD7)",
-                    minHeight: "min(70vh, 550px)",
-                  }}
+                  className="flex flex-col md:flex-row"
+                  style={{ minHeight: "min(85vh, 700px)" }}
                 >
-                  <div className="flex-1 flex items-center px-8 md:px-10 py-8 md:py-10">
-                    <p
-                      className="text-stone-800 leading-[1.85] tracking-wide text-left"
-                      style={{
-                        fontSize: "clamp(1rem, 1.8vw + 0.4rem, 1.4rem)",
-                        wordSpacing: "0.05em",
-                        letterSpacing: "0.02em",
-                      }}
-                    >
-                      {page.content}
-                    </p>
-                  </div>
-                  {/* Page number — right */}
-                  <div className="text-center pb-3">
-                    <span className="text-stone-500/50 text-xs">
-                      {pageIndex * 2 + 2}
-                    </span>
-                  </div>
-                  {/* Scene counter */}
-                  <div className="absolute top-3 right-4">
-                    <span className="text-stone-400/40 text-[10px]">
-                      {pageIndex + 1} of {totalPages}
-                    </span>
-                  </div>
+                  {imageOnLeft ? illustrationPage : textPage}
+
+                  {/* Spine */}
+                  <div
+                    className="hidden md:block w-[4px] relative z-20 flex-shrink-0"
+                    style={{
+                      background: "linear-gradient(to bottom, #B8A878, #96845C, #B8A878)",
+                      boxShadow: "-3px 0 12px rgba(0,0,0,0.15), 3px 0 12px rgba(0,0,0,0.15)",
+                    }}
+                  />
+
+                  {imageOnLeft ? textPage : illustrationPage}
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* End page */}
         {view === "end" && (
@@ -556,23 +613,24 @@ export default function ReadingMode() {
             style={{ minHeight: "100vh" }}
           >
             <div
-              className="relative w-full max-w-5xl mx-auto"
+              className="relative w-full max-w-7xl mx-auto"
               style={{
+                perspective: "2000px",
                 filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.5))",
               }}
             >
               <div
-                className="rounded-lg overflow-hidden flex flex-col md:flex-row"
-                style={{
-                  background: "#F5ECD7",
-                  minHeight: "min(75vh, 600px)",
-                }}
+                className="flex flex-col md:flex-row"
+                style={{ minHeight: "min(85vh, 700px)" }}
               >
                 {/* Left page */}
                 <div
-                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12"
+                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 rounded-l-lg"
                   style={{
                     background: "linear-gradient(to right, #EDE3C8, #F5ECD7)",
+                    transform: "rotateY(1deg)",
+                    transformOrigin: "right center",
+                    boxShadow: "inset -20px 0 30px -15px rgba(0,0,0,0.08)",
                   }}
                 >
                   <p className="text-stone-800 text-4xl md:text-5xl font-light italic">
@@ -583,18 +641,21 @@ export default function ReadingMode() {
 
                 {/* Spine */}
                 <div
-                  className="hidden md:block w-[3px] relative z-10"
+                  className="hidden md:block w-[4px] relative z-20 flex-shrink-0"
                   style={{
-                    background: "linear-gradient(to bottom, #C4B48A, #A89668, #C4B48A)",
-                    boxShadow: "-2px 0 8px rgba(0,0,0,0.1), 2px 0 8px rgba(0,0,0,0.1)",
+                    background: "linear-gradient(to bottom, #B8A878, #96845C, #B8A878)",
+                    boxShadow: "-3px 0 12px rgba(0,0,0,0.15), 3px 0 12px rgba(0,0,0,0.15)",
                   }}
                 />
 
                 {/* Right page */}
                 <div
-                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12"
+                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 rounded-r-lg"
                   style={{
                     background: "linear-gradient(to left, #EDE3C8, #F5ECD7)",
+                    transform: "rotateY(-1deg)",
+                    transformOrigin: "left center",
+                    boxShadow: "inset 20px 0 30px -15px rgba(0,0,0,0.08)",
                   }}
                 >
                   <div className="flex flex-col gap-4 items-center">
@@ -620,6 +681,28 @@ export default function ReadingMode() {
           </div>
         )}
       </div>
+
+      {/* Page flip keyframe animations */}
+      <style>{`
+        @keyframes pageFlipForward {
+          0% { transform: rotateY(0deg); }
+          100% { transform: rotateY(-180deg); }
+        }
+        @keyframes pageFlipBack {
+          0% { transform: rotateY(0deg); }
+          100% { transform: rotateY(180deg); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes pageFlipForward {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+          @keyframes pageFlipBack {
+            0% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+        }
+      `}</style>
     </div>
   );
 }
