@@ -161,10 +161,12 @@ export default function UniverseManager() {
               <div className="bg-white rounded-xl border border-stone-200 p-5">
                 <h2 className="text-lg font-bold text-stone-800 mb-1">{universe.name}</h2>
                 <p className="text-sm text-stone-500 mb-3">{universe.settingDescription}</p>
-                <div className="grid grid-cols-2 gap-3 text-xs">
+                <div className="space-y-2 text-xs">
                   <div><span className="text-stone-400">Themes:</span> <span className="text-stone-600">{themes.join(", ")}</span></div>
+                  {universe.sensoryDetails && <div><span className="text-stone-400">Sensory:</span> <span className="text-stone-600">{universe.sensoryDetails}</span></div>}
+                  {universe.worldRules && <div><span className="text-stone-400">World rules:</span> <span className="text-stone-600">{universe.worldRules}</span></div>}
+                  {universe.scaleAndGeography && <div><span className="text-stone-400">Scale:</span> <span className="text-stone-600">{universe.scaleAndGeography}</span></div>}
                   <div><span className="text-stone-400">Avoid:</span> <span className="text-stone-600">{universe.avoidThemes || "None"}</span></div>
-                  <div><span className="text-stone-400">ID:</span> <span className="text-stone-400 font-mono">{universe.id.slice(0, 8)}</span></div>
                 </div>
               </div>
 
@@ -233,8 +235,10 @@ export default function UniverseManager() {
                       subtitle={`${char.speciesOrType} · ${char.role}`}
                       description={char.appearance}
                       detail={[
+                        char.personalityTraits ? `Personality: ${char.personalityTraits}` : "",
                         char.outfit ? `Outfit: ${char.outfit}` : "",
                         char.specialDetail ? `Detail: ${char.specialDetail}` : "",
+                        char.relationshipArchetype ? `Archetype: ${char.relationshipArchetype}` : "",
                       ].filter(Boolean).join("\n")}
                       imageUrl={char.referenceImageUrl}
                       onPreview={() => setSheetPreview(char.referenceImageUrl)}
@@ -273,7 +277,11 @@ export default function UniverseManager() {
                         name={loc.name}
                         subtitle={loc.role}
                         description={loc.description}
-                        detail={`Lighting: ${loc.lighting}. Landmarks: ${loc.landmarks}`}
+                        detail={[
+                          loc.mood ? `Mood: ${loc.mood}` : "",
+                          loc.lighting ? `Lighting: ${loc.lighting}` : "",
+                          loc.landmarks ? `Landmarks: ${loc.landmarks}` : "",
+                        ].filter(Boolean).join("\n")}
                         imageUrl={loc.referenceImageUrl}
                         onPreview={() => setSheetPreview(loc.referenceImageUrl)}
                         onGenerate={() =>
