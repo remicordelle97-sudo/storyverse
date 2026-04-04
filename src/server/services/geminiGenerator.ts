@@ -552,7 +552,7 @@ Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EV
       : "";
 
     const pageParts: any[] = [{
-      text: `${ART_STYLE_REMINDER}${refReminder}\n\nPage ${page.page_number}: ${page.image_prompt}${anchorText}\n\nGenerate a SINGLE scene illustration. This illustration MUST look distinctly different from the previous page — different character poses, different position in the frame, different composition.\n\nEDGES: The painting MUST have soft, irregular edges that fade and bleed into white paper. Do NOT create a sharp rectangular border or clean-cut frame around the image.`,
+      text: `${ART_STYLE_REMINDER}${refReminder}\n\nPage ${page.page_number}: ${page.image_prompt}${anchorText}\n\nGenerate a SINGLE scene illustration.\n\nEDGES: The painting MUST have soft, irregular edges that fade and bleed into white paper. Do NOT create a sharp rectangular border or clean-cut frame around the image.`,
     }];
 
     try {

@@ -199,16 +199,11 @@ RULES:
 - Name each character present using their full name.
 - Describe their expression, body language, and what they are doing.
 - Describe the environment, lighting, time of day, and atmosphere in detail.
+- Vary the scenes across pages — different backgrounds, different character arrangements. Some pages show more of the world, others focus more on the characters.
+- Ensure visual VARIETY: different backgrounds, different character positions, different moods. If two prompts sound similar, make them dramatically different.
+- Build a visual ARC: the images should feel like a journey, not the same scene repeated.
 - Keep prompts to 2-3 sentences each. Be specific and concrete, not vague.
 - Do NOT describe character bodies, species details, clothing, or physical features — only name, expression, action, and setting.
-
-CRITICAL — EVERY PAGE MUST LOOK DIFFERENT:
-- No two pages should have a similar composition. Vary WHERE in the frame the characters appear (left, right, center, far away, close up, partially out of frame).
-- Vary character POSES dramatically: sitting, running, climbing, crouching, reaching up, lying down, jumping, turning away, seen from behind. NEVER repeat the same pose on consecutive pages.
-- Vary the CHARACTER ARRANGEMENT: side by side, one in foreground and one far behind, facing each other, back to back, one above the other.
-- Vary the FRAMING: some pages should show mostly environment with characters small in the scene, others should show characters filling most of the frame.
-- If a character was running to the right on one page, they should NOT be running to the right on the next page.
-- Review ALL prompts as a set before finalizing. If any two consecutive pages would produce a similar image, rewrite one of them.
 
 ALSO: For each character that appears in the story, write a comprehensive IDENTITY ANCHOR — a complete visual checklist that an illustrator can use to draw the character consistently on every page. Include ALL of the following:
 
