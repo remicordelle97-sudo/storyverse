@@ -473,7 +473,12 @@ CRITICAL: Maintain PERFECT visual consistency across ALL pages:
 CHARACTERS:\n${charDesc}
 ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}
 
-Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body shape, colors, proportions, outfit, and accessories throughout the entire book.
+MANDATORY WORKFLOW — follow these steps for EVERY page:
+1. REVIEW: Before drawing, scroll back to the CHARACTER REFERENCE IMAGES below and study each character that appears in the scene. Note their exact body shape, colors, outfit, and accessories.
+2. DRAW: Generate the illustration, matching each character precisely to their reference image.
+3. VERIFY: Check the CHARACTER IDENTITY CHECK provided with the page prompt to confirm all visual details are correct.
+
+Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EVERY page — they are the single source of truth for what each character looks like. As the conversation grows longer, do NOT rely on memory or earlier generated images. Always return to these reference images.
 - Do NOT copy the style, pose, layout, background, or artistic technique from the reference images
 - Do NOT reproduce the grid/multi-pose layout of reference sheets — generate SINGLE scene illustrations
 - The reference images may be in a different art style — IGNORE their style and follow the style guide above instead`,
@@ -542,8 +547,12 @@ Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body sh
       prompt: page.image_prompt.slice(0, 100),
     });
 
+    const refReminder = characterNames
+      ? `\n\nBEFORE DRAWING: Scroll back to the setup message and review the CHARACTER REFERENCE IMAGES for ${characterNames}. Match their exact body, colors, outfit, and accessories from those references.`
+      : "";
+
     const pageParts: any[] = [{
-      text: `${ART_STYLE_REMINDER}\n\nPage ${page.page_number}: ${page.image_prompt}${anchorText}\n\nGenerate a SINGLE scene illustration.${characterNames ? ` Match ${characterNames} to their reference images provided in the setup (body, colors, outfit).` : ""}\n\nEDGES: The painting MUST have soft, irregular edges that fade and bleed into white paper. Do NOT create a sharp rectangular border or clean-cut frame around the image.`,
+      text: `${ART_STYLE_REMINDER}${refReminder}\n\nPage ${page.page_number}: ${page.image_prompt}${anchorText}\n\nGenerate a SINGLE scene illustration.\n\nEDGES: The painting MUST have soft, irregular edges that fade and bleed into white paper. Do NOT create a sharp rectangular border or clean-cut frame around the image.`,
     }];
 
     try {
