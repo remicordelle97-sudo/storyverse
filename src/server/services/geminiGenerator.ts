@@ -254,29 +254,27 @@ function buildCharacterSheetPrompt(character: any): string {
     ? `\nOUTFIT (character is ALWAYS wearing/carrying ALL of these):\n${character.outfit}`
     : "";
 
-  return `${ART_STYLE}
+  return `IMPORTANT: You MUST match the art style of the STYLE REFERENCE IMAGE provided. Match its EXACT brushwork, texture, color treatment, and level of softness. The character studies below must look like they belong in the same book as the style reference.
 
-REPEAT: NO OUTLINES. NO LINEWORK. Shapes are defined by SOFT SMUDGED COLOR ONLY.
+${ART_STYLE}
 
-Create a page of SOFT CHALK PASTEL STUDIES of this character. Show this character 12-15 times on a warm cream-colored paper background. Mix of full body views and close-up head/upper body views. Each study should look like an individual chalk pastel drawing — soft, powdery, dreamy. NOT a clean technical model sheet. NOT a cartoon turnaround. These are PASTEL STUDIES, like pages from an artist's sketchbook done entirely in soft chalk pastel.
+Create 6-8 soft pastel studies of this character on a warm cream background. Each study should be loose and painterly — matching the dreamy, atmospheric quality of the style reference. These should look like they were drawn with the same chalk pastels, same hand, same level of softness.
 
-IMPORTANT: This character is a ${character.speciesOrType}. Follow the body description below EXACTLY. This character has its own unique body shape, colors, proportions, and clothing.
+This character is a ${character.speciesOrType}.
 
 CHARACTER: ${character.name}
 SPECIES: ${character.speciesOrType}
 
-BODY (follow this description precisely — this defines what the character looks like):
+BODY:
 ${character.appearance}
 ${outfitSection}
-SPECIAL DETAIL: ${character.specialDetail}
+${character.specialDetail ? `SPECIAL DETAIL: ${character.specialDetail}` : ""}
 
-Include:
-- Full body: front, side, back, 3/4, running, sitting, reaching
-- Close-up: happy, sad, surprised, determined, laughing
+Show a mix of:
+- 3-4 full body views (different poses: standing, walking, sitting)
+- 2-3 face close-ups (different expressions: happy, surprised, worried)
 
-CONSISTENCY: The character must look identical in every study. Same proportions, colors, features. All clothing/accessories visible in every view. Wings, tails, antennae never disappear. Head shape stays the same in close-ups.
-
-ONE character painted many times in oil pastel. NOT multiple characters. NOT outlined cartoon art.`;
+Keep the character recognizable across all studies — same colors, same proportions, same outfit. But every study should feel SOFT and PAINTERLY, matching the style reference. NOT sharp. NOT outlined. NOT cartoon.`;
 }
 
 /**
