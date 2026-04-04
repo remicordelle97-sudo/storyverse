@@ -566,6 +566,7 @@ export default function ReadingMode() {
                       style={{
                         minHeight: "min(85vh, 700px)",
                         mixBlendMode: "multiply",
+                        filter: "brightness(1.08)",
                       }}
                       draggable={false}
                     />
