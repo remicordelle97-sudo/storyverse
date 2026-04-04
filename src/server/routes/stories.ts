@@ -153,12 +153,16 @@ router.post("/generate", async (req, res) => {
       ageGroup: resolvedAgeGroup,
     });
 
-    // Step 2: Generate story
-    sendProgress("writing", "Writing the story...");
+    // Step 2: Generate story (plan + write)
     debug.story("Calling Claude for story generation...");
     const storyStart = Date.now();
 
-    const generated = await generateStory(userMessage, resolvedAgeGroup, length || "long");
+    const generated = await generateStory(
+      userMessage,
+      resolvedAgeGroup,
+      length || "long",
+      (step, detail) => sendProgress(step, detail)
+    );
 
     debug.story(`Story generated in ${Date.now() - storyStart}ms`, {
       title: generated.title,
