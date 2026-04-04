@@ -500,10 +500,6 @@ Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body sh
     const page = pages[i];
     if (!page.image_prompt) continue;
 
-    debug.image(`Page ${i + 1}/${pages.length}: generating (fresh session)...`, {
-      promptPreview: page.image_prompt.slice(0, 80),
-      location: page.location || "unknown",
-    });
     const startTime = Date.now();
 
     // Build setup parts for this page: base setup + scene-specific character refs
@@ -589,6 +585,17 @@ Character reference images above are for CHARACTER IDENTITY ONLY:
     const characterNames = sceneCharRefs.length > 0
       ? sceneCharRefs.join(" and ")
       : "";
+
+    // Log exactly what we're passing to this page
+    const imageCount = pageSetupParts.filter((p: any) => p.inlineData).length;
+    debug.image(`Page ${i + 1}/${pages.length}: generating (fresh session)`, {
+      location: pageLocation || "none",
+      characterRefs: sceneCharRefs.length > 0 ? sceneCharRefs.join(", ") : "none",
+      styleRef: !!styleRef,
+      locationPrior: locationPrior ? `yes (from "${pageLocation}")` : "no",
+      totalImages: imageCount,
+      prompt: page.image_prompt.slice(0, 100),
+    });
 
     // Create a fresh chat session for this page
     const chat = ai.chats.create({
