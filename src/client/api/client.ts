@@ -32,6 +32,8 @@ export const generateUniverseConcept = (data: any) =>
     method: "POST",
     body: JSON.stringify(data),
   });
+export const generateStyleReference = (universeId: string) =>
+  request<any>(`/universes/${universeId}/generate-style-reference`, { method: "POST" });
 // Characters
 export const getCharacters = (universeId: string) =>
   request<any[]>(`/characters?universeId=${universeId}`);

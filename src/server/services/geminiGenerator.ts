@@ -53,6 +53,71 @@ function extractImage(response: any): string | null {
 
 
 /**
+ * Generate a style reference image for a universe — a simple scene with
+ * no characters that establishes the visual style for all illustrations.
+ * Stored on the Universe record and passed to character sheets, location
+ * sheets, and story page generation as a visual anchor.
+ */
+export async function generateStyleReference(
+  universeId: string
+): Promise<string> {
+  const universe = await prisma.universe.findUniqueOrThrow({
+    where: { id: universeId },
+  });
+
+  debug.image(`Generating style reference for universe "${universe.name}"`);
+  const startTime = Date.now();
+
+  const prompt = `${ART_STYLE}
+
+Generate a single illustration of a scene from this world. This image will be used as the STYLE REFERENCE for an entire children's picture book — every illustration in the book must match this exact visual style.
+
+UNIVERSE: ${universe.name}
+SETTING: ${universe.settingDescription}
+${universe.scaleAndGeography ? `GEOGRAPHY: ${universe.scaleAndGeography}` : ""}
+
+RULES:
+- Show a simple, atmospheric landscape or environment from this world
+- Do NOT include any characters, people, or animals
+- Focus on establishing the ART STYLE: brushwork, color palette, texture, lighting, level of detail
+- This should feel like the opening establishing shot of a picture book — warm, inviting, setting the mood
+- Make it rich enough in style detail that an artist could match it exactly`;
+
+  const response = await ai.models.generateContent({
+    model: IMAGE_MODEL,
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    config: {
+      responseModalities: ["Image", "Text"],
+      imageConfig: {
+        imageSize: IMAGE_SIZE,
+      },
+    },
+  });
+
+  const imageUrl = extractImage(response);
+  if (!imageUrl) {
+    throw new Error("No image generated for style reference");
+  }
+
+  await prisma.universe.update({
+    where: { id: universeId },
+    data: { styleReferenceUrl: imageUrl },
+  });
+
+  debug.image(`Style reference generated in ${Date.now() - startTime}ms: ${imageUrl}`);
+  return imageUrl;
+}
+
+/**
+ * Load the style reference image for a universe as base64 inline data.
+ * Returns null if no style reference exists.
+ */
+function loadStyleReference(universe: any): { data: string; mimeType: string } | null {
+  if (!universe.styleReferenceUrl) return null;
+  return readImageAsBase64(universe.styleReferenceUrl);
+}
+
+/**
  * Generate a single character model sheet using Gemini (for regeneration).
  */
 export async function generateCharacterSheet(
@@ -118,7 +183,11 @@ export async function generateAllCharacterSheets(
 
   if (characters.length === 0) return;
 
-  debug.image(`Generating ${characters.length} character sheets (separate sessions)`);
+  // Load style reference if available
+  const universe = characters[0].universe;
+  const styleRef = loadStyleReference(universe);
+
+  debug.image(`Generating ${characters.length} character sheets (separate sessions, styleRef=${!!styleRef})`);
 
   for (let i = 0; i < characters.length; i++) {
     const character = characters[i];
@@ -131,14 +200,29 @@ export async function generateAllCharacterSheets(
     debug.image(`Sheet ${i + 1}/${characters.length}: generating for "${character.name}"`);
     const startTime = Date.now();
 
-    const prompt = buildCharacterSheetPrompt(character);
+    const promptText = buildCharacterSheetPrompt(character);
+
+    // Build parts: style reference image (if available) + prompt text
+    const parts: any[] = [];
+    if (styleRef) {
+      parts.push({
+        text: `[STYLE REFERENCE — match this exact art style, brushwork, color palette, and texture. Do NOT copy the scene content, only the visual style.]`,
+      });
+      parts.push({
+        inlineData: { data: styleRef.data, mimeType: styleRef.mimeType },
+      });
+    }
+    parts.push({ text: promptText });
 
     try {
       const response = await ai.models.generateContent({
         model: IMAGE_MODEL,
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ role: "user", parts }],
         config: {
           responseModalities: ["Image", "Text"],
+          imageConfig: {
+            imageSize: IMAGE_SIZE,
+          },
         },
       });
 
@@ -242,6 +326,17 @@ ONE location shown from many angles and times of day. NOT multiple locations.`;
 
   const parts: any[] = [];
 
+  // Style reference first
+  const styleRef = loadStyleReference(location.universe);
+  if (styleRef) {
+    parts.push({
+      text: `[STYLE REFERENCE — match this exact art style, brushwork, color palette, and texture. Do NOT copy the scene content, only the visual style.]`,
+    });
+    parts.push({
+      inlineData: { data: styleRef.data, mimeType: styleRef.mimeType },
+    });
+  }
+
   for (const sheetUrl of previousSheetUrls) {
     const img = readImageAsBase64(sheetUrl);
     if (img) {
@@ -342,13 +437,26 @@ export async function generateStoryImages(
     }
   }
 
-  // Build setup message — style guide and scene instructions only, NO reference images
+  // Load style reference for the universe
+  const universe = await prisma.universe.findUniqueOrThrow({ where: { id: universeId } });
+  const styleRef = loadStyleReference(universe);
+
+  // Build setup message — style guide + style reference image
   const setupParts: any[] = [];
+
+  if (styleRef) {
+    setupParts.push({
+      text: `[STYLE REFERENCE IMAGE — every illustration you generate MUST match this exact art style, brushwork, color palette, texture, and level of detail. This is the visual standard for the entire book.]`,
+    });
+    setupParts.push({
+      inlineData: { data: styleRef.data, mimeType: styleRef.mimeType },
+    });
+  }
 
   setupParts.push({
     text: `You are illustrating a children's picture book. I will give you scene descriptions one at a time. For each one, generate ONE illustration — a full scene with characters, background, and atmosphere.
 
-IMPORTANT — Read the following style guide carefully. Every illustration you generate MUST follow these rules exactly.
+IMPORTANT — Read the following style guide carefully. Every illustration you generate MUST follow these rules exactly.${styleRef ? " The STYLE REFERENCE IMAGE above is the visual anchor — match its exact style." : ""}
 
 ${styleGuide}
 CRITICAL: Maintain PERFECT visual consistency across ALL pages:
@@ -366,7 +474,7 @@ For each page, I may include character reference images. These are for CHARACTER
 - The reference images may be in a different art style — IGNORE their style and follow the style guide above instead`,
   });
 
-  debug.image(`Starting multi-turn story chat: ${pages.length} pages, ${characterRefs.size} character refs available`);
+  debug.image(`Starting multi-turn story chat: ${pages.length} pages, ${characterRefs.size} character refs available, styleRef=${!!styleRef}`);
 
   // Create chat session
   const chat = ai.chats.create({

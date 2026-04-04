@@ -29,6 +29,7 @@ model Universe {
   illustrationStyle    String          @default("storybook")
   illustrationsEnabled Boolean         @default(true)
   avoidThemes          String          @default("")
+  styleReferenceUrl    String          @default("")
   createdAt            DateTime        @default(now())
   user                 User            @relation(fields: [userId], references: [id])
   characters           Character[]

@@ -151,4 +151,20 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Generate style reference image for a universe
+router.post("/:id/generate-style-reference", async (req, res) => {
+  try {
+    const universe = await prisma.universe.findUnique({ where: { id: req.params.id } });
+    if (!universe) return res.status(404).json({ error: "Universe not found" });
+    if (universe.userId !== req.userId) return res.status(403).json({ error: "Access denied" });
+
+    const { generateStyleReference } = await import("../services/geminiGenerator.js");
+    const imageUrl = await generateStyleReference(req.params.id);
+    res.json({ styleReferenceUrl: imageUrl });
+  } catch (e: any) {
+    debug.error(`Style reference generation failed: ${e.message}`);
+    res.status(500).json({ error: "Failed to generate style reference" });
+  }
+});
+
 export default router;

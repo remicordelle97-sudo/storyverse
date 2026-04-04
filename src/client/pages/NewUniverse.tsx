@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { createUniverse, createCharacter, generateUniverseConcept, generateCharacters } from "../api/client";
+import { createUniverse, createCharacter, generateUniverseConcept, generateCharacters, generateStyleReference } from "../api/client";
 
 import Chip from "../components/Chip";
 
@@ -66,6 +66,11 @@ export default function NewUniverse() {
         themes: JSON.stringify(allThemes),
         avoidThemes,
       });
+
+      // Generate style reference image first — this anchors the visual style
+      // for all subsequent image generation (characters, locations, stories)
+      setSavingStep("Creating art style...");
+      await generateStyleReference(universe.id);
 
       // Create a bare hero placeholder — generateCharacters will flesh it out
       await createCharacter({
