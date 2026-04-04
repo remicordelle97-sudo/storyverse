@@ -243,11 +243,14 @@ export default function ReadingMode() {
       // Save current state so the flip overlay can show old content
       setPrevView(view);
       setPrevPageIndex(pageIndex);
-      // Swap content immediately (it's underneath the flip overlay)
-      setView(newView);
-      setPageIndex(newIndex);
-      // Start flip animation on top
+      // Start flip animation — content stays as old page
       setFlipping(true);
+      // Swap content at the midpoint (when page is edge-on at 90deg)
+      setTimeout(() => {
+        setView(newView);
+        setPageIndex(newIndex);
+      }, 300);
+      // End animation
       setTimeout(() => {
         setFlipping(false);
       }, 600);
@@ -440,33 +443,33 @@ export default function ReadingMode() {
             filter: "drop-shadow(0 30px 70px rgba(0,0,0,0.5))",
           }}
         >
-          {/* Flip overlay — shows OLD right page (forward) or OLD left page (back) flipping away */}
+          {/* Flip overlay — animates a page turning over the book spread */}
           {flipping && (
             <div
               className="absolute inset-0 z-30 pointer-events-none"
-              style={{ transformStyle: "preserve-3d" }}
+              style={{ perspective: "2000px" }}
             >
               <div
-                className={`absolute ${flipDirection === "forward" ? "right-0" : "left-0"} top-0 w-1/2 h-full overflow-hidden`}
+                className={`absolute ${flipDirection === "forward" ? "right-0" : "left-0"} top-0 w-1/2 h-full`}
                 style={{
                   transformStyle: "preserve-3d",
                   transformOrigin: flipDirection === "forward" ? "left center" : "right center",
                   animation: `pageFlip${flipDirection === "forward" ? "Forward" : "Back"} 600ms ease-in-out forwards`,
                 }}
               >
-                {/* Front face — old page content color */}
+                {/* Front face — looks like the old page being lifted */}
                 <div
                   className="absolute inset-0"
                   style={{
                     backfaceVisibility: "hidden",
                     background: flipDirection === "forward"
-                      ? "linear-gradient(to left, #EDE3C8, #F5ECD7)"
-                      : "linear-gradient(to right, #EDE3C8, #F5ECD7)",
-                    boxShadow: "0 0 40px rgba(0,0,0,0.15)",
+                      ? "linear-gradient(to left, #E8DEBD, #F5ECD7)"
+                      : "linear-gradient(to right, #E8DEBD, #F5ECD7)",
+                    boxShadow: "0 0 40px rgba(0,0,0,0.2)",
                     borderRadius: flipDirection === "forward" ? "0 8px 8px 0" : "8px 0 0 8px",
                   }}
                 />
-                {/* Back face — slightly darker paper */}
+                {/* Back face — the underside of the turning page */}
                 <div
                   className="absolute inset-0"
                   style={{
@@ -475,7 +478,7 @@ export default function ReadingMode() {
                     background: flipDirection === "forward"
                       ? "linear-gradient(to right, #E2D9C0, #EDE3C8)"
                       : "linear-gradient(to left, #E2D9C0, #EDE3C8)",
-                    boxShadow: "0 0 40px rgba(0,0,0,0.15)",
+                    boxShadow: "0 0 40px rgba(0,0,0,0.2)",
                     borderRadius: flipDirection === "forward" ? "8px 0 0 8px" : "0 8px 8px 0",
                   }}
                 />
