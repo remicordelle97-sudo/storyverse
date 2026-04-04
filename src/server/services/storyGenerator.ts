@@ -166,7 +166,96 @@ ${userPrompt}`;
 }
 
 /**
- * Generate a complete story: plan first, then write prose from the plan.
+ * Step 3: Review and refine all image prompts as a set.
+ * Claude sees all prompts together and rewrites them for:
+ * - Visual variety (no two scenes should have similar composition)
+ * - Character consistency (same character described the same way)
+ * - Narrative flow (visual journey that builds and varies)
+ * - Specificity (concrete visual details, not vague descriptions)
+ */
+async function refineImagePrompts(
+  story: GeneratedStory
+): Promise<GeneratedStory> {
+  const promptList = story.pages.map((p) => ({
+    page_number: p.page_number,
+    image_prompt: p.image_prompt,
+    characters_in_scene: p.characters_in_scene,
+  }));
+
+  const message = await anthropic.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: MAX_TOKENS_SHORT,
+    temperature: TEMPERATURE_STANDARD,
+    system: `You are an art director for a children's picture book. You receive a set of image prompts for an entire book and rewrite them to work as a cohesive visual narrative.
+
+RULES:
+- Each prompt should describe a SCENE (setting, action, emotion, atmosphere) — NOT character bodies or anatomy. Character identity comes from reference images provided separately.
+- Name each character present using their full name.
+- Describe their expression, body language, and what they are doing.
+- Describe the environment, lighting, time of day, and atmosphere in detail.
+- VARY composition across pages: mix wide establishing shots, medium shots, close-ups, low angles, bird's eye views. NEVER repeat the same composition on consecutive pages.
+- Ensure visual VARIETY: different backgrounds, different character positions, different moods. If two prompts sound similar, make them dramatically different.
+- Build a visual ARC: the images should feel like a journey, not the same scene repeated.
+- Keep prompts to 2-3 sentences each. Be specific and concrete, not vague.
+- Do NOT describe character bodies, species details, clothing, or physical features — only name, expression, action, and setting.
+
+Return ONLY valid JSON. No markdown fences.`,
+    messages: [
+      {
+        role: "user",
+        content: `Review and rewrite these ${promptList.length} image prompts as a cohesive set for a children's picture book titled "${story.title}":
+
+${JSON.stringify(promptList, null, 2)}
+
+Return exactly this JSON:
+{
+  "pages": [
+    { "page_number": 1, "image_prompt": "rewritten prompt", "characters_in_scene": ["Character Name"] }
+  ]
+}`,
+      },
+    ],
+  });
+
+  if (message.stop_reason === "max_tokens") {
+    debug.error("Image prompt refinement was truncated, using original prompts");
+    return story;
+  }
+
+  const textBlock = message.content.find((b) => b.type === "text");
+  if (!textBlock || textBlock.type !== "text") {
+    debug.error("No response from image prompt refinement, using original prompts");
+    return story;
+  }
+
+  let raw = textBlock.text.trim();
+  if (raw.startsWith("```")) {
+    raw = raw.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
+  }
+
+  try {
+    const refined = JSON.parse(raw);
+    if (!Array.isArray(refined.pages)) throw new Error("No pages array");
+
+    // Merge refined prompts back into the story
+    for (const refinedPage of refined.pages) {
+      const original = story.pages.find((p) => p.page_number === refinedPage.page_number);
+      if (original) {
+        original.image_prompt = refinedPage.image_prompt;
+        if (refinedPage.characters_in_scene) {
+          original.characters_in_scene = refinedPage.characters_in_scene;
+        }
+      }
+    }
+  } catch (e: any) {
+    debug.error(`Failed to parse refined prompts, using originals: ${e.message}`);
+  }
+
+  return story;
+}
+
+/**
+ * Generate a complete story: plan → write → refine image prompts.
  */
 export async function generateStory(
   userPrompt: string,
@@ -195,5 +284,12 @@ export async function generateStory(
     pages: story.pages.length,
   });
 
-  return story;
+  // Step 3: Refine image prompts as a set
+  onProgress?.("refining", "Refining illustrations...");
+  debug.story("Refining image prompts...");
+  const refineStart = Date.now();
+  const refined = await refineImagePrompts(story);
+  debug.story(`Image prompts refined in ${Date.now() - refineStart}ms`);
+
+  return refined;
 }
