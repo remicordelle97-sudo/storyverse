@@ -197,7 +197,7 @@ RULES:
 - Name each character present using their full name.
 - Describe their expression, body language, and what they are doing.
 - Describe the environment, lighting, time of day, and atmosphere in detail.
-- VARY composition across pages: mix wide establishing shots, medium shots, close-ups, low angles, bird's eye views. NEVER repeat the same composition on consecutive pages.
+- Vary the scenes across pages — different backgrounds, different character arrangements. Some pages show more of the world, others focus more on the characters.
 - Ensure visual VARIETY: different backgrounds, different character positions, different moods. If two prompts sound similar, make them dramatically different.
 - Build a visual ARC: the images should feel like a journey, not the same scene repeated.
 - Keep prompts to 2-3 sentences each. Be specific and concrete, not vague.
