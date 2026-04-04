@@ -205,7 +205,16 @@ RULES:
 - Keep prompts to 2-3 sentences each. Be specific and concrete, not vague.
 - Do NOT describe character bodies, species details, clothing, or physical features — only name, expression, action, and setting.
 
-ALSO: For each character that appears in the story, write a short IDENTITY ANCHOR — the 3-5 most visually distinctive features that MUST stay consistent across every illustration. Focus on: eye color/shape, key accessories with exact hex color codes, signature body colors, unique markings. Use the exact hex codes from the character data provided. These anchors will be sent to the illustrator with every page to prevent visual drift.
+ALSO: For each character that appears in the story, write a comprehensive IDENTITY ANCHOR — a complete visual checklist that an illustrator can use to draw the character consistently on every page. Include ALL of the following:
+
+1. BODY: species/type, body shape, size/proportions (tall/short, round/slim, large/small), posture
+2. COLORS: exact hex codes for ALL body colors (skin/fur/scales, hair/mane, markings, patterns). Use the hex codes from the character data provided.
+3. FACE: eye color (hex) and shape, nose/beak/snout shape, mouth style, any facial markings or features
+4. OUTFIT: every clothing item with exact hex color codes, style details (collar type, sleeve length, buttons vs zipper, etc.)
+5. ACCESSORIES: every accessory with exact hex color codes, size, where it's worn/carried
+6. DISTINGUISHING MARKS: scars, patterns, missing features, unique textures, special details
+
+Write each anchor as a detailed comma-separated list. Be specific enough that two different illustrators would draw the same character.
 
 Return ONLY valid JSON. No markdown fences.`,
     messages: [
@@ -219,7 +228,7 @@ ${JSON.stringify(promptList, null, 2)}
 Return exactly this JSON:
 {
   "characterAnchors": {
-    "Character Full Name": "eye color/shape, key accessory, signature color, unique marking, other distinctive feature"
+    "Character Full Name": "small round rabbit, soft brown fur (#8B6F47), long floppy ears with pink inner (#F4B8C1), large round amber eyes (#D4A017), blue denim jacket (#2B5DAE) with silver zipper, orange rubber boots (#E87B35), tan satchel (#C4A882) with star patches, slightly chipped left front tooth"
   },
   "pages": [
     { "page_number": 1, "image_prompt": "rewritten prompt", "characters_in_scene": ["Character Name"] }
