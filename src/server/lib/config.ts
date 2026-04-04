@@ -8,7 +8,7 @@ export const TEMPERATURE_CREATIVE = 0.85;
 // Token limits
 export const MAX_TOKENS_SHORT = 8000;
 export const MAX_TOKENS_LONG = 16000;
-export const MAX_TOKENS_SMALL = 2000;
+export const MAX_TOKENS_SMALL = 4000;
 
 // Story lengths
 export const STORY_PAGES = {

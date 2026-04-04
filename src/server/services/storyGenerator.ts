@@ -75,6 +75,10 @@ Create a plan for exactly ${pageCount} pages. Return this JSON:
     ],
   });
 
+  if (message.stop_reason === "max_tokens") {
+    throw new Error("Story plan was truncated — response exceeded token limit.");
+  }
+
   const textBlock = message.content.find((b) => b.type === "text");
   if (!textBlock || textBlock.type !== "text") {
     throw new Error("No text response from AI for story plan");
@@ -85,7 +89,13 @@ Create a plan for exactly ${pageCount} pages. Return this JSON:
     raw = raw.replace(/^```(?:json)?\s*\n?/, "").replace(/\n?```\s*$/, "");
   }
 
-  const plan: StoryPlan = JSON.parse(raw);
+  let plan: StoryPlan;
+  try {
+    plan = JSON.parse(raw);
+  } catch {
+    debug.error(`Failed to parse story plan. Raw response (first 500 chars): ${raw.slice(0, 500)}`);
+    throw new Error("Failed to parse story plan as JSON");
+  }
 
   if (!plan.premise || !plan.pages?.length) {
     throw new Error("Invalid story plan");
