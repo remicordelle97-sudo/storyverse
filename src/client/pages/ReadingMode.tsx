@@ -563,7 +563,11 @@ export default function ReadingMode() {
                       src={page.imageUrl}
                       alt={`Illustration for page ${pageIndex + 1}`}
                       className={`w-full h-full object-contain ${imageOnLeft ? "rounded-l-lg" : "rounded-r-lg"}`}
-                      style={{ minHeight: "min(85vh, 700px)" }}
+                      style={{
+                        minHeight: "min(85vh, 700px)",
+                        maskImage: "radial-gradient(ellipse 90% 85% at center, black 60%, transparent 100%)",
+                        WebkitMaskImage: "radial-gradient(ellipse 90% 85% at center, black 60%, transparent 100%)",
+                      }}
                       draggable={false}
                     />
                   ) : (
