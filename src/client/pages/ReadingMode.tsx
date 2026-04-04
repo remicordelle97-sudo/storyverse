@@ -559,17 +559,26 @@ export default function ReadingMode() {
                   }}
                 >
                   {page.imageUrl ? (
-                    <img
-                      src={page.imageUrl}
-                      alt={`Illustration for page ${pageIndex + 1}`}
-                      className={`w-full h-full object-contain ${imageOnLeft ? "rounded-l-lg" : "rounded-r-lg"}`}
+                    <div
+                      className="w-full h-full flex items-center justify-center p-4"
                       style={{
                         minHeight: "min(85vh, 700px)",
-                        maskImage: "radial-gradient(ellipse 90% 85% at center, black 60%, transparent 100%)",
-                        WebkitMaskImage: "radial-gradient(ellipse 90% 85% at center, black 60%, transparent 100%)",
                       }}
-                      draggable={false}
-                    />
+                    >
+                      <img
+                        src={page.imageUrl}
+                        alt={`Illustration for page ${pageIndex + 1}`}
+                        className="max-w-full max-h-full"
+                        style={{
+                          objectFit: "contain",
+                          maskImage: "linear-gradient(to top, transparent 0%, black 8%), linear-gradient(to bottom, transparent 0%, black 8%), linear-gradient(to left, transparent 0%, black 8%), linear-gradient(to right, transparent 0%, black 8%)",
+                          maskComposite: "intersect",
+                          WebkitMaskImage: "linear-gradient(to top, transparent 0%, black 8%), linear-gradient(to bottom, transparent 0%, black 8%), linear-gradient(to left, transparent 0%, black 8%), linear-gradient(to right, transparent 0%, black 8%)",
+                          WebkitMaskComposite: "source-in",
+                        }}
+                        draggable={false}
+                      />
+                    </div>
                   ) : (
                     <div
                       className="w-full flex items-center justify-center"
