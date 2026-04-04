@@ -395,7 +395,7 @@ export async function generateStoryImages(
   universeId: string,
   characterIds: string[],
   mood: string,
-  pages: { page_number: number; image_prompt: string; characters_in_scene?: string[] }[],
+  pages: { page_number: number; image_prompt: string; characters_in_scene?: string[]; location?: string }[],
   onProgress?: (pageNum: number, total: number, imageUrl: string) => void,
   characterAnchors?: Record<string, string>
 ): Promise<Map<number, string>> {
@@ -491,31 +491,106 @@ Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body sh
 
   debug.image(`Starting story generation: ${pages.length} pages, ${characterRefs.size} character refs available, styleRef=${!!styleRef}`);
 
-  const PAGES_PER_SEGMENT = 3;
-  let lastGeneratedImage: { data: string; mimeType: string } | null = null;
+  // Track generated images by location for context passing
+  // Key: location name, Value: most recent generated image at that location
+  const locationImages = new Map<string, { data: string; mimeType: string }>();
 
-  // Generate pages in segments of PAGES_PER_SEGMENT, resetting the chat each time
-  for (let segStart = 0; segStart < pages.length; segStart += PAGES_PER_SEGMENT) {
-    const segEnd = Math.min(segStart + PAGES_PER_SEGMENT, pages.length);
-    const segmentPages = pages.slice(segStart, segEnd);
-    const segNum = Math.floor(segStart / PAGES_PER_SEGMENT) + 1;
+  // Generate each page in its own fresh chat session
+  for (let i = 0; i < pages.length; i++) {
+    const page = pages[i];
+    if (!page.image_prompt) continue;
 
-    debug.image(`Segment ${segNum}: pages ${segStart + 1}-${segEnd} (new chat session)`);
+    debug.image(`Page ${i + 1}/${pages.length}: generating (fresh session)...`, {
+      promptPreview: page.image_prompt.slice(0, 80),
+      location: page.location || "unknown",
+    });
+    const startTime = Date.now();
 
-    // Build setup for this segment
-    const segSetupParts = [...setupParts];
+    // Build setup parts for this page: base setup + scene-specific character refs
+    const pageSetupParts: any[] = [];
 
-    // Pass the last generated image from the prior segment as a style continuity anchor
-    if (lastGeneratedImage) {
-      segSetupParts.push({
-        text: `[PREVIOUS PAGE IMAGE — this is the last illustration from the previous pages. Match its exact art style, color palette, and level of detail for visual continuity. Do NOT reproduce this scene — just match the style.]`,
+    // Style reference
+    if (styleRef) {
+      pageSetupParts.push({
+        text: `[STYLE REFERENCE IMAGE — every illustration you generate MUST match this exact art style, brushwork, color palette, texture, and level of detail. This is the visual standard for the entire book.]`,
       });
-      segSetupParts.push({
-        inlineData: { data: lastGeneratedImage.data, mimeType: lastGeneratedImage.mimeType },
+      pageSetupParts.push({
+        inlineData: { data: styleRef.data, mimeType: styleRef.mimeType },
       });
     }
 
-    // Create a fresh chat session for this segment
+    // Character references — only characters in this scene
+    const sceneCharacters = page.characters_in_scene || [];
+    const sceneCharRefs: string[] = [];
+    for (const charName of sceneCharacters) {
+      const ref = characterRefs.get(charName.toLowerCase());
+      if (ref) {
+        pageSetupParts.push({ text: `[CHARACTER REFERENCE — ${ref.name}]` });
+        pageSetupParts.push({ inlineData: { data: ref.data, mimeType: ref.mimeType } });
+        sceneCharRefs.push(ref.name);
+      }
+    }
+    // Fallback: if no characters_in_scene, search prompt text
+    if (sceneCharacters.length === 0) {
+      const promptLower = page.image_prompt.toLowerCase();
+      for (const [nameLower, ref] of characterRefs) {
+        if (promptLower.includes(nameLower)) {
+          pageSetupParts.push({ text: `[CHARACTER REFERENCE — ${ref.name}]` });
+          pageSetupParts.push({ inlineData: { data: ref.data, mimeType: ref.mimeType } });
+          sceneCharRefs.push(ref.name);
+        }
+      }
+    }
+
+    // Location context — pass the most recent image from the same location
+    const pageLocation = page.location?.trim() || "";
+    const locationPrior = pageLocation ? locationImages.get(pageLocation) : null;
+    if (locationPrior) {
+      pageSetupParts.push({
+        text: `[PREVIOUS ILLUSTRATION AT "${pageLocation}" — this page takes place at the same location as the image below. Match the environment, landmarks, colors, and layout of this location exactly. Do NOT reproduce the same scene — show the new action described in the prompt, but keep the location looking the same.]`,
+      });
+      pageSetupParts.push({
+        inlineData: { data: locationPrior.data, mimeType: locationPrior.mimeType },
+      });
+      debug.image(`Page ${i + 1}: attaching prior image for location "${pageLocation}"`);
+    }
+
+    // Setup text
+    pageSetupParts.push({
+      text: `You are illustrating a children's picture book. Generate ONE illustration — a full scene with characters, background, and atmosphere.
+
+IMPORTANT — Read the following style guide carefully. This illustration MUST follow these rules exactly.${styleRef ? " The STYLE REFERENCE IMAGE above is the visual anchor — match its exact style." : ""}
+
+${styleGuide}
+CHARACTERS:\n${charDesc}
+${locDesc ? `LOCATIONS:\n${locDesc}` : ""}
+
+Character reference images above are for CHARACTER IDENTITY ONLY:
+- Use them to match the character's body shape, colors, proportions, outfit, and accessories
+- Do NOT copy the style, pose, layout, background, or artistic technique from the reference images
+- Do NOT reproduce the grid/multi-pose layout of reference sheets — generate a SINGLE scene illustration
+- The reference images may be in a different art style — IGNORE their style and follow the style guide above instead`,
+    });
+
+    // Build identity anchor text
+    let anchorText = "";
+    if (characterAnchors && sceneCharRefs.length > 0) {
+      const anchors = sceneCharRefs
+        .map((name) => {
+          const anchor = characterAnchors[name];
+          return anchor ? `${name}: ${anchor}` : null;
+        })
+        .filter(Boolean);
+      if (anchors.length > 0) {
+        anchorText = `\n\nCHARACTER IDENTITY CHECKLIST (these features MUST be correct):\n${anchors.join("\n")}`;
+      }
+    }
+
+    const characterNames = sceneCharRefs.length > 0
+      ? sceneCharRefs.join(" and ")
+      : "";
+
+    // Create a fresh chat session for this page
     const chat = ai.chats.create({
       model: IMAGE_MODEL,
       config: {
@@ -527,108 +602,68 @@ Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body sh
       },
     });
 
-    // Send setup message
+    // Send setup
     try {
-      await chat.sendMessage({ message: segSetupParts });
-      debug.image(`Segment ${segNum}: setup sent`);
+      await chat.sendMessage({ message: pageSetupParts });
     } catch (e: any) {
-      debug.error(`Segment ${segNum}: setup failed: ${e.message}`);
+      debug.error(`Page ${i + 1}: setup failed: ${e.message}`);
     }
 
-    // Generate each page in this segment
-    for (let j = 0; j < segmentPages.length; j++) {
-      const page = segmentPages[j];
-      const globalIdx = segStart + j;
-      if (!page.image_prompt) continue;
+    // Send page prompt
+    const pageParts: any[] = [{
+      text: `Page ${page.page_number}: ${page.image_prompt}${anchorText}\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration.${characterNames ? ` Match ${characterNames} to their reference images provided in the setup (body, colors, outfit).` : ""}`,
+    }];
 
-      debug.image(`Chat page ${globalIdx + 1}/${pages.length}: generating...`, {
-        promptPreview: page.image_prompt.slice(0, 80),
-      });
-      const startTime = Date.now();
+    try {
+      let imageUrl: string | null = null;
+      let rawImageData: { data: string; mimeType: string } | null = null;
 
-      // Build identity anchor text for characters in this scene
-      const sceneCharacters = page.characters_in_scene || [];
-      let anchorText = "";
-      if (characterAnchors && sceneCharacters.length > 0) {
-        const anchors = sceneCharacters
-          .map((name) => {
-            const anchor = characterAnchors[name];
-            return anchor ? `${name}: ${anchor}` : null;
-          })
-          .filter(Boolean);
-        if (anchors.length > 0) {
-          anchorText = `\n\nCHARACTER IDENTITY CHECKLIST (these features MUST be correct):\n${anchors.join("\n")}`;
-        }
-      }
+      // Attempt 1
+      const response1 = await chat.sendMessage({ message: pageParts });
+      const extracted1 = extractImageWithData(response1);
+      if (extracted1) { imageUrl = extracted1.url; rawImageData = extracted1; }
 
-      const characterNames = sceneCharacters.length > 0
-        ? sceneCharacters.join(" and ")
-        : "";
+      if (!imageUrl) {
+        const candidate = response1?.candidates?.[0];
+        const finishReason = candidate?.finishReason || "no candidate";
+        const textParts = candidate?.content?.parts
+          ?.filter((p: any) => p.text)
+          ?.map((p: any) => p.text)
+          ?.join(" ") || "no content";
+        debug.error(`Page ${i + 1}/${pages.length}: no image (attempt 1). finishReason=${finishReason}, text="${textParts.slice(0, 200)}"`);
 
-      const pageParts: any[] = [{
-        text: `Page ${page.page_number}: ${page.image_prompt}${anchorText}\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration.${characterNames ? ` Match ${characterNames} to their reference images provided in the setup (body, colors, outfit).` : ""}`,
-      }];
-
-      try {
-        let imageUrl: string | null = null;
-        let rawImageData: { data: string; mimeType: string } | null = null;
-
-        // Attempt 1
-        const response1 = await chat.sendMessage({ message: pageParts });
-        const extracted1 = extractImageWithData(response1);
-        if (extracted1) {
-          imageUrl = extracted1.url;
-          rawImageData = extracted1;
-        }
+        // Attempt 2: retry
+        debug.image(`Retrying page ${i + 1}...`);
+        const response2 = await chat.sendMessage({ message: pageParts });
+        const extracted2 = extractImageWithData(response2);
+        if (extracted2) { imageUrl = extracted2.url; rawImageData = extracted2; }
 
         if (!imageUrl) {
-          const candidate = response1?.candidates?.[0];
-          const finishReason = candidate?.finishReason || "no candidate";
-          const textParts = candidate?.content?.parts
-            ?.filter((p: any) => p.text)
-            ?.map((p: any) => p.text)
-            ?.join(" ") || "no content";
-          debug.error(`Chat page ${globalIdx + 1}/${pages.length}: no image (attempt 1). finishReason=${finishReason}, text="${textParts.slice(0, 200)}"`);
-
-          // Attempt 2: retry same prompt
-          debug.image(`Retrying page ${globalIdx + 1}...`);
-          const response2 = await chat.sendMessage({ message: pageParts });
-          const extracted2 = extractImageWithData(response2);
-          if (extracted2) {
-            imageUrl = extracted2.url;
-            rawImageData = extracted2;
-          }
+          // Attempt 3: simplified prompt
+          debug.image(`Retrying page ${i + 1} with simplified prompt...`);
+          const response3 = await chat.sendMessage({ message: [{ text: `Page ${page.page_number}: ${page.image_prompt}\n\n${ART_STYLE_REMINDER}` }] });
+          const extracted3 = extractImageWithData(response3);
+          if (extracted3) { imageUrl = extracted3.url; rawImageData = extracted3; }
 
           if (!imageUrl) {
-            // Attempt 3: simplified prompt
-            debug.image(`Retrying page ${globalIdx + 1} with simplified prompt...`);
-            const response3 = await chat.sendMessage({ message: [{ text: `Page ${page.page_number}: ${page.image_prompt}\n\n${ART_STYLE_REMINDER}` }] });
-            const extracted3 = extractImageWithData(response3);
-            if (extracted3) {
-              imageUrl = extracted3.url;
-              rawImageData = extracted3;
-            }
-
-            if (!imageUrl) {
-              debug.error(`Chat page ${globalIdx + 1}/${pages.length}: no image after 3 attempts`);
-            }
+            debug.error(`Page ${i + 1}/${pages.length}: no image after 3 attempts`);
           }
         }
-
-        if (imageUrl) {
-          results.set(page.page_number, imageUrl);
-          // Keep raw data of the last generated image for the next segment
-          if (rawImageData) {
-            lastGeneratedImage = { data: rawImageData.data, mimeType: rawImageData.mimeType };
-          }
-          debug.image(`Chat page ${globalIdx + 1}/${pages.length}: done in ${Date.now() - startTime}ms`, { imageUrl });
-          onProgress?.(page.page_number, pages.length, imageUrl);
-        } else {
-          debug.error(`Chat page ${globalIdx + 1}/${pages.length}: failed after 3 attempts`);
-        }
-      } catch (e: any) {
-        debug.error(`Chat page ${globalIdx + 1}/${pages.length}: failed: ${e.message}`);
       }
+
+      if (imageUrl) {
+        results.set(page.page_number, imageUrl);
+        // Store this image as the latest for its location
+        if (rawImageData && pageLocation) {
+          locationImages.set(pageLocation, { data: rawImageData.data, mimeType: rawImageData.mimeType });
+        }
+        debug.image(`Page ${i + 1}/${pages.length}: done in ${Date.now() - startTime}ms`, { imageUrl });
+        onProgress?.(page.page_number, pages.length, imageUrl);
+      } else {
+        debug.error(`Page ${i + 1}/${pages.length}: failed after 3 attempts`);
+      }
+    } catch (e: any) {
+      debug.error(`Page ${i + 1}/${pages.length}: failed: ${e.message}`);
     }
   }
 

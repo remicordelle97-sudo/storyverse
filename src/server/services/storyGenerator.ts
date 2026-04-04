@@ -10,6 +10,7 @@ interface StoryPage {
   content: string;
   image_prompt: string;
   characters_in_scene: string[];
+  location: string;
 }
 
 export interface GeneratedStory {
@@ -184,6 +185,7 @@ async function refineImagePrompts(
     page_number: p.page_number,
     image_prompt: p.image_prompt,
     characters_in_scene: p.characters_in_scene,
+    location: p.location,
   }));
 
   const message = await anthropic.messages.create({

@@ -336,6 +336,7 @@ The image_prompt should describe the SCENE, not the characters' bodies. Characte
 - Describe the MOOD and ATMOSPHERE of the scene
 - Do NOT describe characters' physical bodies, species details, or clothing — the illustrator already has reference images for that
 - Keep image_prompts to 2-3 sentences focused on scene, action, and emotion
+- "location" must be the EXACT name of a location from the LOCATIONS section above. Use the same name every time a location recurs
 
 {
   "title": "Story title",
@@ -344,7 +345,8 @@ The image_prompt should describe the SCENE, not the characters' bodies. Characte
       "page_number": 1,
       "content": "Page text here...",
       "image_prompt": "A young lion with a golden mane and warm amber eyes, carrying a tiny blue backpack, standing under a baobab tree on a golden savanna at sunset, looking curiously at a glowing object in the grass. Storybook illustration style, warm colors.",
-      "characters_in_scene": ["Leo the Lion", "Zuri the Zebra"]
+      "characters_in_scene": ["Leo the Lion", "Zuri the Zebra"],
+      "location": "The Savanna"
     }
   ]
 }`;
