@@ -95,7 +95,7 @@ const CONTINUITY_RULES = `CONTINUITY:
 /**
  * Build the complete style guide for a specific story context.
  */
-export const ART_STYLE_REMINDER = `Watercolor style — soft transparent washes, NO outlines, NO linework, visible paper texture.`;
+export const ART_STYLE_REMINDER = `Watercolor style — soft transparent washes, NO outlines, NO linework, visible paper texture. Soft irregular edges that fade into the white paper, NO sharp rectangular borders.`;
 
 export function buildImageStyleGuide(
   mood: string,
