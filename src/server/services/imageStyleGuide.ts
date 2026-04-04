@@ -12,7 +12,8 @@ CRITICAL: DO NOT draw outlines. DO NOT draw borders around shapes. DO NOT use li
 - Texture: Visible watercolor paper grain throughout. Uneven washes with water blooms, pigment granulation, and soft cauliflower edges where washes dried unevenly. Nothing digitally smooth.
 - Colors: Warm, transparent, luminous. Colors glow because light passes through the paint and bounces off the white paper underneath. Layer transparent washes for depth — never opaque.
 - Aesthetic: Loose, expressive, handmade. Think Iwasaki Chihiro, E.H. Shepard, or Beatrix Potter. Warm and tender, with the charming imperfection of real hand-painted watercolor.
-- FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours, opaque flat colors.`;
+- Image border: The illustration should have SOFT, IRREGULAR edges that fade naturally into the white paper — like a real watercolor painting where the paint thins out at the margins. Do NOT create a sharp rectangular border, a ruled frame, or a clean-cut edge. Let the color bleed unevenly into the paper at the edges.
+- FORBIDDEN: outlines, linework, ink borders, cel shading, anime style, vector art, digital art, 3D rendering, photorealism, sharp drawn contours, opaque flat colors, hard rectangular image borders.`;
 
 const COLOR_RULES = `COLOR PALETTE:
 - Build every image from a limited palette of 5-7 hues. Do not introduce random colors.
