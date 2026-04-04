@@ -40,12 +40,19 @@ function readImageAsBase64(imageUrl: string): { data: string; mimeType: string }
  * Extract the generated image from a Gemini response.
  */
 function extractImage(response: any): string | null {
+  const result = extractImageWithData(response);
+  return result ? result.url : null;
+}
+
+function extractImageWithData(response: any): { url: string; data: string; mimeType: string } | null {
   const candidates = response?.candidates;
   if (!candidates?.[0]?.content?.parts) return null;
 
   for (const part of candidates[0].content.parts) {
     if (part.inlineData?.data) {
-      return saveBase64Image(part.inlineData.data, part.inlineData.mimeType || "image/png");
+      const mimeType = part.inlineData.mimeType || "image/png";
+      const url = saveBase64Image(part.inlineData.data, mimeType);
+      return { url, data: part.inlineData.data, mimeType };
     }
   }
   return null;
@@ -482,105 +489,146 @@ Below are CHARACTER REFERENCE IMAGES. Use them to match each character's body sh
     });
   }
 
-  debug.image(`Starting multi-turn story chat: ${pages.length} pages, ${characterRefs.size} character refs available, styleRef=${!!styleRef}`);
+  debug.image(`Starting story generation: ${pages.length} pages, ${characterRefs.size} character refs available, styleRef=${!!styleRef}`);
 
-  // Create chat session
-  const chat = ai.chats.create({
-    model: IMAGE_MODEL,
-    config: {
-      responseModalities: ["Image", "Text"],
-      imageConfig: {
-        aspectRatio: "4:3",
-        imageSize: IMAGE_SIZE,
-      },
-    },
-  });
+  const PAGES_PER_SEGMENT = 3;
+  let lastGeneratedImage: { data: string; mimeType: string } | null = null;
 
-  // Send setup message (text only, no images)
-  try {
-    const setupResponse = await chat.sendMessage({
-      message: setupParts,
-    });
-    debug.image("Setup message sent, Gemini acknowledged");
-  } catch (e: any) {
-    debug.error(`Setup message failed: ${e.message}`);
-  }
+  // Generate pages in segments of PAGES_PER_SEGMENT, resetting the chat each time
+  for (let segStart = 0; segStart < pages.length; segStart += PAGES_PER_SEGMENT) {
+    const segEnd = Math.min(segStart + PAGES_PER_SEGMENT, pages.length);
+    const segmentPages = pages.slice(segStart, segEnd);
+    const segNum = Math.floor(segStart / PAGES_PER_SEGMENT) + 1;
 
-  // Generate each page — inject only relevant character references
-  for (let i = 0; i < pages.length; i++) {
-    const page = pages[i];
-    if (!page.image_prompt) continue;
+    debug.image(`Segment ${segNum}: pages ${segStart + 1}-${segEnd} (new chat session)`);
 
-    debug.image(`Chat page ${i + 1}/${pages.length}: generating...`, {
-      promptPreview: page.image_prompt.slice(0, 80),
-    });
-    const startTime = Date.now();
+    // Build setup for this segment
+    const segSetupParts = [...setupParts];
 
-    // Build identity anchor text for characters in this scene
-    const sceneCharacters = page.characters_in_scene || [];
-    let anchorText = "";
-    if (characterAnchors && sceneCharacters.length > 0) {
-      const anchors = sceneCharacters
-        .map((name) => {
-          const anchor = characterAnchors[name];
-          return anchor ? `${name}: ${anchor}` : null;
-        })
-        .filter(Boolean);
-      if (anchors.length > 0) {
-        anchorText = `\n\nCHARACTER IDENTITY CHECKLIST (these features MUST be correct):\n${anchors.join("\n")}`;
-      }
+    // Pass the last generated image from the prior segment as a style continuity anchor
+    if (lastGeneratedImage) {
+      segSetupParts.push({
+        text: `[PREVIOUS PAGE IMAGE — this is the last illustration from the previous pages. Match its exact art style, color palette, and level of detail for visual continuity. Do NOT reproduce this scene — just match the style.]`,
+      });
+      segSetupParts.push({
+        inlineData: { data: lastGeneratedImage.data, mimeType: lastGeneratedImage.mimeType },
+      });
     }
 
-    const characterNames = sceneCharacters.length > 0
-      ? sceneCharacters.join(" and ")
-      : "";
+    // Create a fresh chat session for this segment
+    const chat = ai.chats.create({
+      model: IMAGE_MODEL,
+      config: {
+        responseModalities: ["Image", "Text"],
+        imageConfig: {
+          aspectRatio: "4:3",
+          imageSize: IMAGE_SIZE,
+        },
+      },
+    });
 
-    const pageParts: any[] = [{
-      text: `Page ${page.page_number}: ${page.image_prompt}${anchorText}\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration.${characterNames ? ` Match ${characterNames} to their reference images provided in the setup (body, colors, outfit).` : ""}`,
-    }];
-
+    // Send setup message
     try {
-      let imageUrl: string | null = null;
+      await chat.sendMessage({ message: segSetupParts });
+      debug.image(`Segment ${segNum}: setup sent`);
+    } catch (e: any) {
+      debug.error(`Segment ${segNum}: setup failed: ${e.message}`);
+    }
 
-      // Attempt 1
-      const response1 = await chat.sendMessage({ message: pageParts });
-      imageUrl = extractImage(response1);
+    // Generate each page in this segment
+    for (let j = 0; j < segmentPages.length; j++) {
+      const page = segmentPages[j];
+      const globalIdx = segStart + j;
+      if (!page.image_prompt) continue;
 
-      if (!imageUrl) {
-        const candidate = response1?.candidates?.[0];
-        const finishReason = candidate?.finishReason || "no candidate";
-        const textParts = candidate?.content?.parts
-          ?.filter((p: any) => p.text)
-          ?.map((p: any) => p.text)
-          ?.join(" ") || "no content";
-        debug.error(`Chat page ${i + 1}/${pages.length}: no image (attempt 1). finishReason=${finishReason}, text="${textParts.slice(0, 200)}"`);
+      debug.image(`Chat page ${globalIdx + 1}/${pages.length}: generating...`, {
+        promptPreview: page.image_prompt.slice(0, 80),
+      });
+      const startTime = Date.now();
 
-        // Attempt 2: retry same prompt
-        debug.image(`Retrying page ${i + 1}...`);
-        const response2 = await chat.sendMessage({ message: pageParts });
-        imageUrl = extractImage(response2);
-
-        if (!imageUrl) {
-          // Attempt 3: simplified prompt
-          debug.image(`Retrying page ${i + 1} with simplified prompt...`);
-          const response3 = await chat.sendMessage({ message: [{ text: `Page ${page.page_number}: ${page.image_prompt}\n\n${ART_STYLE_REMINDER}` }] });
-          imageUrl = extractImage(response3);
-
-          if (!imageUrl) {
-            debug.error(`Chat page ${i + 1}/${pages.length}: no image after 3 attempts`);
-          }
+      // Build identity anchor text for characters in this scene
+      const sceneCharacters = page.characters_in_scene || [];
+      let anchorText = "";
+      if (characterAnchors && sceneCharacters.length > 0) {
+        const anchors = sceneCharacters
+          .map((name) => {
+            const anchor = characterAnchors[name];
+            return anchor ? `${name}: ${anchor}` : null;
+          })
+          .filter(Boolean);
+        if (anchors.length > 0) {
+          anchorText = `\n\nCHARACTER IDENTITY CHECKLIST (these features MUST be correct):\n${anchors.join("\n")}`;
         }
       }
 
-      if (imageUrl) {
-        results.set(page.page_number, imageUrl);
-        debug.image(`Chat page ${i + 1}/${pages.length}: done in ${Date.now() - startTime}ms`, { imageUrl });
-        onProgress?.(page.page_number, pages.length, imageUrl);
-      } else {
-        debug.error(`Chat page ${i + 1}/${pages.length}: failed after 3 attempts`);
+      const characterNames = sceneCharacters.length > 0
+        ? sceneCharacters.join(" and ")
+        : "";
+
+      const pageParts: any[] = [{
+        text: `Page ${page.page_number}: ${page.image_prompt}${anchorText}\n\n${ART_STYLE_REMINDER} Generate a SINGLE scene illustration.${characterNames ? ` Match ${characterNames} to their reference images provided in the setup (body, colors, outfit).` : ""}`,
+      }];
+
+      try {
+        let imageUrl: string | null = null;
+        let rawImageData: { data: string; mimeType: string } | null = null;
+
+        // Attempt 1
+        const response1 = await chat.sendMessage({ message: pageParts });
+        const extracted1 = extractImageWithData(response1);
+        if (extracted1) {
+          imageUrl = extracted1.url;
+          rawImageData = extracted1;
+        }
+
+        if (!imageUrl) {
+          const candidate = response1?.candidates?.[0];
+          const finishReason = candidate?.finishReason || "no candidate";
+          const textParts = candidate?.content?.parts
+            ?.filter((p: any) => p.text)
+            ?.map((p: any) => p.text)
+            ?.join(" ") || "no content";
+          debug.error(`Chat page ${globalIdx + 1}/${pages.length}: no image (attempt 1). finishReason=${finishReason}, text="${textParts.slice(0, 200)}"`);
+
+          // Attempt 2: retry same prompt
+          debug.image(`Retrying page ${globalIdx + 1}...`);
+          const response2 = await chat.sendMessage({ message: pageParts });
+          const extracted2 = extractImageWithData(response2);
+          if (extracted2) {
+            imageUrl = extracted2.url;
+            rawImageData = extracted2;
+          }
+
+          if (!imageUrl) {
+            // Attempt 3: simplified prompt
+            debug.image(`Retrying page ${globalIdx + 1} with simplified prompt...`);
+            const response3 = await chat.sendMessage({ message: [{ text: `Page ${page.page_number}: ${page.image_prompt}\n\n${ART_STYLE_REMINDER}` }] });
+            const extracted3 = extractImageWithData(response3);
+            if (extracted3) {
+              imageUrl = extracted3.url;
+              rawImageData = extracted3;
+            }
+
+            if (!imageUrl) {
+              debug.error(`Chat page ${globalIdx + 1}/${pages.length}: no image after 3 attempts`);
+            }
+          }
+        }
+
+        if (imageUrl) {
+          results.set(page.page_number, imageUrl);
+          // Keep raw data of the last generated image for the next segment
+          if (rawImageData) {
+            lastGeneratedImage = { data: rawImageData.data, mimeType: rawImageData.mimeType };
+          }
+          debug.image(`Chat page ${globalIdx + 1}/${pages.length}: done in ${Date.now() - startTime}ms`, { imageUrl });
+          onProgress?.(page.page_number, pages.length, imageUrl);
+        } else {
+          debug.error(`Chat page ${globalIdx + 1}/${pages.length}: failed after 3 attempts`);
+        }
+      } catch (e: any) {
+        debug.error(`Chat page ${globalIdx + 1}/${pages.length}: failed: ${e.message}`);
       }
-    } catch (e: any) {
-      debug.error(`Chat page ${i + 1}/${pages.length}: failed: ${e.message}`);
     }
   }
 
