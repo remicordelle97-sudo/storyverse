@@ -26,54 +26,100 @@ async function exportStoryAsPdf(story: any) {
   const pageW = 297;
   const pageH = 210;
   const halfW = pageW / 2;
+  const spineX = halfW;
 
-  // -- Title page --
-  pdf.setFillColor(245, 236, 215); // parchment
-  pdf.rect(0, 0, pageW, pageH, "F");
+  // Colors matching the UI
+  const parchment = { r: 245, g: 236, b: 215 };      // #F5ECD7
+  const parchmentDark = { r: 237, g: 227, b: 200 };   // #EDE3C8
+  const spineColor = { r: 184, g: 168, b: 120 };      // #B8A878
+  const darkText = { r: 60, g: 50, b: 40 };
+  const mediumText = { r: 140, g: 130, b: 120 };
+  const lightText = { r: 160, g: 150, b: 140 };
+  const borderColor = { r: 212, g: 197, b: 160 };     // #D4C5A0
 
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(28);
-  pdf.setTextColor(60, 50, 40);
-  const titleLines = pdf.splitTextToSize(story.title, halfW - 30);
-  const titleY = pageH / 2 - (titleLines.length * 12) / 2;
-  pdf.text(titleLines, halfW / 2, titleY, { align: "center" });
+  // Helper: draw parchment page background with edge shadow near spine
+  function drawPageBg(x: number, w: number, isLeftPage: boolean) {
+    // Base parchment
+    pdf.setFillColor(parchment.r, parchment.g, parchment.b);
+    pdf.rect(x, 0, w, pageH, "F");
 
-  if (story.characters?.length > 0) {
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(12);
-    pdf.setTextColor(140, 130, 120);
-    const names = story.characters.map((sc: any) => sc.character.name).join(" & ");
-    pdf.text(`featuring ${names}`, halfW / 2, titleY + titleLines.length * 12 + 8, { align: "center" });
+    // Edge shadow near spine (darker strip)
+    const shadowW = 8;
+    if (isLeftPage) {
+      pdf.setFillColor(parchmentDark.r, parchmentDark.g, parchmentDark.b);
+      pdf.rect(x + w - shadowW, 0, shadowW, pageH, "F");
+    } else {
+      pdf.setFillColor(parchmentDark.r, parchmentDark.g, parchmentDark.b);
+      pdf.rect(x, 0, shadowW, pageH, "F");
+    }
   }
 
-  // Right side of title page
+  // Helper: draw the spine
+  function drawSpine() {
+    pdf.setDrawColor(spineColor.r, spineColor.g, spineColor.b);
+    pdf.setLineWidth(1);
+    pdf.line(spineX, 0, spineX, pageH);
+    // Second lighter line for depth
+    pdf.setDrawColor(parchmentDark.r, parchmentDark.g, parchmentDark.b);
+    pdf.setLineWidth(0.3);
+    pdf.line(spineX - 1.5, 0, spineX - 1.5, pageH);
+    pdf.line(spineX + 1.5, 0, spineX + 1.5, pageH);
+  }
+
+  // -- Title page --
+  drawPageBg(0, halfW, true);
+  drawPageBg(halfW, halfW, false);
+  drawSpine();
+
+  // Decorative border on left page
+  pdf.setDrawColor(borderColor.r, borderColor.g, borderColor.b);
+  pdf.setLineWidth(0.5);
+  pdf.rect(12, 12, halfW - 24, pageH - 24);
+
+  // Title text (left page, centered)
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(28);
+  pdf.setTextColor(darkText.r, darkText.g, darkText.b);
+  const titleLines = pdf.splitTextToSize(story.title, halfW - 50);
+  const titleBlockH = titleLines.length * 12;
+  const titleY = pageH / 2 - titleBlockH / 2;
+  pdf.text(titleLines, halfW / 2, titleY, { align: "center" });
+
+  // Featuring text
+  if (story.characters?.length > 0) {
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+    pdf.setTextColor(mediumText.r, mediumText.g, mediumText.b);
+    const names = story.characters.map((sc: any) => sc.character.name).join(" & ");
+    pdf.text(`featuring ${names}`, halfW / 2, titleY + titleBlockH + 8, { align: "center" });
+  }
+
+  // Right page — "A Storyverse tale"
   pdf.setFont("helvetica", "italic");
   pdf.setFontSize(11);
-  pdf.setTextColor(160, 150, 140);
+  pdf.setTextColor(lightText.r, lightText.g, lightText.b);
   pdf.text("A Storyverse tale", halfW + halfW / 2, pageH / 2, { align: "center" });
-
-  // Spine line
-  pdf.setDrawColor(196, 180, 138);
-  pdf.setLineWidth(0.5);
-  pdf.line(halfW, 0, halfW, pageH);
 
   // -- Story pages --
   for (let i = 0; i < pages.length; i++) {
     const scene = pages[i];
     pdf.addPage([pageW, pageH], "landscape");
 
-    // Background
-    pdf.setFillColor(245, 236, 215);
-    pdf.rect(0, 0, pageW, pageH, "F");
+    const imageOnLeft = i % 2 === 0;
 
-    // Left side: illustration
+    // Draw both page backgrounds
+    drawPageBg(0, halfW, true);
+    drawPageBg(halfW, halfW, false);
+    drawSpine();
+
+    // Illustration
+    const imgPageX = imageOnLeft ? 0 : halfW;
     if (scene.imageUrl) {
       const dataUrl = await loadImageAsDataUrl(scene.imageUrl);
       if (dataUrl) {
         try {
-          // Fit image within left page while preserving 4:3 aspect ratio
-          const availW = halfW - 4;
-          const availH = pageH - 4;
+          const availW = halfW;
+          const availH = pageH;
           const imgRatio = 4 / 3;
           let imgW = availW;
           let imgH = imgW / imgRatio;
@@ -81,59 +127,61 @@ async function exportStoryAsPdf(story: any) {
             imgH = availH;
             imgW = imgH * imgRatio;
           }
-          const imgX = 2 + (availW - imgW) / 2;
-          const imgY = 2 + (availH - imgH) / 2;
+          const imgX = imgPageX + (availW - imgW) / 2;
+          const imgY = (availH - imgH) / 2;
           pdf.addImage(dataUrl, "JPEG", imgX, imgY, imgW, imgH);
         } catch {
-          // Image failed to load, skip
+          // skip
         }
       }
     }
 
-    // Spine
-    pdf.setDrawColor(196, 180, 138);
-    pdf.setLineWidth(0.5);
-    pdf.line(halfW, 0, halfW, pageH);
-
-    // Right side: text
-    const textX = halfW + 12;
-    const textW = halfW - 24;
+    // Text
+    const textPageX = imageOnLeft ? halfW : 0;
+    const textMargin = 14;
+    const textX = textPageX + textMargin;
+    const textW = halfW - textMargin * 2;
 
     pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(14);
-    pdf.setTextColor(60, 50, 40);
+    pdf.setFontSize(13);
+    pdf.setTextColor(darkText.r, darkText.g, darkText.b);
     const textLines = pdf.splitTextToSize(scene.content, textW);
-    pdf.text(textLines, textX, 20);
+    // Vertically center the text block
+    const lineH = 6.5;
+    const textBlockH = textLines.length * lineH;
+    const textY = Math.max(20, (pageH - textBlockH) / 2);
+    pdf.text(textLines, textX, textY, { lineHeightFactor: 1.8 });
 
     // Page numbers
     pdf.setFontSize(8);
-    pdf.setTextColor(160, 150, 140);
-    pdf.text(String(i * 2 + 1), halfW / 2, pageH - 6, { align: "center" });
-    pdf.text(String(i * 2 + 2), halfW + halfW / 2, pageH - 6, { align: "center" });
+    pdf.setTextColor(lightText.r, lightText.g, lightText.b);
+    const leftPageNum = i * 2 + (imageOnLeft ? 1 : 2);
+    const rightPageNum = i * 2 + (imageOnLeft ? 2 : 1);
+    pdf.text(String(leftPageNum), halfW / 2, pageH - 6, { align: "center" });
+    pdf.text(String(rightPageNum), halfW + halfW / 2, pageH - 6, { align: "center" });
 
-    // Scene counter
-    pdf.text(`${i + 1} of ${pages.length}`, pageW - 10, 8, { align: "right" });
+    // Scene counter (top right)
+    pdf.setFontSize(7);
+    pdf.setTextColor(lightText.r, lightText.g, lightText.b);
+    pdf.text(`${i + 1} of ${pages.length}`, pageW - 8, 7, { align: "right" });
   }
 
   // -- End page --
   pdf.addPage([pageW, pageH], "landscape");
-  pdf.setFillColor(245, 236, 215);
-  pdf.rect(0, 0, pageW, pageH, "F");
+  drawPageBg(0, halfW, true);
+  drawPageBg(halfW, halfW, false);
+  drawSpine();
 
+  // "The End" on left page
   pdf.setFont("helvetica", "italic");
   pdf.setFontSize(32);
-  pdf.setTextColor(60, 50, 40);
+  pdf.setTextColor(darkText.r, darkText.g, darkText.b);
   pdf.text("The End", halfW / 2, pageH / 2, { align: "center" });
 
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(12);
-  pdf.setTextColor(140, 130, 120);
+  pdf.setFontSize(11);
+  pdf.setTextColor(mediumText.r, mediumText.g, mediumText.b);
   pdf.text(story.title, halfW / 2, pageH / 2 + 14, { align: "center" });
-
-  // Spine
-  pdf.setDrawColor(196, 180, 138);
-  pdf.setLineWidth(0.5);
-  pdf.line(halfW, 0, halfW, pageH);
 
   // Save
   const safeName = story.title.replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, "-").toLowerCase();
