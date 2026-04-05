@@ -534,7 +534,7 @@ Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EV
     });
 
     const refReminder = characterNames
-      ? `\n\nBEFORE DRAWING: Refer back to the CHARACTER REFERENCE IMAGES in the setup message for ${characterNames}. Draw each character exactly as they appear in their reference sheet.`
+      ? `\n\nBEFORE DRAWING: Refer back to the CHARACTER REFERENCE IMAGES in the setup message for ${characterNames}. Match every detail — body shape, colors, clothing, and accessories. Every item of clothing and every accessory visible in the reference sheet must appear in this illustration.`
       : "";
 
     const pageParts: any[] = [{
