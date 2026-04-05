@@ -518,9 +518,10 @@ Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EV
     const startTime = Date.now();
 
     const sceneCharacters = page.characters_in_scene || [];
+    // Fall back to all characters if characters_in_scene is empty
     const characterNames = sceneCharacters.length > 0
       ? sceneCharacters.join(" and ")
-      : "";
+      : characters.map((c) => c.name).join(" and ");
 
     debug.image(`Page ${i + 1}/${pages.length}: generating...`, {
       characters: characterNames || "none",
