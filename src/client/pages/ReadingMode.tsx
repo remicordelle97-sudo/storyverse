@@ -85,15 +85,6 @@ async function exportStoryAsPdf(story: any) {
   const titleY = pageH / 2 - titleBlockH / 2;
   pdf.text(titleLines, halfW / 2, titleY, { align: "center" });
 
-  // Featuring text
-  if (story.characters?.length > 0) {
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(11);
-    pdf.setTextColor(mediumText.r, mediumText.g, mediumText.b);
-    const names = story.characters.map((sc: any) => sc.character.name).join(" & ");
-    pdf.text(`featuring ${names}`, halfW / 2, titleY + titleBlockH + 8, { align: "center" });
-  }
-
   // Right page — "A Storyverse tale"
   pdf.setFont("helvetica", "italic");
   pdf.setFontSize(11);
@@ -511,12 +502,6 @@ export default function ReadingMode() {
                   <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight mb-4 relative z-10">
                     {story.title}
                   </h1>
-                  {story.characters?.length > 0 && (
-                    <p className="text-stone-500 text-sm relative z-10">
-                      featuring{" "}
-                      {story.characters.map((sc: any) => sc.character.name).join(" & ")}
-                    </p>
-                  )}
                 </div>
 
                 {/* Spine */}

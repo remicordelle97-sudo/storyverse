@@ -66,10 +66,6 @@ function BookSpine({ story, onClick }: { story: any; onClick: () => void }) {
 function BookCover({ story, onClick }: { story: any; onClick: () => void }) {
   const color = stringToColor(story.id);
   const universeName = story.universe?.name || "";
-  const characterNames = (story.characters || [])
-    .map((sc: any) => sc.character?.name)
-    .filter(Boolean)
-    .slice(0, 2);
 
   return (
     <button
@@ -96,12 +92,6 @@ function BookCover({ story, onClick }: { story: any; onClick: () => void }) {
           </h3>
         </div>
 
-        {/* Characters */}
-        {characterNames.length > 0 && (
-          <p className="text-white/40 text-[10px]">
-            {characterNames.join(" & ")}
-          </p>
-        )}
       </div>
 
       {/* Subtle texture */}
