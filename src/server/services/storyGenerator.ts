@@ -203,6 +203,7 @@ RULES:
 - Ensure visual VARIETY: different backgrounds, different character positions, different moods. If two prompts sound similar, make them dramatically different.
 - Build a visual ARC: the images should feel like a journey, not the same scene repeated.
 - Keep prompts to 2-3 sentences each. Be specific and concrete, not vague.
+- Consecutive pages should describe different character poses and body language — if a character is running on one page, they should be sitting, climbing, reaching, or turning on the next.
 - Do NOT describe character bodies, species details, clothing, or physical features — only name, expression, action, and setting.
 
 ALSO: For each character that appears in the story, write a comprehensive IDENTITY ANCHOR — a complete visual checklist that an illustrator can use to draw the character consistently on every page. Include ALL of the following:
