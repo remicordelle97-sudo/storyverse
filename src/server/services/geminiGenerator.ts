@@ -263,9 +263,6 @@ function buildCharacterSheetPrompt(character: any, poseCount: number = 6): strin
     ? `\nOUTFIT (character is ALWAYS wearing/carrying ALL of these):\n${character.outfit}`
     : "";
 
-  const fullBodyCount = Math.ceil(poseCount * 0.6);
-  const faceCount = poseCount - fullBodyCount;
-
   return `IMPORTANT: You MUST match the art style of the STYLE REFERENCE IMAGE provided. Match its EXACT brushwork, texture, color treatment, and level of softness. The character studies below must look like they belong in the same book as the style reference.
 
 ${ART_STYLE}
@@ -282,9 +279,7 @@ ${character.appearance}
 ${outfitSection}
 ${character.specialDetail ? `SPECIAL DETAIL: ${character.specialDetail}` : ""}
 
-Show a mix of:
-- ${fullBodyCount} full body views (different poses: standing, walking, sitting)
-- ${faceCount} face close-ups (different expressions: happy, surprised, worried)
+ALL ${poseCount} studies must be FULL BODY views showing the character head to toe with their COMPLETE outfit and all accessories visible. Show different poses (standing, walking, sitting, reaching, turning) and different expressions, but always full body. No face-only close-ups.
 
 Keep the character recognizable across all studies — same colors, same proportions, same outfit. But every study should feel SOFT and PAINTERLY, matching the style reference. NOT sharp. NOT outlined. NOT cartoon.`;
 }
