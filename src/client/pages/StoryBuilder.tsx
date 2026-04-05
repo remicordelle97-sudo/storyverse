@@ -40,7 +40,7 @@ export default function StoryBuilder() {
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
   const [ageGroup, setAgeGroup] = useState("4-5");
   const [structure, setStructure] = useState("problem-solution");
-  const [length, setLength] = useState<"short" | "long">("long");
+  const [length] = useState<"short" | "long">("short");
   const [parentPrompt, setParentPrompt] = useState("");
   const [generateImages, setGenerateImages] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -267,16 +267,6 @@ export default function StoryBuilder() {
             </div>
           </section>
 
-          {/* Length */}
-          <section className="mb-8">
-            <label className="block text-sm font-medium text-stone-700 mb-3">
-              Length
-            </label>
-            <div className="flex gap-2">
-              <Chip label="Short (10 pages)" selected={length === "short"} onClick={() => setLength("short")} />
-              <Chip label="Long (32 pages)" selected={length === "long"} onClick={() => setLength("long")} />
-            </div>
-          </section>
 
           {/* Illustrations toggle */}
           <section className="mb-8">
