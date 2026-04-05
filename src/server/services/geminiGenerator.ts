@@ -129,7 +129,7 @@ function loadStyleReference(universe: any): { data: string; mimeType: string } |
  */
 export async function generateCharacterSheet(
   characterId: string,
-  poseCount: number = 6
+  poseCount: number = 8
 ): Promise<string> {
   const character = await prisma.character.findUniqueOrThrow({
     where: { id: characterId },
@@ -182,7 +182,7 @@ export async function generateCharacterSheet(
  */
 export async function generateAllCharacterSheets(
   universeId: string,
-  poseCount: number = 6
+  poseCount: number = 8
 ): Promise<void> {
   const characters = await prisma.character.findMany({
     where: { universeId },
@@ -258,7 +258,7 @@ export async function generateAllCharacterSheets(
 /**
  * Build the prompt text for a character model sheet.
  */
-function buildCharacterSheetPrompt(character: any, poseCount: number = 6): string {
+function buildCharacterSheetPrompt(character: any, poseCount: number = 8): string {
   const outfitSection = character.outfit
     ? `\nOUTFIT (character is ALWAYS wearing/carrying ALL of these):\n${character.outfit}`
     : "";

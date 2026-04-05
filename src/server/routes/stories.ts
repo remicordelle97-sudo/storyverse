@@ -137,7 +137,7 @@ router.post("/generate", async (req, res) => {
     debug.prompt("Building prompt...");
     const promptStart = Date.now();
 
-    const { userMessage, ageGroup: resolvedAgeGroup } = await buildPrompt({
+    const { planMessage, writeMessage, ageGroup: resolvedAgeGroup } = await buildPrompt({
       universeId,
       characterIds,
       mood: mood,
@@ -149,7 +149,8 @@ router.post("/generate", async (req, res) => {
     });
 
     debug.prompt(`Prompt built in ${Date.now() - promptStart}ms`, {
-      promptLength: userMessage.length,
+      planLength: planMessage.length,
+      writeLength: writeMessage.length,
       ageGroup: resolvedAgeGroup,
     });
 
@@ -164,7 +165,8 @@ router.post("/generate", async (req, res) => {
     });
 
     const generated = await generateStory(
-      userMessage,
+      planMessage,
+      writeMessage,
       resolvedAgeGroup,
       length || "long",
       (step, detail) => sendProgress(step, detail),

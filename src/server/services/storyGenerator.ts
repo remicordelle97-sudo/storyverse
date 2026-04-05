@@ -286,7 +286,8 @@ Return exactly this JSON:
  * Generate a complete story: plan → write → refine image prompts.
  */
 export async function generateStory(
-  userPrompt: string,
+  planPrompt: string,
+  writePrompt: string,
   ageGroup: string,
   length: "short" | "long" = "long",
   onProgress?: (step: string, detail?: string) => void,
@@ -296,7 +297,7 @@ export async function generateStory(
   onProgress?.("planning", "Planning the story...");
   debug.story("Planning story...");
   const planStart = Date.now();
-  const plan = await planStory(userPrompt, ageGroup, length);
+  const plan = await planStory(planPrompt, ageGroup, length);
   debug.story(`Plan created in ${Date.now() - planStart}ms`, {
     title: plan.title,
     premise: plan.premise,
@@ -307,7 +308,7 @@ export async function generateStory(
   onProgress?.("writing", `Writing "${plan.title}"...`);
   debug.story("Writing story from plan...");
   const writeStart = Date.now();
-  const story = await writeStory(userPrompt, plan, ageGroup, length);
+  const story = await writeStory(writePrompt, plan, ageGroup, length);
   debug.story(`Story written in ${Date.now() - writeStart}ms`, {
     title: story.title,
     pages: story.pages.length,

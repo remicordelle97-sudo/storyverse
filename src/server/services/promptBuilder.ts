@@ -241,7 +241,8 @@ ${guidelines}`;
 }
 
 export interface BuiltPrompt {
-  userMessage: string;
+  planMessage: string;
+  writeMessage: string;
   ageGroup: string;
 }
 
@@ -267,7 +268,8 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
     STRUCTURE_GUIDELINES[input.structure] ||
     STRUCTURE_GUIDELINES["problem-solution"];
 
-  let prompt = `=== UNIVERSE ===
+  // === PLAN PROMPT: universe + characters + locations + structure + request ===
+  let planPrompt = `=== UNIVERSE ===
 Name: ${universe.name}
 Setting: ${universe.settingDescription}
 ${universe.sensoryDetails ? `Sensory details: ${universe.sensoryDetails}` : ""}
@@ -283,26 +285,36 @@ Characters are complex — don't try to demonstrate every personality trait in a
 `;
 
   for (const char of characters) {
-    prompt += `Name: ${char.name} (${char.speciesOrType})`;
-    prompt += `\nPersonality: ${char.personalityTraits}`;
-    if (char.relationshipArchetype && char.role !== "main") prompt += `\nArchetype: ${char.relationshipArchetype}`;
-    if (char.specialDetail) prompt += `\nSpecial detail: ${char.specialDetail}`;
-    prompt += `\nRole: ${char.role}\n\n`;
+    planPrompt += `Name: ${char.name} (${char.speciesOrType})`;
+    planPrompt += `\nPersonality: ${char.personalityTraits}`;
+    if (char.relationshipArchetype && char.role !== "main") planPrompt += `\nArchetype: ${char.relationshipArchetype}`;
+    if (char.specialDetail) planPrompt += `\nSpecial detail: ${char.specialDetail}`;
+    planPrompt += `\nRole: ${char.role}\n\n`;
   }
 
   if (locations.length > 0) {
-    prompt += `=== LOCATIONS ===
-Use ONLY these locations in the story. Do not invent new locations. Reference them by name in both the story text and the image_prompt fields so illustrations are consistent.\n\n`;
+    planPrompt += `=== LOCATIONS ===
+Use ONLY these locations in the story. Do not invent new locations. Reference them by name.\n\n`;
     for (const loc of locations) {
-      prompt += `${loc.name} (${loc.role}): ${loc.description}`;
+      planPrompt += `${loc.name} (${loc.role}): ${loc.description}`;
       if (loc.landmarks) {
-        prompt += ` Key landmarks: ${loc.landmarks}`;
+        planPrompt += ` Key landmarks: ${loc.landmarks}`;
       }
-      prompt += `\n`;
+      planPrompt += `\n`;
     }
-    prompt += `\n`;
+    planPrompt += `\n`;
   }
 
+  planPrompt += `${structureGuide}
+
+=== STORY REQUEST ===
+Reading level: ${input.ageGroup}
+Language: ${input.language}
+Mood: ${input.mood}
+Total pages: ${pageCount}
+Parent's request: "${input.parentPrompt}"`;
+
+  // === WRITE PROMPT: sentence count + output format only (plan is prepended by storyGenerator) ===
   const sentenceRule: Record<string, string> = {
     "2-3": "EXACTLY 1-2 sentences per page. Each sentence must be 3-6 words. This is a HARD LIMIT — if a page has 3 or more sentences, you have failed.",
     "4-5": "EXACTLY 2-3 sentences per page. Each sentence must be 6-12 words. This is a HARD LIMIT — if a page has 4 or more sentences, you have failed.",
@@ -310,16 +322,7 @@ Use ONLY these locations in the story. Do not invent new locations. Reference th
   };
   const sentenceConstraint = sentenceRule[input.ageGroup] || sentenceRule["4-5"];
 
-  prompt += `${structureGuide}
-
-=== STORY REQUEST ===
-Reading level: ${input.ageGroup}
-Language: ${input.language}
-Mood: ${input.mood}
-Total pages: ${pageCount}
-Parent's request: "${input.parentPrompt}"
-
-=== SENTENCE COUNT (HARD CONSTRAINT) ===
+  const writePrompt = `=== SENTENCE COUNT (HARD CONSTRAINT) ===
 ${sentenceConstraint}
 Count your sentences on EVERY page before finalizing. If any page exceeds the limit, split it or cut words. This is the single most important formatting rule.
 
@@ -336,7 +339,7 @@ The image_prompt should describe the SCENE, not the characters' bodies. Characte
 - Describe the MOOD and ATMOSPHERE of the scene
 - Do NOT describe characters' physical bodies, species details, or clothing — the illustrator already has reference images for that
 - Keep image_prompts to 2-3 sentences focused on scene, action, and emotion
-- "location" must be the EXACT name of a location from the LOCATIONS section above. Use the same name every time a location recurs
+- "location" must be the EXACT name of a location from the story plan. Use the same name every time a location recurs
 
 {
   "title": "Story title",
@@ -344,7 +347,7 @@ The image_prompt should describe the SCENE, not the characters' bodies. Characte
     {
       "page_number": 1,
       "content": "Page text here...",
-      "image_prompt": "A young lion with a golden mane and warm amber eyes, carrying a tiny blue backpack, standing under a baobab tree on a golden savanna at sunset, looking curiously at a glowing object in the grass. Storybook illustration style, warm colors.",
+      "image_prompt": "Scene description focused on setting, action, and emotion.",
       "characters_in_scene": ["Leo the Lion", "Zuri the Zebra"],
       "location": "The Savanna"
     }
@@ -354,12 +357,12 @@ The image_prompt should describe the SCENE, not the characters' bodies. Characte
   debug.prompt("Prompt assembled", {
     universe: universe.name,
     characters: characters.map((c) => c.name).join(", "),
-
     structure: input.structure,
     ageGroup: input.ageGroup,
     pageCount,
-    promptChars: prompt.length,
+    planChars: planPrompt.length,
+    writeChars: writePrompt.length,
   });
 
-  return { userMessage: prompt, ageGroup: input.ageGroup };
+  return { planMessage: planPrompt, writeMessage: writePrompt, ageGroup: input.ageGroup };
 }

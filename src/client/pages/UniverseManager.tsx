@@ -64,7 +64,7 @@ export default function UniverseManager() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetPreview, setSheetPreview] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [poseCount, setPoseCount] = useState(6);
+  const [poseCount, setPoseCount] = useState(8);
 
   const { data: universe, isError: universeError } = useQuery({
     queryKey: ["universe", selectedId],
