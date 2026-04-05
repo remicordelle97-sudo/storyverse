@@ -407,18 +407,12 @@ export async function generateStoryImages(
   const styleGuide = buildImageStyleGuide(mood);
   const results = new Map<number, string>();
 
-  // Build character descriptions
+  // Build character name list (visual details come from reference sheets only)
   const characters = await prisma.character.findMany({
     where: { universeId, id: { in: characterIds } },
   });
 
-  let charDesc = "";
-  for (const char of characters) {
-    charDesc += `${char.name} (${char.speciesOrType}): ${char.appearance}`;
-    if (char.outfit) charDesc += `. Outfit: ${char.outfit}`;
-    if (char.specialDetail) charDesc += `. ${char.specialDetail}`;
-    charDesc += "\n";
-  }
+  const charList = characters.map((c) => `${c.name} (${c.speciesOrType})`).join(", ");
 
   // Build location descriptions
   const locations = await prisma.location.findMany({ where: { universeId } });
@@ -475,7 +469,8 @@ CRITICAL: Maintain PERFECT visual consistency across ALL pages:
 - Locations must look the same when revisited (same landmarks, same colors, same geography)
 - Art style, color palette, and lighting approach must stay consistent throughout
 
-CHARACTERS:\n${charDesc}
+CHARACTERS: ${charList}
+Each character's visual appearance is defined ONLY by their CHARACTER REFERENCE IMAGE below. Do not infer or imagine details not shown in the reference.
 ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}
 
 MANDATORY WORKFLOW — follow these steps for EVERY page:
