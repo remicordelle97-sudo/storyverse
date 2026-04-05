@@ -2,6 +2,7 @@ import { Router } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+import { requireAdmin } from "../middleware/auth.js";
 import { CLAUDE_MODEL, TEMPERATURE_STANDARD, MAX_TOKENS_SMALL } from "../lib/config.js";
 
 const anthropic = new Anthropic();
@@ -152,7 +153,7 @@ router.post("/", async (req, res) => {
 });
 
 // Generate style reference image for a universe
-router.post("/:id/generate-style-reference", async (req, res) => {
+router.post("/:id/generate-style-reference", requireAdmin, async (req, res) => {
   try {
     const universe = await prisma.universe.findUnique({ where: { id: req.params.id } });
     if (!universe) return res.status(404).json({ error: "Universe not found" });

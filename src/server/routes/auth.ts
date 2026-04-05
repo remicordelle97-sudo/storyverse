@@ -8,6 +8,8 @@ const router = Router();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+const ADMIN_EMAILS = ["remi.cordelle97@gmail.com"];
+
 // Google login
 router.post("/google", async (req, res) => {
   try {
@@ -31,12 +33,14 @@ router.post("/google", async (req, res) => {
     });
 
     if (!user) {
+      const role = ADMIN_EMAILS.includes(payload.email) ? "admin" : "user";
       user = await prisma.user.create({
         data: {
           googleId: payload.sub,
           email: payload.email,
           name: payload.name || payload.email,
           picture: payload.picture || "",
+          role,
         },
       });
     }
@@ -59,6 +63,7 @@ router.post("/google", async (req, res) => {
         email: user.email,
         name: user.name,
         picture: user.picture,
+        role: user.role,
       },
     });
   } catch (e) {
@@ -108,6 +113,7 @@ router.get("/me", authMiddleware, async (req, res) => {
       email: user.email,
       name: user.name,
       picture: user.picture,
+      role: user.role,
     });
   } catch {
     res.status(500).json({ error: "Failed to fetch user" });

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+import { requireAdmin } from "../middleware/auth.js";
 import { generateLocationConcepts } from "../services/locationGenerator.js";
 import { generateLocationSheet } from "../services/geminiGenerator.js";
 import { verifyUniverseOwnership } from "../lib/ownership.js";
@@ -55,7 +56,7 @@ router.post("/generate", async (req, res) => {
 });
 
 // Generate or regenerate a location's reference sheet
-router.post("/:id/generate-sheet", async (req, res) => {
+router.post("/:id/generate-sheet", requireAdmin, async (req, res) => {
   try {
     const location = await prisma.location.findUnique({
       where: { id: req.params.id },

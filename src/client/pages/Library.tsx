@@ -121,7 +121,7 @@ function Shelf({ children }: { children: React.ReactNode }) {
 
 export default function Library() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<"covers" | "spines">("covers");
 
@@ -240,16 +240,20 @@ export default function Library() {
                     >
                       New Universe
                     </button>
-                    <div className="border-t border-stone-100 my-1" />
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        navigate("/universe-manager");
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
-                    >
-                      Manage Universes
-                    </button>
+                    {isAdmin && (
+                      <>
+                        <div className="border-t border-stone-100 my-1" />
+                        <button
+                          onClick={() => {
+                            setShowMenu(false);
+                            navigate("/universe-manager");
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
+                        >
+                          Manage Universes
+                        </button>
+                      </>
+                    )}
                   </div>
                 </>
               )}

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+import { requireAdmin } from "../middleware/auth.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { MOODS } from "../lib/config.js";
@@ -274,7 +275,7 @@ router.post("/generate", async (req, res) => {
 });
 
 // Regenerate images for an existing story
-router.post("/:id/regenerate-images", async (req, res) => {
+router.post("/:id/regenerate-images", requireAdmin, async (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");

@@ -25,6 +25,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { user, isAdmin, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-stone-400">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" replace />;
+  if (!isAdmin) return <Navigate to="/library" replace />;
+
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth();
 
@@ -49,7 +66,7 @@ function AppRoutes() {
       />
       <Route
         path="/universe-manager"
-        element={<ProtectedRoute><UniverseManager /></ProtectedRoute>}
+        element={<AdminRoute><UniverseManager /></AdminRoute>}
       />
       <Route
         path="/story-builder"

@@ -12,10 +12,12 @@ interface User {
   email: string;
   name: string;
   picture: string;
+  role: string;
 }
 
 interface AuthState {
   user: User | null;
+  isAdmin: boolean;
   accessToken: string | null;
   loading: boolean;
   login: (credential: string) => Promise<void>;
@@ -115,9 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("universeId");
   };
 
+  const isAdmin = user?.role === "admin";
+
   return (
     <AuthContext.Provider
-      value={{ user, accessToken, loading, login, logout, refreshUser }}
+      value={{ user, isAdmin, accessToken, loading, login, logout, refreshUser }}
     >
       {children}
     </AuthContext.Provider>

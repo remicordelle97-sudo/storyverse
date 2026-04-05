@@ -1,6 +1,7 @@
 import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+import { requireAdmin } from "../middleware/auth.js";
 import { generateAllCharacters } from "../services/characterGenerator.js";
 import { generateCharacterSheet, generateAllCharacterSheets } from "../services/geminiGenerator.js";
 import { verifyUniverseOwnership } from "../lib/ownership.js";
@@ -100,7 +101,7 @@ router.post("/generate", async (req, res) => {
 });
 
 // Regenerate a character's reference sheet
-router.post("/:id/regenerate-sheet", async (req, res) => {
+router.post("/:id/regenerate-sheet", requireAdmin, async (req, res) => {
   try {
     const character = await prisma.character.findUnique({
       where: { id: req.params.id },
@@ -134,7 +135,7 @@ router.post("/:id/regenerate-sheet", async (req, res) => {
 });
 
 // Generate all character sheets via multi-turn chat (style consistent)
-router.post("/generate-all-sheets", async (req, res) => {
+router.post("/generate-all-sheets", requireAdmin, async (req, res) => {
   try {
     const { universeId, poseCount } = req.body;
     if (!universeId) {

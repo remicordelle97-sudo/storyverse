@@ -12,6 +12,7 @@ model User {
   googleId  String     @unique
   email     String     @unique
   name      String
+  role      String     @default("user")
   picture   String     @default("")
   createdAt DateTime   @default(now())
   universes Universe[]

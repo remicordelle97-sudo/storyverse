@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getStory, regenerateStoryImages } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
 
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
@@ -184,6 +185,7 @@ type View = "title" | "page" | "end";
 export default function ReadingMode() {
   const { storyId } = useParams<{ storyId: string }>();
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const [pageIndex, setPageIndex] = useState(0);
   const [view, setView] = useState<View>("title");
   const [transitioning, setTransitioning] = useState(false);
@@ -364,29 +366,30 @@ export default function ReadingMode() {
           </div>
         )}
         <div className="flex gap-4">
-          <button
-            onClick={async (e) => {
-              e.stopPropagation();
-              if (regenerating || !storyId) return;
-              setRegenerating(true);
-              setRegenProgress("Starting...");
-              try {
-                await regenerateStoryImages(storyId, (_step, detail) => {
-                  setRegenProgress(detail || "Generating...");
-                });
-                // Refetch story data to show new images
-                window.location.reload();
-              } catch (err) {
-                console.error("Regeneration failed:", err);
-                setRegenProgress("");
-                setRegenerating(false);
-              }
-            }}
-            disabled={regenerating}
-            className="text-white/60 hover:text-white text-sm transition-colors disabled:opacity-40"
-          >
-            {regenerating ? regenProgress : "Regen images"}
-          </button>
+          {isAdmin && (
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (regenerating || !storyId) return;
+                setRegenerating(true);
+                setRegenProgress("Starting...");
+                try {
+                  await regenerateStoryImages(storyId, (_step, detail) => {
+                    setRegenProgress(detail || "Generating...");
+                  });
+                  window.location.reload();
+                } catch (err) {
+                  console.error("Regeneration failed:", err);
+                  setRegenProgress("");
+                  setRegenerating(false);
+                }
+              }}
+              disabled={regenerating}
+              className="text-white/60 hover:text-white text-sm transition-colors disabled:opacity-40"
+            >
+              {regenerating ? regenProgress : "Regen images"}
+            </button>
+          )}
           <button
             onClick={async (e) => {
               e.stopPropagation();
