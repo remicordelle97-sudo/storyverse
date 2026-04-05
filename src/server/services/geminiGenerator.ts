@@ -476,7 +476,6 @@ ${locDesc ? `LOCATIONS:\n${locDesc}` : ""}
 MANDATORY WORKFLOW — follow these steps for EVERY page:
 1. REVIEW: Before drawing, scroll back to the CHARACTER REFERENCE IMAGES below and study each character that appears in the scene. Note their exact body shape, colors, outfit, and accessories.
 2. DRAW: Generate the illustration, matching each character precisely to their reference image.
-3. VERIFY: Check the CHARACTER IDENTITY CHECK provided with the page prompt to confirm all visual details are correct.
 
 Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EVERY page — they are the single source of truth for what each character looks like. As the conversation grows longer, do NOT rely on memory or earlier generated images. Always return to these reference images.
 - Do NOT copy the style, pose, layout, background, or artistic technique from the reference images
