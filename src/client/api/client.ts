@@ -39,12 +39,12 @@ export const getCharacters = (universeId: string) =>
   request<any[]>(`/characters?universeId=${universeId}`);
 export const createCharacter = (data: any) =>
   request<any>("/characters", { method: "POST", body: JSON.stringify(data) });
-export const regenerateCharacterSheet = (characterId: string) =>
-  request<any>(`/characters/${characterId}/regenerate-sheet`, { method: "POST" });
-export const generateAllCharacterSheets = (universeId: string) =>
+export const regenerateCharacterSheet = (characterId: string, poseCount: number = 6) =>
+  request<any>(`/characters/${characterId}/regenerate-sheet`, { method: "POST", body: JSON.stringify({ poseCount }) });
+export const generateAllCharacterSheets = (universeId: string, poseCount: number = 6) =>
   request<any>("/characters/generate-all-sheets", {
     method: "POST",
-    body: JSON.stringify({ universeId }),
+    body: JSON.stringify({ universeId, poseCount }),
   });
 export const generateCharacters = (universeId: string) =>
   request<any[]>("/characters/generate", {

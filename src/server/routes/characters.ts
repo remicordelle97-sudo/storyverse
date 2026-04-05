@@ -121,7 +121,8 @@ router.post("/:id/regenerate-sheet", async (req, res) => {
       data: { referenceImageUrl: "" },
     });
 
-    const sheetUrl = await generateCharacterSheet(req.params.id);
+    const poseCount = parseInt(req.body?.poseCount) || 6;
+    const sheetUrl = await generateCharacterSheet(req.params.id, poseCount);
 
     debug.image(`Sheet regenerated for "${character.name}" in ${Date.now() - startTime}ms`);
 
@@ -135,15 +136,16 @@ router.post("/:id/regenerate-sheet", async (req, res) => {
 // Generate all character sheets via multi-turn chat (style consistent)
 router.post("/generate-all-sheets", async (req, res) => {
   try {
-    const { universeId } = req.body;
+    const { universeId, poseCount } = req.body;
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
     }
     if (!await verifyUniverseOwnership(universeId, req.userId!)) {
       return res.status(403).json({ error: "Access denied" });
     }
-    debug.image("Generating all character sheets via multi-turn chat", { universeId });
-    await generateAllCharacterSheets(universeId);
+    const poses = parseInt(poseCount) || 6;
+    debug.image("Generating all character sheets", { universeId, poses });
+    await generateAllCharacterSheets(universeId, poses);
     const characters = await prisma.character.findMany({
       where: { universeId },
     });

@@ -128,17 +128,18 @@ function loadStyleReference(universe: any): { data: string; mimeType: string } |
  * Generate a single character model sheet using Gemini (for regeneration).
  */
 export async function generateCharacterSheet(
-  characterId: string
+  characterId: string,
+  poseCount: number = 6
 ): Promise<string> {
   const character = await prisma.character.findUniqueOrThrow({
     where: { id: characterId },
     include: { universe: true },
   });
 
-  debug.image(`Generating character sheet for "${character.name}" via Gemini`);
+  debug.image(`Generating character sheet for "${character.name}" via Gemini (${poseCount} poses)`);
   const startTime = Date.now();
 
-  const prompt = buildCharacterSheetPrompt(character);
+  const prompt = buildCharacterSheetPrompt(character, poseCount);
   const parts: any[] = [{ text: prompt }];
 
   const response = await ai.models.generateContent({
@@ -180,7 +181,8 @@ export async function generateCharacterSheet(
  * Style consistency is maintained via identical style guide text in each prompt.
  */
 export async function generateAllCharacterSheets(
-  universeId: string
+  universeId: string,
+  poseCount: number = 6
 ): Promise<void> {
   const characters = await prisma.character.findMany({
     where: { universeId },
@@ -207,7 +209,7 @@ export async function generateAllCharacterSheets(
     debug.image(`Sheet ${i + 1}/${characters.length}: generating for "${character.name}"`);
     const startTime = Date.now();
 
-    const promptText = buildCharacterSheetPrompt(character);
+    const promptText = buildCharacterSheetPrompt(character, poseCount);
 
     // Build parts: style reference image (if available) + prompt text
     const parts: any[] = [];
@@ -256,16 +258,19 @@ export async function generateAllCharacterSheets(
 /**
  * Build the prompt text for a character model sheet.
  */
-function buildCharacterSheetPrompt(character: any): string {
+function buildCharacterSheetPrompt(character: any, poseCount: number = 6): string {
   const outfitSection = character.outfit
     ? `\nOUTFIT (character is ALWAYS wearing/carrying ALL of these):\n${character.outfit}`
     : "";
+
+  const fullBodyCount = Math.ceil(poseCount * 0.6);
+  const faceCount = poseCount - fullBodyCount;
 
   return `IMPORTANT: You MUST match the art style of the STYLE REFERENCE IMAGE provided. Match its EXACT brushwork, texture, color treatment, and level of softness. The character studies below must look like they belong in the same book as the style reference.
 
 ${ART_STYLE}
 
-Create 6-8 soft pastel studies of this character on a warm cream background. Each study should be loose and painterly — matching the dreamy, atmospheric quality of the style reference. These should look like they were drawn with the same chalk pastels, same hand, same level of softness.
+Create ${poseCount} soft pastel studies of this character on a warm cream background. Each study should be loose and painterly — matching the dreamy, atmospheric quality of the style reference. These should look like they were drawn with the same chalk pastels, same hand, same level of softness.
 
 This character is a ${character.speciesOrType}.
 
@@ -278,8 +283,8 @@ ${outfitSection}
 ${character.specialDetail ? `SPECIAL DETAIL: ${character.specialDetail}` : ""}
 
 Show a mix of:
-- 3-4 full body views (different poses: standing, walking, sitting)
-- 2-3 face close-ups (different expressions: happy, surprised, worried)
+- ${fullBodyCount} full body views (different poses: standing, walking, sitting)
+- ${faceCount} face close-ups (different expressions: happy, surprised, worried)
 
 Keep the character recognizable across all studies — same colors, same proportions, same outfit. But every study should feel SOFT and PAINTERLY, matching the style reference. NOT sharp. NOT outlined. NOT cartoon.`;
 }

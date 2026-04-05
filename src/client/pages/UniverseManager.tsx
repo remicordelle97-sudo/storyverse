@@ -64,6 +64,7 @@ export default function UniverseManager() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetPreview, setSheetPreview] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [poseCount, setPoseCount] = useState(6);
 
   const { data: universe, isError: universeError } = useQuery({
     queryKey: ["universe", selectedId],
@@ -213,14 +214,26 @@ export default function UniverseManager() {
                       </ActionButton>
                     )}
                     {(universe.characters || []).length > 0 && (
-                      <ActionButton
-                        onClick={() => doAction("gen-all-sheets", () => generateAllCharacterSheets(selectedId!))}
-                        loading={actionLoading === "gen-all-sheets"}
-                        loadingText="Generating all..."
-                        variant="primary"
-                      >
-                        Generate all sheets (consistent style)
-                      </ActionButton>
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          value={poseCount}
+                          onChange={(e) => setPoseCount(parseInt(e.target.value))}
+                          className="text-xs border border-stone-200 rounded px-1.5 py-1 text-stone-500 bg-white"
+                          title="Number of poses per character"
+                        >
+                          {[4, 6, 8, 10, 12].map((n) => (
+                            <option key={n} value={n}>{n} poses</option>
+                          ))}
+                        </select>
+                        <ActionButton
+                          onClick={() => doAction("gen-all-sheets", () => generateAllCharacterSheets(selectedId!, poseCount))}
+                          loading={actionLoading === "gen-all-sheets"}
+                          loadingText="Generating all..."
+                          variant="primary"
+                        >
+                          Generate all sheets
+                        </ActionButton>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -243,9 +256,11 @@ export default function UniverseManager() {
                       imageUrl={char.referenceImageUrl}
                       onPreview={() => setSheetPreview(char.referenceImageUrl)}
                       onGenerate={() =>
-                        doAction(`char-sheet-${char.id}`, () => regenerateCharacterSheet(char.id))
+                        doAction(`char-sheet-${char.id}`, () => regenerateCharacterSheet(char.id, poseCount))
                       }
                       isGenerating={actionLoading === `char-sheet-${char.id}`}
+                      poseCount={poseCount}
+                      onPoseCountChange={setPoseCount}
                     />
                   ))}
                 </div>
@@ -323,6 +338,8 @@ function SheetRow({
   onPreview,
   onGenerate,
   isGenerating,
+  poseCount,
+  onPoseCountChange,
 }: {
   name: string;
   subtitle: string;
@@ -332,6 +349,8 @@ function SheetRow({
   onPreview: () => void;
   onGenerate: () => void;
   isGenerating: boolean;
+  poseCount?: number;
+  onPoseCountChange?: (count: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -375,14 +394,28 @@ function SheetRow({
         </button>
       </div>
 
-      {/* Generate button */}
-      <ActionButton
-        onClick={onGenerate}
-        loading={isGenerating}
-        loadingText="Generating..."
-      >
-        {imageUrl ? "Regenerate" : "Generate sheet"}
-      </ActionButton>
+      {/* Generate button (with optional pose selector) */}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        {poseCount !== undefined && onPoseCountChange && (
+          <select
+            value={poseCount}
+            onChange={(e) => onPoseCountChange(parseInt(e.target.value))}
+            className="text-[10px] border border-stone-200 rounded px-1 py-1 text-stone-500 bg-white"
+            title="Number of poses"
+          >
+            {[4, 6, 8, 10, 12].map((n) => (
+              <option key={n} value={n}>{n} poses</option>
+            ))}
+          </select>
+        )}
+        <ActionButton
+          onClick={onGenerate}
+          loading={isGenerating}
+          loadingText="Generating..."
+        >
+          {imageUrl ? "Regen" : "Generate"}
+        </ActionButton>
+      </div>
     </div>
   );
 }
