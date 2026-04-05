@@ -523,21 +523,7 @@ Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EV
 
     const startTime = Date.now();
 
-    // Build identity anchor text for characters in this scene
     const sceneCharacters = page.characters_in_scene || [];
-    let anchorText = "";
-    if (characterAnchors && sceneCharacters.length > 0) {
-      const anchors = sceneCharacters
-        .map((name) => {
-          const anchor = characterAnchors[name];
-          return anchor ? `${name}: ${anchor}` : null;
-        })
-        .filter(Boolean);
-      if (anchors.length > 0) {
-        anchorText = `\n\nCHARACTER IDENTITY CHECK — draw each character from their reference image first, then verify these details are correct:\n${anchors.join("\n")}`;
-      }
-    }
-
     const characterNames = sceneCharacters.length > 0
       ? sceneCharacters.join(" and ")
       : "";
@@ -548,11 +534,11 @@ Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EV
     });
 
     const refReminder = characterNames
-      ? `\n\nBEFORE DRAWING: Scroll back to the setup message and review the CHARACTER REFERENCE IMAGES for ${characterNames}. Match their exact body, colors, outfit, and accessories from those references.`
+      ? `\n\nBEFORE DRAWING: Refer back to the CHARACTER REFERENCE IMAGES in the setup message for ${characterNames}. Draw each character exactly as they appear in their reference sheet.`
       : "";
 
     const pageParts: any[] = [{
-      text: `${ART_STYLE_REMINDER}${refReminder}\n\nPage ${page.page_number}: ${page.image_prompt}${anchorText}\n\nGenerate a SINGLE scene illustration.\n\nEDGES: The painting MUST have soft, irregular edges that fade and bleed into white paper. Do NOT create a sharp rectangular border or clean-cut frame around the image.`,
+      text: `${ART_STYLE_REMINDER}${refReminder}\n\nPage ${page.page_number}: ${page.image_prompt}\n\nGenerate a SINGLE scene illustration.\n\nEDGES: The painting MUST have soft, irregular edges that fade and bleed into white paper. Do NOT create a sharp rectangular border or clean-cut frame around the image.`,
     }];
 
     try {
