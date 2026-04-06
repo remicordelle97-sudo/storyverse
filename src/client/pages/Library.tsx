@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getStories, getUniverses } from "../api/client";
+import { getStories, getUniverses, getUniverseQuota } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 // Generate a deterministic color from a string
@@ -135,6 +135,11 @@ export default function Library() {
     queryFn: getUniverses,
   });
 
+  const { data: universeQuota } = useQuery({
+    queryKey: ["universe-quota"],
+    queryFn: getUniverseQuota,
+  });
+
   const handleNewStory = () => {
     setShowMenu(false);
     if (universes.length === 0) {
@@ -231,15 +236,17 @@ export default function Library() {
                     >
                       New Story
                     </button>
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        navigate("/new-universe");
-                      }}
-                      className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-                    >
-                      New Universe
-                    </button>
+                    {(!universeQuota || universeQuota.allowed) && (
+                      <button
+                        onClick={() => {
+                          setShowMenu(false);
+                          navigate("/new-universe");
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+                      >
+                        New Universe
+                      </button>
+                    )}
                     {isAdmin && (
                       <>
                         <div className="border-t border-stone-100 my-1" />

@@ -23,6 +23,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // Universes
+export const getUniverseQuota = () =>
+  request<{ allowed: boolean; used: number; limit: number; remaining: number }>("/universes/quota");
 export const getUniverses = () => request<any[]>("/universes");
 export const getUniverse = (id: string) => request<any>(`/universes/${id}`);
 export const createUniverse = (data: any) =>
@@ -64,6 +66,8 @@ export const generateLocationReferenceSheet = (locationId: string) =>
   request<any>(`/locations/${locationId}/generate-sheet`, { method: "POST" });
 
 // Stories
+export const getStoryQuota = () =>
+  request<{ allowed: boolean; used: number; limit: number; remaining: number }>("/stories/quota");
 export const getStories = (universeId?: string) =>
   request<any[]>(universeId ? `/stories?universeId=${universeId}` : "/stories");
 export const getStory = (id: string) => request<any>(`/stories/${id}`);

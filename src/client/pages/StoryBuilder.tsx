@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getUniverse, getUniverses, generateStory } from "../api/client";
+import { getUniverse, getUniverses, generateStory, getStoryQuota } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
 
 const AGE_GROUPS = ["2-3", "4-5", "6-8"];
@@ -15,11 +16,17 @@ const STEP_LABELS: Record<string, string> = {
 
 export default function StoryBuilder() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
   const storedUniverseId = localStorage.getItem("universeId") || "";
 
   const { data: universes = [] } = useQuery({
     queryKey: ["universes"],
     queryFn: getUniverses,
+  });
+
+  const { data: quota } = useQuery({
+    queryKey: ["story-quota"],
+    queryFn: getStoryQuota,
   });
 
   const [universeId, setUniverseId] = useState(storedUniverseId);
@@ -303,13 +310,22 @@ export default function StoryBuilder() {
             </div>
           )}
 
+          {/* Quota info */}
+          {quota && !isAdmin && quota.limit !== Infinity && (
+            <p className={`text-xs text-center ${quota.remaining === 0 ? "text-red-500" : "text-stone-400"}`}>
+              {quota.remaining === 0
+                ? `You've used all ${quota.limit} stories this month`
+                : `${quota.remaining} of ${quota.limit} stories remaining this month`}
+            </p>
+          )}
+
           {/* Generate */}
           <button
             onClick={handleGenerate}
-            disabled={!hero || !universeId}
+            disabled={!hero || !universeId || (quota && !quota.allowed)}
             className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Generate story
+            {quota && !quota.allowed ? "Monthly limit reached" : "Generate story"}
           </button>
         </>
       )}

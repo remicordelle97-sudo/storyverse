@@ -64,6 +64,7 @@ router.post("/google", async (req, res) => {
         name: user.name,
         picture: user.picture,
         role: user.role,
+        plan: user.plan,
       },
     });
   } catch (e) {
@@ -114,6 +115,7 @@ router.get("/me", authMiddleware, async (req, res) => {
       name: user.name,
       picture: user.picture,
       role: user.role,
+      plan: user.plan,
     });
   } catch {
     res.status(500).json({ error: "Failed to fetch user" });

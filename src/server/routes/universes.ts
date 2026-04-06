@@ -3,11 +3,22 @@ import Anthropic from "@anthropic-ai/sdk";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { checkUniverseQuota } from "../lib/quota.js";
 import { CLAUDE_MODEL, TEMPERATURE_STANDARD, MAX_TOKENS_SMALL } from "../lib/config.js";
 
 const anthropic = new Anthropic();
 
 const router = Router();
+
+// Get universe quota for current user
+router.get("/quota", async (req, res) => {
+  try {
+    const quota = await checkUniverseQuota(req.userId as string);
+    res.json(quota);
+  } catch {
+    res.status(500).json({ error: "Failed to check quota" });
+  }
+});
 
 // List all universes for the authenticated user
 router.get("/", async (req, res) => {
@@ -116,6 +127,12 @@ Return exactly this JSON:
 // Create universe
 router.post("/", async (req, res) => {
   try {
+    // Check universe quota
+    const quota = await checkUniverseQuota(req.userId as string);
+    if (!quota.allowed) {
+      return res.status(403).json({ error: `You've reached your limit of ${quota.limit} universe${quota.limit === 1 ? "" : "s"}. Upgrade to premium for unlimited universes.` });
+    }
+
     const {
       name,
       settingDescription,

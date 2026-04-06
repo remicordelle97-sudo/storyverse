@@ -2,6 +2,7 @@ import { Router } from "express";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { checkStoryQuota } from "../lib/quota.js";
 import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { MOODS } from "../lib/config.js";
@@ -11,6 +12,16 @@ import { verifyUniverseOwnership } from "../lib/ownership.js";
 const router = Router();
 
 // List stories — optionally filtered by universeId, otherwise all for user
+// Get story quota for current user
+router.get("/quota", async (req, res) => {
+  try {
+    const quota = await checkStoryQuota(req.userId as string);
+    res.json(quota);
+  } catch {
+    res.status(500).json({ error: "Failed to check quota" });
+  }
+});
+
 router.get("/", async (req, res) => {
   try {
     const { universeId } = req.query;
@@ -116,6 +127,12 @@ router.post("/generate", async (req, res) => {
 
     if (!universeId || !characterIds?.length || !ageGroup) {
       return sendError("universeId, characterIds, and ageGroup are required");
+    }
+
+    // Check story quota
+    const quota = await checkStoryQuota(req.userId as string);
+    if (!quota.allowed) {
+      return sendError(`You've reached your limit of ${quota.limit} stories this month. Upgrade to premium for unlimited stories.`);
     }
 
     if (!await verifyUniverseOwnership(universeId, req.userId!)) {

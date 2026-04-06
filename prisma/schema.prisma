@@ -13,6 +13,7 @@ model User {
   email     String     @unique
   name      String
   role      String     @default("user")
+  plan      String     @default("free")
   picture   String     @default("")
   createdAt DateTime   @default(now())
   universes Universe[]
