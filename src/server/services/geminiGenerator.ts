@@ -223,32 +223,42 @@ export async function generateAllCharacterSheets(
     }
     parts.push({ text: promptText });
 
-    try {
-      const response = await ai.models.generateContent({
-        model: IMAGE_MODEL,
-        contents: [{ role: "user", parts }],
-        config: {
-          responseModalities: ["Image", "Text"],
-          imageConfig: {
-            imageSize: IMAGE_SIZE,
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          model: IMAGE_MODEL,
+          contents: [{ role: "user", parts }],
+          config: {
+            responseModalities: ["Image", "Text"],
+            imageConfig: {
+              imageSize: IMAGE_SIZE,
+            },
           },
-        },
-      });
+        });
 
-      const imageUrl = extractImage(response);
-      if (!imageUrl) {
-        debug.error(`No image in Gemini response for "${character.name}"`);
-        continue;
+        const imageUrl = extractImage(response);
+        if (!imageUrl) {
+          debug.error(`No image in Gemini response for "${character.name}" (attempt ${attempt}/${maxAttempts})`);
+          if (attempt < maxAttempts) continue;
+          break;
+        }
+
+        await prisma.character.update({
+          where: { id: character.id },
+          data: { referenceImageUrl: imageUrl },
+        });
+
+        debug.image(`Sheet for "${character.name}" done in ${Date.now() - startTime}ms: ${imageUrl}`);
+        break;
+      } catch (e: any) {
+        debug.error(`Sheet failed for "${character.name}" (attempt ${attempt}/${maxAttempts}): ${e.message}`);
+        if (attempt < maxAttempts) {
+          const waitMs = attempt * 3000;
+          debug.image(`Waiting ${waitMs / 1000}s before retry...`);
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
       }
-
-      await prisma.character.update({
-        where: { id: character.id },
-        data: { referenceImageUrl: imageUrl },
-      });
-
-      debug.image(`Sheet for "${character.name}" done in ${Date.now() - startTime}ms: ${imageUrl}`);
-    } catch (e: any) {
-      debug.error(`Sheet failed for "${character.name}": ${e.message}`);
     }
   }
 
