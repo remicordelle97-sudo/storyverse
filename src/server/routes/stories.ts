@@ -28,7 +28,7 @@ router.get("/", async (req, res) => {
     const where: any = {};
 
     if (universeId && typeof universeId === "string") {
-      if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+      if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
         return res.status(403).json({ error: "Access denied" });
       }
       where.universeId = universeId;
@@ -60,7 +60,7 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const story = await prisma.story.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         characters: { include: { character: true } },
         scenes: { orderBy: { sceneNumber: "asc" } },
@@ -70,7 +70,7 @@ router.get("/:id", async (req, res) => {
     if (!story) {
       return res.status(404).json({ error: "Story not found" });
     }
-    if (!await verifyUniverseOwnership(story.universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(story.universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
     res.json(story);
@@ -135,7 +135,7 @@ router.post("/generate", async (req, res) => {
       return sendError(`You've reached your limit of ${quota.limit} stories this month. Upgrade to premium for unlimited stories.`);
     }
 
-    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
       return sendError("Access denied");
     }
 
@@ -312,7 +312,7 @@ router.post("/:id/regenerate-images", requireAdmin, async (req, res) => {
 
   try {
     const story = await prisma.story.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         scenes: { orderBy: { sceneNumber: "asc" } },
         characters: { include: { character: true } },
@@ -321,7 +321,7 @@ router.post("/:id/regenerate-images", requireAdmin, async (req, res) => {
     });
 
     if (!story) return sendError("Story not found");
-    if (!await verifyUniverseOwnership(story.universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(story.universeId, req.userId as string)) {
       return sendError("Access denied");
     }
 

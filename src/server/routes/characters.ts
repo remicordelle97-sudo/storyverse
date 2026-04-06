@@ -15,7 +15,7 @@ router.get("/", async (req, res) => {
     if (!universeId || typeof universeId !== "string") {
       return res.status(400).json({ error: "universeId query param required" });
     }
-    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
     const characters = await prisma.character.findMany({
@@ -42,7 +42,7 @@ router.post("/", async (req, res) => {
       role,
     } = req.body;
 
-    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -77,7 +77,7 @@ router.post("/generate", async (req, res) => {
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
     }
-    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
     debug.character("Generating all characters via Claude...", { universeId });
@@ -104,12 +104,12 @@ router.post("/generate", async (req, res) => {
 router.post("/:id/regenerate-sheet", requireAdmin, async (req, res) => {
   try {
     const character = await prisma.character.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
     });
     if (!character) {
       return res.status(404).json({ error: "Character not found" });
     }
-    if (!await verifyUniverseOwnership(character.universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(character.universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -118,12 +118,12 @@ router.post("/:id/regenerate-sheet", requireAdmin, async (req, res) => {
 
     // Clear the old reference
     await prisma.character.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { referenceImageUrl: "" },
     });
 
     const poseCount = parseInt(req.body?.poseCount) || 8;
-    const sheetUrl = await generateCharacterSheet(req.params.id, poseCount);
+    const sheetUrl = await generateCharacterSheet(req.params.id as string, poseCount);
 
     debug.image(`Sheet regenerated for "${character.name}" in ${Date.now() - startTime}ms`);
 
@@ -141,7 +141,7 @@ router.post("/generate-all-sheets", requireAdmin, async (req, res) => {
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
     }
-    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
     const poses = parseInt(poseCount) || 8;

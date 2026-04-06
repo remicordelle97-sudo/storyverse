@@ -24,7 +24,7 @@ router.get("/quota", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const universes = await prisma.universe.findMany({
-      where: { userId: req.userId },
+      where: { userId: req.userId as string },
       include: { characters: true },
       orderBy: { createdAt: "desc" },
     });
@@ -38,7 +38,7 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     const universe = await prisma.universe.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: {
         characters: true,
         locations: {
@@ -49,7 +49,7 @@ router.get("/:id", async (req, res) => {
     if (!universe) {
       return res.status(404).json({ error: "Universe not found" });
     }
-    if (universe.userId !== req.userId) {
+    if (universe.userId !== (req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
     res.json(universe);
@@ -148,7 +148,7 @@ router.post("/", async (req, res) => {
 
     const universe = await prisma.universe.create({
       data: {
-        userId: req.userId!,
+        userId: req.userId as string,
         name,
         settingDescription,
         sensoryDetails: sensoryDetails || "",
@@ -172,12 +172,12 @@ router.post("/", async (req, res) => {
 // Generate style reference image for a universe
 router.post("/:id/generate-style-reference", requireAdmin, async (req, res) => {
   try {
-    const universe = await prisma.universe.findUnique({ where: { id: req.params.id } });
+    const universe = await prisma.universe.findUnique({ where: { id: req.params.id as string } });
     if (!universe) return res.status(404).json({ error: "Universe not found" });
-    if (universe.userId !== req.userId) return res.status(403).json({ error: "Access denied" });
+    if (universe.userId !== (req.userId as string)) return res.status(403).json({ error: "Access denied" });
 
     const { generateStyleReference } = await import("../services/geminiGenerator.js");
-    const imageUrl = await generateStyleReference(req.params.id);
+    const imageUrl = await generateStyleReference(req.params.id as string);
     res.json({ styleReferenceUrl: imageUrl });
   } catch (e: any) {
     debug.error(`Style reference generation failed: ${e.message}`);

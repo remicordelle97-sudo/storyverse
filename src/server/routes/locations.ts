@@ -15,7 +15,7 @@ router.get("/", async (req, res) => {
     if (!universeId || typeof universeId !== "string") {
       return res.status(400).json({ error: "universeId query param required" });
     }
-    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
     const locations = await prisma.location.findMany({
@@ -35,7 +35,7 @@ router.post("/generate", async (req, res) => {
     if (!universeId) {
       return res.status(400).json({ error: "universeId is required" });
     }
-    if (!await verifyUniverseOwnership(universeId, req.userId!)) {
+    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -59,13 +59,13 @@ router.post("/generate", async (req, res) => {
 router.post("/:id/generate-sheet", requireAdmin, async (req, res) => {
   try {
     const location = await prisma.location.findUnique({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       include: { universe: true },
     });
     if (!location) {
       return res.status(404).json({ error: "Location not found" });
     }
-    if (location.universe.userId !== req.userId) {
+    if (location.universe.userId !== (req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -88,11 +88,11 @@ router.post("/:id/generate-sheet", requireAdmin, async (req, res) => {
 
     // Clear old sheet
     await prisma.location.update({
-      where: { id: req.params.id },
+      where: { id: req.params.id as string },
       data: { referenceImageUrl: "" },
     });
 
-    const sheetUrl = await generateLocationSheet(req.params.id, previousSheetUrls);
+    const sheetUrl = await generateLocationSheet(req.params.id as string, previousSheetUrls);
     res.json({ referenceImageUrl: sheetUrl });
   } catch (e: any) {
     debug.error(`Location sheet generation failed: ${e.message}`);

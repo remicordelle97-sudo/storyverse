@@ -26,7 +26,6 @@ async function main() {
       settingDescription:
         "A vast, sun-drenched savanna filled with golden grasses, towering baobab trees, winding rivers, and hidden waterfalls. Home to a community of brave and friendly animals who go on adventures together.",
       themes: JSON.stringify(["lions", "friendship", "exploration", "courage"]),
-      mood: "exciting adventures",
       avoidThemes: "No scary villains, no death",
     },
   });
