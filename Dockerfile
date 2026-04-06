@@ -23,11 +23,10 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci --omit=dev
+RUN npm ci --omit=dev && npx prisma generate
 
 # Copy built output
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
 # Copy static assets (login background, etc)
 COPY public ./public
@@ -40,4 +39,5 @@ EXPOSE 3001
 ENV NODE_ENV=production
 ENV PORT=3001
 
-CMD ["sh", "-c", "npx prisma db push --skip-generate && npm start"]
+# Run migrations then start the server
+CMD npx prisma db push --skip-generate && node dist/src/server/index.js

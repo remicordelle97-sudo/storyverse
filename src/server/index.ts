@@ -14,6 +14,11 @@ const PORT = process.env.PORT || 3001;
 app.use(express.json());
 app.use(cookieParser());
 
+// Health check (no auth required)
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
 // Serve generated images
 app.use("/images", express.static(path.resolve("public/images")));
 
