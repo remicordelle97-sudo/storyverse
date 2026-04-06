@@ -71,6 +71,8 @@ export const getStoryQuota = () =>
 export const getStories = (universeId?: string) =>
   request<any[]>(universeId ? `/stories?universeId=${universeId}` : "/stories");
 export const getStory = (id: string) => request<any>(`/stories/${id}`);
+export const toggleStoryPublic = (id: string) =>
+  request<{ isPublic: boolean }>(`/stories/${id}/toggle-public`, { method: "POST" });
 export function generateStory(
   data: any,
   onProgress?: (step: string, detail?: string) => void

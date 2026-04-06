@@ -25,24 +25,36 @@ router.get("/quota", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const { universeId } = req.query;
-    const where: any = {};
 
     if (universeId && typeof universeId === "string") {
       if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
         return res.status(403).json({ error: "Access denied" });
       }
-      where.universeId = universeId;
-    } else {
-      // All stories across user's universes
-      const userUniverses = await prisma.universe.findMany({
-        where: { userId: req.userId },
-        select: { id: true },
+      const stories = await prisma.story.findMany({
+        where: { universeId },
+        include: {
+          characters: { include: { character: true } },
+          scenes: { orderBy: { sceneNumber: "asc" } },
+          universe: true,
+        },
+        orderBy: { createdAt: "desc" },
       });
-      where.universeId = { in: userUniverses.map((u) => u.id) };
+      return res.json(stories);
     }
 
+    // User's own stories + public stories
+    const userUniverses = await prisma.universe.findMany({
+      where: { userId: req.userId },
+      select: { id: true },
+    });
+
     const stories = await prisma.story.findMany({
-      where,
+      where: {
+        OR: [
+          { universeId: { in: userUniverses.map((u) => u.id) } },
+          { isPublic: true },
+        ],
+      },
       include: {
         characters: { include: { character: true } },
         scenes: { orderBy: { sceneNumber: "asc" } },
@@ -70,7 +82,8 @@ router.get("/:id", async (req, res) => {
     if (!story) {
       return res.status(404).json({ error: "Story not found" });
     }
-    if (!await verifyUniverseOwnership(story.universeId, req.userId as string)) {
+    // Allow access to public stories or own stories
+    if (!story.isPublic && !await verifyUniverseOwnership(story.universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
     res.json(story);
@@ -371,6 +384,28 @@ router.post("/:id/regenerate-images", requireAdmin, async (req, res) => {
   } catch (e: any) {
     debug.error(`Image regeneration failed: ${e.message}`);
     sendError("Image regeneration failed. Please try again.");
+  }
+});
+
+// Toggle public/featured status (admin only)
+router.post("/:id/toggle-public", requireAdmin, async (req, res) => {
+  try {
+    const story = await prisma.story.findUnique({
+      where: { id: req.params.id as string },
+    });
+    if (!story) {
+      return res.status(404).json({ error: "Story not found" });
+    }
+
+    const updated = await prisma.story.update({
+      where: { id: req.params.id as string },
+      data: { isPublic: !story.isPublic },
+    });
+
+    debug.story(`Story "${updated.title}" is now ${updated.isPublic ? "public" : "private"}`);
+    res.json({ isPublic: updated.isPublic });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to toggle public status" });
   }
 });
 

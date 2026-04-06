@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getStories, getUniverses, getUniverseQuota } from "../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getStories, getUniverses, getUniverseQuota, toggleStoryPublic } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 // Generate a deterministic color from a string
@@ -63,40 +63,62 @@ function BookSpine({ story, onClick }: { story: any; onClick: () => void }) {
   );
 }
 
-function BookCover({ story, onClick }: { story: any; onClick: () => void }) {
+function BookCover({ story, onClick, isAdmin, onTogglePublic }: { story: any; onClick: () => void; isAdmin?: boolean; onTogglePublic?: () => void }) {
   const color = stringToColor(story.id);
   const universeName = story.universe?.name || "";
 
   return (
-    <button
-      onClick={onClick}
-      className={`group relative ${color} rounded-lg shadow-lg hover:shadow-2xl hover:-translate-y-2 hover:rotate-[-1deg] transition-all duration-200 overflow-hidden text-left`}
-      style={{ width: "160px", height: "220px" }}
-    >
-      {/* Spine edge */}
-      <div className="absolute left-0 top-0 bottom-0 w-3 bg-black/20 rounded-l-lg" />
+    <div className="relative" style={{ width: "160px" }}>
+      <button
+        onClick={onClick}
+        className={`group relative ${color} rounded-lg shadow-lg hover:shadow-2xl hover:-translate-y-2 hover:rotate-[-1deg] transition-all duration-200 overflow-hidden text-left w-full`}
+        style={{ height: "220px" }}
+      >
+        {/* Spine edge */}
+        <div className="absolute left-0 top-0 bottom-0 w-3 bg-black/20 rounded-l-lg" />
 
-      {/* Cover content */}
-      <div className="flex flex-col justify-between h-full p-4 pl-5">
-        {/* Universe label */}
-        {universeName && (
-          <p className="text-white/50 text-[9px] uppercase tracking-wider font-medium">
-            {universeName}
-          </p>
+        {/* Public badge */}
+        {story.isPublic && (
+          <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-yellow-400/90 rounded text-[8px] font-bold text-yellow-900 uppercase tracking-wide z-10">
+            Featured
+          </div>
         )}
 
-        {/* Title */}
-        <div className="flex-1 flex items-center">
-          <h3 className="text-white font-bold text-sm leading-snug">
-            {story.title}
-          </h3>
+        {/* Cover content */}
+        <div className="flex flex-col justify-between h-full p-4 pl-5">
+          {/* Universe label */}
+          {universeName && (
+            <p className="text-white/50 text-[9px] uppercase tracking-wider font-medium">
+              {universeName}
+            </p>
+          )}
+
+          {/* Title */}
+          <div className="flex-1 flex items-center">
+            <h3 className="text-white font-bold text-sm leading-snug">
+              {story.title}
+            </h3>
+          </div>
         </div>
 
-      </div>
+        {/* Subtle texture */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+      </button>
 
-      {/* Subtle texture */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-    </button>
+      {/* Admin publish toggle */}
+      {isAdmin && onTogglePublic && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onTogglePublic(); }}
+          className={`mt-1 w-full text-[10px] py-1 rounded transition-colors ${
+            story.isPublic
+              ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+              : "bg-stone-100 text-stone-400 hover:bg-stone-200"
+          }`}
+        >
+          {story.isPublic ? "Unpublish" : "Publish to all"}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -122,6 +144,7 @@ function Shelf({ children }: { children: React.ReactNode }) {
 export default function Library() {
   const navigate = useNavigate();
   const { user, isAdmin, logout } = useAuth();
+  const queryClient = useQueryClient();
   const [showMenu, setShowMenu] = useState(false);
   const [viewMode, setViewMode] = useState<"covers" | "spines">("covers");
 
@@ -287,6 +310,11 @@ export default function Library() {
                       key={story.id}
                       story={story}
                       onClick={() => navigate(`/reading/${story.id}`)}
+                      isAdmin={isAdmin}
+                      onTogglePublic={async () => {
+                        await toggleStoryPublic(story.id);
+                        queryClient.invalidateQueries({ queryKey: ["stories-all"] });
+                      }}
                     />
                   ) : (
                     <BookSpine

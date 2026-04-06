@@ -79,6 +79,7 @@ model Story {
   ageGroup         String
   hasIllustrations Boolean          @default(false)
   status           String           @default("draft")
+  isPublic         Boolean          @default(false)
   createdAt        DateTime         @default(now())
   universe         Universe         @relation(fields: [universeId], references: [id])
   scenes           Scene[]
