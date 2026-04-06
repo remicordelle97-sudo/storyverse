@@ -10,7 +10,8 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "build": "tsc && vite build"
+    "build": "prisma generate && tsc && vite build",
+    "start": "node dist/src/server/index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

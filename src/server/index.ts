@@ -26,6 +26,13 @@ app.use("/api/characters", authMiddleware, charactersRouter);
 app.use("/api/stories", authMiddleware, storiesRouter);
 app.use("/api/locations", authMiddleware, locationsRouter);
 
+// In production, serve the built React app
+const clientDist = path.resolve("dist/client");
+app.use(express.static(clientDist));
+app.get("*", (_req, res) => {
+  res.sendFile(path.join(clientDist, "index.html"));
+});
+
 app.listen(PORT, () => {
-  console.log(`Storyverse API running on http://localhost:${PORT}`);
+  console.log(`Storyverse running on http://localhost:${PORT}`);
 });
