@@ -43,4 +43,4 @@ ENV NODE_ENV=production
 ENV PORT=3001
 
 # Run migrations then start the server
-CMD npx prisma db push --skip-generate && node dist/src/server/index.js
+CMD npx prisma db push --skip-generate --accept-data-loss && node dist/src/server/index.js
