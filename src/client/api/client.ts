@@ -88,6 +88,8 @@ export const getStories = (universeId?: string) =>
 export const getStory = (id: string) => request<any>(`/stories/${id}`);
 export const toggleStoryPublic = (id: string) =>
   request<{ isPublic: boolean }>(`/stories/${id}/toggle-public`, { method: "POST" });
+export const deleteStory = (id: string) =>
+  request<{ ok: boolean }>(`/stories/${id}`, { method: "DELETE" });
 export function generateStory(
   data: any,
   onProgress?: (step: string, detail?: string) => void

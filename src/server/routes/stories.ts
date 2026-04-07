@@ -426,4 +426,25 @@ router.post("/:id/toggle-public", requireAdmin, async (req, res) => {
   }
 });
 
+// Delete a story and all its data (admin only)
+router.delete("/:id", requireAdmin, async (req, res) => {
+  try {
+    const storyId = req.params.id as string;
+    const story = await prisma.story.findUnique({ where: { id: storyId } });
+    if (!story) {
+      return res.status(404).json({ error: "Story not found" });
+    }
+
+    await prisma.storyCharacter.deleteMany({ where: { storyId } });
+    await prisma.scene.deleteMany({ where: { storyId } });
+    await prisma.story.delete({ where: { id: storyId } });
+
+    debug.story(`Deleted story "${story.title}"`);
+    res.json({ ok: true });
+  } catch (e: any) {
+    debug.error(`Failed to delete story: ${e.message}`);
+    res.status(500).json({ error: "Failed to delete story" });
+  }
+});
+
 export default router;

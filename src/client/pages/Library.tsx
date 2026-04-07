@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getStories, getUniverses, getUniverseQuota, toggleStoryPublic, createCheckoutSession, createPortalSession } from "../api/client";
+import { getStories, getUniverses, getUniverseQuota, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 // Generate a deterministic color from a string
@@ -19,7 +19,7 @@ function stringToColor(str: string): string {
 }
 
 
-function BookCover({ story, onClick, isAdmin, onTogglePublic }: { story: any; onClick: () => void; isAdmin?: boolean; onTogglePublic?: () => void }) {
+function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { story: any; onClick: () => void; isAdmin?: boolean; onTogglePublic?: () => void; onDelete?: () => void }) {
   const color = stringToColor(story.id);
   const universeName = story.universe?.name || "";
 
@@ -61,18 +61,30 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic }: { story: any; on
         <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
       </button>
 
-      {/* Admin publish toggle */}
-      {isAdmin && onTogglePublic && (
-        <button
-          onClick={(e) => { e.stopPropagation(); onTogglePublic(); }}
-          className={`mt-1 w-full text-[10px] py-1 rounded transition-colors ${
-            story.isPublic
-              ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-              : "bg-stone-100 text-stone-400 hover:bg-stone-200"
-          }`}
-        >
-          {story.isPublic ? "Unpublish" : "Publish to all"}
-        </button>
+      {/* Admin controls */}
+      {isAdmin && (
+        <div className="mt-1 flex gap-1">
+          {onTogglePublic && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onTogglePublic(); }}
+              className={`flex-1 text-[10px] py-1 rounded transition-colors ${
+                story.isPublic
+                  ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                  : "bg-stone-100 text-stone-400 hover:bg-stone-200"
+              }`}
+            >
+              {story.isPublic ? "Unpublish" : "Publish"}
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="text-[10px] px-2 py-1 rounded bg-red-50 text-red-400 hover:bg-red-100 transition-colors"
+            >
+              Delete
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -280,6 +292,11 @@ export default function Library() {
                       isAdmin={isAdmin}
                       onTogglePublic={async () => {
                         await toggleStoryPublic(story.id);
+                        queryClient.invalidateQueries({ queryKey: ["stories-all"] });
+                      }}
+                      onDelete={async () => {
+                        if (!confirm(`Delete "${story.title}"? This cannot be undone.`)) return;
+                        await deleteStory(story.id);
                         queryClient.invalidateQueries({ queryKey: ["stories-all"] });
                       }}
                     />
