@@ -100,22 +100,32 @@ router.post("/generate", async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  // Send heartbeat every 30s to prevent proxy/Railway timeout
+  const heartbeat = setInterval(() => {
+    res.write(`: heartbeat\n\n`);
+  }, 30000);
+
   function sendProgress(step: string, detail?: string) {
     const data = JSON.stringify({ type: "progress", step, detail });
     res.write(`data: ${data}\n\n`);
   }
 
   function sendError(message: string) {
+    clearInterval(heartbeat);
     const data = JSON.stringify({ type: "error", error: message });
     res.write(`data: ${data}\n\n`);
     res.end();
   }
 
   function sendComplete(story: any) {
+    clearInterval(heartbeat);
     const data = JSON.stringify({ type: "complete", story });
     res.write(`data: ${data}\n\n`);
     res.end();
   }
+
+  // Clean up heartbeat if client disconnects
+  res.on("close", () => clearInterval(heartbeat));
 
   try {
     const {
@@ -311,17 +321,25 @@ router.post("/:id/regenerate-images", requireAdmin, async (req, res) => {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  const heartbeat = setInterval(() => {
+    res.write(`: heartbeat\n\n`);
+  }, 30000);
+
   function sendProgress(step: string, detail?: string) {
     res.write(`data: ${JSON.stringify({ type: "progress", step, detail })}\n\n`);
   }
   function sendError(message: string) {
+    clearInterval(heartbeat);
     res.write(`data: ${JSON.stringify({ type: "error", error: message })}\n\n`);
     res.end();
   }
   function sendComplete(story: any) {
+    clearInterval(heartbeat);
     res.write(`data: ${JSON.stringify({ type: "complete", story })}\n\n`);
     res.end();
   }
+
+  res.on("close", () => clearInterval(heartbeat));
 
   try {
     const story = await prisma.story.findUnique({
