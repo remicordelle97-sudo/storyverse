@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getStories, getUniverses, getUniverseQuota, toggleStoryPublic } from "../api/client";
+import { getStories, getUniverses, getUniverseQuota, toggleStoryPublic, createCheckoutSession, createPortalSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 // Generate a deterministic color from a string
@@ -282,6 +282,34 @@ export default function Library() {
                         >
                           Manage Universes
                         </button>
+                      </>
+                    )}
+                    {!isAdmin && (
+                      <>
+                        <div className="border-t border-stone-100 my-1" />
+                        {user?.plan === "premium" ? (
+                          <button
+                            onClick={async () => {
+                              setShowMenu(false);
+                              const { url } = await createPortalSession();
+                              window.location.href = url;
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
+                          >
+                            Manage Subscription
+                          </button>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              setShowMenu(false);
+                              const { url } = await createCheckoutSession();
+                              window.location.href = url;
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-primary hover:bg-stone-50 transition-colors font-medium"
+                          >
+                            Upgrade to Premium
+                          </button>
+                        )}
                       </>
                     )}
                   </div>

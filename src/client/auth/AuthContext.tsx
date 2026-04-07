@@ -13,6 +13,7 @@ interface User {
   name: string;
   picture: string;
   role: string;
+  plan: string;
 }
 
 interface AuthState {

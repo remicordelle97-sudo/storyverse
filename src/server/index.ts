@@ -2,6 +2,7 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import path from "path";
 import authRouter from "./routes/auth.js";
+import billingRouter from "./routes/billing.js";
 import universesRouter from "./routes/universes.js";
 import charactersRouter from "./routes/characters.js";
 import storiesRouter from "./routes/stories.js";
@@ -10,6 +11,9 @@ import { authMiddleware } from "./middleware/auth.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Stripe webhook needs raw body — must be before express.json()
+app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
 
 app.use(express.json());
 app.use(cookieParser());
@@ -24,6 +28,7 @@ app.use("/images", express.static(path.resolve("public/images")));
 
 // Public routes
 app.use("/api/auth", authRouter);
+app.use("/api/billing", billingRouter);
 
 // Protected routes
 app.use("/api/universes", authMiddleware, universesRouter);

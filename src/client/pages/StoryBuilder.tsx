@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getUniverse, getUniverses, generateStory, getStoryQuota } from "../api/client";
+import { getUniverse, getUniverses, generateStory, getStoryQuota, createCheckoutSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
 
@@ -312,11 +312,24 @@ export default function StoryBuilder() {
 
           {/* Quota info */}
           {quota && !isAdmin && quota.limit !== Infinity && (
-            <p className={`text-xs text-center ${quota.remaining === 0 ? "text-red-500" : "text-stone-400"}`}>
-              {quota.remaining === 0
-                ? `You've used all ${quota.limit} stories this month`
-                : `${quota.remaining} of ${quota.limit} stories remaining this month`}
-            </p>
+            <div className="text-center">
+              <p className={`text-xs ${quota.remaining === 0 ? "text-red-500" : "text-stone-400"}`}>
+                {quota.remaining === 0
+                  ? `You've used all ${quota.limit} stories this month`
+                  : `${quota.remaining} of ${quota.limit} stories remaining this month`}
+              </p>
+              {quota.remaining === 0 && (
+                <button
+                  onClick={async () => {
+                    const { url } = await createCheckoutSession();
+                    window.location.href = url;
+                  }}
+                  className="mt-2 text-xs text-primary hover:text-primary/80 font-medium underline"
+                >
+                  Upgrade to Premium for unlimited stories
+                </button>
+              )}
+            </div>
           )}
 
           {/* Generate */}

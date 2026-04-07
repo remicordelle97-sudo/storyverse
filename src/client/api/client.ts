@@ -23,6 +23,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 // Universes
+// Billing
+export const createCheckoutSession = () =>
+  request<{ url: string }>("/billing/create-checkout", { method: "POST" });
+export const createPortalSession = () =>
+  request<{ url: string }>("/billing/create-portal", { method: "POST" });
+
 export const getUniverseQuota = () =>
   request<{ allowed: boolean; used: number; limit: number; remaining: number }>("/universes/quota");
 export const getUniverses = () => request<any[]>("/universes");

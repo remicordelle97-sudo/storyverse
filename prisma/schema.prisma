@@ -8,15 +8,16 @@ datasource db {
 }
 
 model User {
-  id        String     @id @default(uuid())
-  googleId  String     @unique
-  email     String     @unique
-  name      String
-  role      String     @default("user")
-  plan      String     @default("free")
-  picture   String     @default("")
-  createdAt DateTime   @default(now())
-  universes Universe[]
+  id               String     @id @default(uuid())
+  googleId         String     @unique
+  email            String     @unique
+  name             String
+  role             String     @default("user")
+  plan             String     @default("free")
+  stripeCustomerId String?    @unique
+  picture          String     @default("")
+  createdAt        DateTime   @default(now())
+  universes        Universe[]
 }
 
 model Universe {
