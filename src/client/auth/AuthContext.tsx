@@ -67,6 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Switch to impersonated user
     updateToken(token);
     setUser(targetUser);
+    // Persist impersonation so it survives page navigation
+    sessionStorage.setItem("impersonation", JSON.stringify({
+      adminToken: accessToken,
+      adminUser: user,
+      token,
+      user: targetUser,
+    }));
   };
 
   const stopImpersonation = () => {
@@ -76,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setAdminToken(null);
     setAdminUser(null);
+    sessionStorage.removeItem("impersonation");
   };
 
   const refreshUser = useCallback(async () => {
@@ -99,10 +107,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Try to refresh token on mount (from httpOnly cookie)
+  // Try to restore session on mount
   useEffect(() => {
     (async () => {
       try {
+        // Check for active impersonation first
+        const saved = sessionStorage.getItem("impersonation");
+        if (saved) {
+          const imp = JSON.parse(saved);
+          setAdminToken(imp.adminToken);
+          setAdminUser(imp.adminUser);
+          updateToken(imp.token);
+          setUser(imp.user);
+          setLoading(false);
+          return;
+        }
+
+        // Normal session refresh
         const res = await fetch("/api/auth/refresh", { method: "POST" });
         if (res.ok) {
           const { accessToken: token } = await res.json();
