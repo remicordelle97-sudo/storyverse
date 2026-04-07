@@ -213,6 +213,15 @@ export default function Library() {
                         >
                           Manage Universes
                         </button>
+                        <button
+                          onClick={() => {
+                            setShowMenu(false);
+                            navigate("/admin");
+                          }}
+                          className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
+                        >
+                          Admin
+                        </button>
                       </>
                     )}
                     {!isAdmin && (

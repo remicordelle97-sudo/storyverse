@@ -22,6 +22,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+// Admin
+export const getAdminUsers = () => request<any[]>("/admin/users");
+export const impersonateUser = (userId: string) =>
+  request<{ accessToken: string; user: any }>(`/admin/impersonate/${userId}`, { method: "POST" });
+
 // Universes
 // Billing
 export const createCheckoutSession = () =>

@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Library from "./pages/Library";
 import NewUniverse from "./pages/NewUniverse";
 import UniverseManager from "./pages/UniverseManager";
+import AdminDashboard from "./pages/AdminDashboard";
 import StoryBuilder from "./pages/StoryBuilder";
 import ReadingMode from "./pages/ReadingMode";
 
@@ -69,6 +70,10 @@ function AppRoutes() {
         element={<AdminRoute><UniverseManager /></AdminRoute>}
       />
       <Route
+        path="/admin"
+        element={<AdminRoute><AdminDashboard /></AdminRoute>}
+      />
+      <Route
         path="/story-builder"
         element={<ProtectedRoute><StoryBuilder /></ProtectedRoute>}
       />
@@ -88,10 +93,29 @@ function AppRoutes() {
   );
 }
 
+function ImpersonationBanner() {
+  const { isImpersonating, impersonatedUser, stopImpersonation } = useAuth();
+
+  if (!isImpersonating || !impersonatedUser) return null;
+
+  return (
+    <div className="sticky top-0 z-[100] bg-amber-500 text-amber-950 px-4 py-2 text-center text-sm font-medium shadow-md">
+      Viewing as {impersonatedUser.name || impersonatedUser.email}
+      <button
+        onClick={stopImpersonation}
+        className="ml-3 px-3 py-0.5 bg-amber-900 text-white rounded-md text-xs font-semibold hover:bg-amber-800 transition-colors"
+      >
+        Exit
+      </button>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <div className="min-h-screen bg-stone-50">
+        <ImpersonationBanner />
         <AppRoutes />
       </div>
     </AuthProvider>

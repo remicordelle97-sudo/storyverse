@@ -21,9 +21,13 @@ interface AuthState {
   isAdmin: boolean;
   accessToken: string | null;
   loading: boolean;
+  isImpersonating: boolean;
+  impersonatedUser: User | null;
   login: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  startImpersonation: (token: string, targetUser: User) => void;
+  stopImpersonation: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -45,9 +49,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Impersonation state
+  const [adminToken, setAdminToken] = useState<string | null>(null);
+  const [adminUser, setAdminUser] = useState<User | null>(null);
+  const isImpersonating = adminToken !== null;
+  const impersonatedUser = isImpersonating ? user : null;
+
   const updateToken = (token: string | null) => {
     currentAccessToken = token;
     setAccessToken(token);
+  };
+
+  const startImpersonation = (token: string, targetUser: User) => {
+    // Save current admin session
+    setAdminToken(accessToken);
+    setAdminUser(user);
+    // Switch to impersonated user
+    updateToken(token);
+    setUser(targetUser);
+  };
+
+  const stopImpersonation = () => {
+    if (adminToken && adminUser) {
+      updateToken(adminToken);
+      setUser(adminUser);
+    }
+    setAdminToken(null);
+    setAdminUser(null);
   };
 
   const refreshUser = useCallback(async () => {
@@ -118,11 +146,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("universeId");
   };
 
-  const isAdmin = user?.role === "admin";
+  // During impersonation, isAdmin is false so the admin sees the normal user experience
+  const isAdmin = !isImpersonating && user?.role === "admin";
 
   return (
     <AuthContext.Provider
-      value={{ user, isAdmin, accessToken, loading, login, logout, refreshUser }}
+      value={{
+        user,
+        isAdmin,
+        accessToken,
+        loading,
+        isImpersonating,
+        impersonatedUser,
+        login,
+        logout,
+        refreshUser,
+        startImpersonation,
+        stopImpersonation,
+      }}
     >
       {children}
     </AuthContext.Provider>
