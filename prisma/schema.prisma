@@ -18,6 +18,7 @@ model User {
   picture          String     @default("")
   createdAt        DateTime   @default(now())
   universes        Universe[]
+  stories          Story[]
 }
 
 model Universe {
@@ -75,6 +76,7 @@ model Character {
 model Story {
   id               String           @id @default(uuid())
   universeId       String
+  createdById      String?
   title            String
   mood             String
   language         String           @default("en")
@@ -84,6 +86,7 @@ model Story {
   isPublic         Boolean          @default(false)
   createdAt        DateTime         @default(now())
   universe         Universe         @relation(fields: [universeId], references: [id])
+  createdBy        User?            @relation(fields: [createdById], references: [id])
   scenes           Scene[]
   characters       StoryCharacter[]
 }

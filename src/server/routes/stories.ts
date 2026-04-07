@@ -52,6 +52,7 @@ router.get("/", async (req, res) => {
       where: {
         OR: [
           { universeId: { in: userUniverses.map((u) => u.id) } },
+          { createdById: req.userId as string },
           { isPublic: true },
         ],
       },
@@ -225,6 +226,7 @@ router.post("/generate", async (req, res) => {
     const story = await prisma.story.create({
       data: {
         universeId,
+        createdById: req.userId as string,
         title: generated.title,
         mood: mood,
         language: language || "en",
