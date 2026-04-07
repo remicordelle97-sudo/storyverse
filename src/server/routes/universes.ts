@@ -20,11 +20,16 @@ router.get("/quota", async (req, res) => {
   }
 });
 
-// List all universes for the authenticated user
+// List all universes for the authenticated user + public universes
 router.get("/", async (req, res) => {
   try {
     const universes = await prisma.universe.findMany({
-      where: { userId: req.userId as string },
+      where: {
+        OR: [
+          { userId: req.userId as string },
+          { isPublic: true },
+        ],
+      },
       include: { characters: true },
       orderBy: { createdAt: "desc" },
     });
@@ -49,7 +54,7 @@ router.get("/:id", async (req, res) => {
     if (!universe) {
       return res.status(404).json({ error: "Universe not found" });
     }
-    if (universe.userId !== (req.userId as string)) {
+    if (universe.userId !== (req.userId as string) && !universe.isPublic) {
       return res.status(403).json({ error: "Access denied" });
     }
     res.json(universe);
@@ -182,6 +187,28 @@ router.post("/:id/generate-style-reference", requireAdmin, async (req, res) => {
   } catch (e: any) {
     debug.error(`Style reference generation failed: ${e.message}`);
     res.status(500).json({ error: "Failed to generate style reference" });
+  }
+});
+
+// Toggle public/featured status (admin only)
+router.post("/:id/toggle-public", requireAdmin, async (req, res) => {
+  try {
+    const universe = await prisma.universe.findUnique({
+      where: { id: req.params.id as string },
+    });
+    if (!universe) {
+      return res.status(404).json({ error: "Universe not found" });
+    }
+
+    const updated = await prisma.universe.update({
+      where: { id: req.params.id as string },
+      data: { isPublic: !universe.isPublic },
+    });
+
+    debug.universe(`Universe "${updated.name}" is now ${updated.isPublic ? "public" : "private"}`);
+    res.json({ isPublic: updated.isPublic });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to toggle public status" });
   }
 });
 

@@ -7,7 +7,7 @@ import { buildPrompt } from "../services/promptBuilder.js";
 import { generateStory } from "../services/storyGenerator.js";
 import { MOODS } from "../lib/config.js";
 import { generateStoryImages } from "../services/geminiGenerator.js";
-import { verifyUniverseOwnership } from "../lib/ownership.js";
+import { verifyUniverseOwnership, verifyUniverseAccess } from "../lib/ownership.js";
 
 const router = Router();
 
@@ -158,7 +158,7 @@ router.post("/generate", async (req, res) => {
       return sendError(`You've reached your limit of ${quota.limit} stories this month. Upgrade to premium for unlimited stories.`);
     }
 
-    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
+    if (!await verifyUniverseAccess(universeId, req.userId as string)) {
       return sendError("Access denied");
     }
 

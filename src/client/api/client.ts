@@ -29,6 +29,8 @@ export const createCheckoutSession = () =>
 export const createPortalSession = () =>
   request<{ url: string }>("/billing/create-portal", { method: "POST" });
 
+export const toggleUniversePublic = (id: string) =>
+  request<{ isPublic: boolean }>(`/universes/${id}/toggle-public`, { method: "POST" });
 export const getUniverseQuota = () =>
   request<{ allowed: boolean; used: number; limit: number; remaining: number }>("/universes/quota");
 export const getUniverses = () => request<any[]>("/universes");

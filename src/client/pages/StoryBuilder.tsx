@@ -185,7 +185,7 @@ export default function StoryBuilder() {
                 {universes.map((u: any) => (
                   <Chip
                     key={u.id}
-                    label={u.name}
+                    label={u.isPublic ? `${u.name} ★` : u.name}
                     selected={universeId === u.id}
                     onClick={() => {
                       setUniverseId(u.id);

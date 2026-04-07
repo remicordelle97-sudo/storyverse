@@ -11,6 +11,7 @@ import {
   generateLocations,
   generateLocationReferenceSheet,
   generateStyleReference,
+  toggleUniversePublic,
 } from "../api/client";
 
 function ActionButton({
@@ -160,7 +161,22 @@ export default function UniverseManager() {
             <>
               {/* Universe info */}
               <div className="bg-white rounded-xl border border-stone-200 p-5">
-                <h2 className="text-lg font-bold text-stone-800 mb-1">{universe.name}</h2>
+                <div className="flex items-center justify-between mb-1">
+                  <h2 className="text-lg font-bold text-stone-800">{universe.name}</h2>
+                  <button
+                    onClick={async () => {
+                      await toggleUniversePublic(universe.id);
+                      invalidate();
+                    }}
+                    className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors ${
+                      universe.isPublic
+                        ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                        : "bg-stone-100 text-stone-400 hover:bg-stone-200"
+                    }`}
+                  >
+                    {universe.isPublic ? "Featured (public)" : "Publish to all users"}
+                  </button>
+                </div>
                 <p className="text-sm text-stone-500 mb-3">{universe.settingDescription}</p>
                 <div className="space-y-2 text-xs">
                   <div><span className="text-stone-400">Themes:</span> <span className="text-stone-600">{themes.join(", ")}</span></div>
