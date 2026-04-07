@@ -88,7 +88,7 @@ export default function StoryBuilder() {
           characterIds: allCharacterIds,
           language: "en",
           ageGroup,
-          structure,
+          structure: isAdmin ? structure : undefined,
           length,
           parentPrompt,
           generateImages,
