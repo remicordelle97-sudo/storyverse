@@ -49,6 +49,13 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { stor
             </p>
           )}
 
+          {/* Empty story indicator */}
+          {(!story.scenes || story.scenes.length === 0) && (
+            <p className="text-white/30 text-[8px] uppercase tracking-wider">
+              Generation failed
+            </p>
+          )}
+
           {/* Title */}
           <div className="flex-1 flex items-center">
             <h3 className="text-white font-bold text-sm leading-snug">
