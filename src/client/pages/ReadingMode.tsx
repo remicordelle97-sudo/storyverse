@@ -332,6 +332,22 @@ export default function ReadingMode() {
     );
   }
 
+  if (pages.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center gap-4">
+        <p className="text-stone-400" style={{ fontFamily: "Lexend, sans-serif" }}>
+          This story has no pages yet
+        </p>
+        <button
+          onClick={() => navigate("/library")}
+          className="text-stone-500 hover:text-white text-sm transition-colors"
+        >
+          Back to Library
+        </button>
+      </div>
+    );
+  }
+
   const page = pages[pageIndex];
 
   return (
