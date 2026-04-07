@@ -9,6 +9,7 @@ import storiesRouter from "./routes/stories.js";
 import locationsRouter from "./routes/locations.js";
 import adminRouter from "./routes/admin.js";
 import { authMiddleware } from "./middleware/auth.js";
+import { resumeIncompleteStories } from "./lib/resumeStories.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -47,4 +48,8 @@ app.get("*", (_req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Storyverse running on http://localhost:${PORT}`);
+  // Resume any stories that were mid-illustration when the server restarted
+  resumeIncompleteStories().catch((e) => {
+    console.error("Failed to resume incomplete stories:", e);
+  });
 });
