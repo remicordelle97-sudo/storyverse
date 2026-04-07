@@ -49,7 +49,7 @@ export default function StoryBuilder() {
   const [structure, setStructure] = useState("problem-solution");
   const [length] = useState<"short" | "long">("short");
   const [parentPrompt, setParentPrompt] = useState("");
-  const [generateImages, setGenerateImages] = useState(false);
+  const [generateImages, setGenerateImages] = useState(!isAdmin);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progressStep, setProgressStep] = useState("");
@@ -277,19 +277,21 @@ export default function StoryBuilder() {
           )}
 
 
-          {/* Illustrations toggle */}
-          <section className="mb-8">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <div
-                onClick={() => setGenerateImages(!generateImages)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${generateImages ? "bg-primary" : "bg-stone-300"}`}
-              >
-                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${generateImages ? "translate-x-5" : ""}`} />
-              </div>
-              <span className="text-sm font-medium text-stone-700">Generate illustrations</span>
-            </label>
-            <p className="text-xs text-stone-400 mt-1 ml-14">Uses Gemini. Leave off to save credits.</p>
-          </section>
+          {/* Illustrations toggle (admin only — non-admin always generates images) */}
+          {isAdmin && (
+            <section className="mb-8">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <div
+                  onClick={() => setGenerateImages(!generateImages)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${generateImages ? "bg-primary" : "bg-stone-300"}`}
+                >
+                  <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${generateImages ? "translate-x-5" : ""}`} />
+                </div>
+                <span className="text-sm font-medium text-stone-700">Generate illustrations</span>
+              </label>
+              <p className="text-xs text-stone-400 mt-1 ml-14">Uses Gemini. Leave off to save credits.</p>
+            </section>
+          )}
 
           {/* Parent prompt */}
           <section className="mb-8">
