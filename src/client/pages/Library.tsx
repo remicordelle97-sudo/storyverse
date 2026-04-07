@@ -79,7 +79,7 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic }: { story: any; on
 
         {/* Public badge */}
         {story.isPublic && (
-          <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-yellow-400/90 rounded text-[8px] font-bold text-yellow-900 uppercase tracking-wide z-10">
+          <div className="absolute bottom-2 right-2 px-1.5 py-0.5 bg-yellow-400/90 rounded text-[8px] font-bold text-yellow-900 uppercase tracking-wide z-10">
             Featured
           </div>
         )}
