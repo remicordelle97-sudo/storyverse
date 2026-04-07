@@ -193,7 +193,7 @@ router.post("/generate", async (req, res) => {
       ageGroup: resolvedAgeGroup,
     });
 
-    // Step 2: Generate story (plan + write)
+    // Step 2: Generate story text (plan + write)
     debug.story("Calling Claude for story generation...");
     const storyStart = Date.now();
 
@@ -202,6 +202,12 @@ router.post("/generate", async (req, res) => {
       where: { id: { in: characterIds } },
       select: { name: true, appearance: true, outfit: true, specialDetail: true },
     });
+
+    // Check if client is still connected
+    if (res.closed) {
+      debug.story("Client disconnected before story generation");
+      return;
+    }
 
     const generated = await generateStory(
       planMessage,
@@ -217,8 +223,42 @@ router.post("/generate", async (req, res) => {
       pages: generated.pages.length,
     });
 
-    // Step 3: Save to database
-    sendProgress("saving", `"${generated.title}" — saving ${generated.pages.length} pages...`);
+    if (res.closed) {
+      debug.story("Client disconnected after story generation");
+      return;
+    }
+
+    // Step 3: Generate images (if enabled)
+    let imageMap = new Map<number, string>();
+
+    if (generateImages) {
+      debug.image(`=== IMAGE GENERATION START ===`);
+      sendProgress("illustrating", `Creating ${generated.pages.length} illustrations...`);
+
+      try {
+        imageMap = await generateStoryImages(
+          universeId,
+          characterIds,
+          mood,
+          generated.pages,
+          (pageNum, total, _imageUrl) => {
+            sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);
+          },
+          generated.characterAnchors
+        );
+      } catch (imgErr: any) {
+        debug.error(`Image generation failed (saving story without images): ${imgErr.message}`);
+        sendProgress("illustrating", "Some illustrations failed — saving story without them...");
+      }
+    }
+
+    if (res.closed) {
+      debug.story("Client disconnected after image generation");
+      return;
+    }
+
+    // Step 4: Save everything to database at once (no orphaned records)
+    sendProgress("saving", `"${generated.title}" — saving...`);
 
     const story = await prisma.story.create({
       data: {
@@ -229,70 +269,24 @@ router.post("/generate", async (req, res) => {
         language: language || "en",
         ageGroup,
         status: "published",
-      },
-    });
-
-    const totalPages = generated.pages.length;
-
-    if (generateImages) {
-      debug.image(`=== IMAGE GENERATION START (Gemini multi-turn chat) ===`);
-      sendProgress("illustrating", `Creating ${totalPages} illustrations...`);
-
-      // Generate all images in a single chat session for consistency
-      const imageMap = await generateStoryImages(
-        universeId,
-        characterIds,
-        mood,
-        generated.pages,
-        (pageNum, total, _imageUrl) => {
-          sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);
-        },
-        generated.characterAnchors
-      );
-
-      // Save all pages with their images
-      for (const page of generated.pages) {
-        await prisma.scene.create({
-          data: {
-            storyId: story.id,
+        hasIllustrations: imageMap.size > 0,
+        scenes: {
+          create: generated.pages.map((page) => ({
             sceneNumber: page.page_number,
             content: page.content,
             imagePrompt: page.image_prompt || "",
             imageUrl: imageMap.get(page.page_number) || "",
             imageSeed: 0,
             imageEngine: imageMap.has(page.page_number) ? "gemini" : "",
-          },
-        });
-      }
-    } else {
-      // No images — save pages directly
-      for (const page of generated.pages) {
-        await prisma.scene.create({
-          data: {
-            storyId: story.id,
-            sceneNumber: page.page_number,
-            content: page.content,
-            imagePrompt: page.image_prompt || "",
-            imageUrl: "",
-          },
-        });
-      }
-    }
-
-    // Save story-character associations
-    for (const charId of characterIds) {
-      await prisma.storyCharacter.create({
-        data: {
-          storyId: story.id,
-          characterId: charId,
-          roleInStory: "featured",
+          })),
         },
-      });
-    }
-
-    // Fetch the full story to return
-    const fullStory = await prisma.story.findUnique({
-      where: { id: story.id },
+        characters: {
+          create: characterIds.map((charId: string) => ({
+            characterId: charId,
+            roleInStory: "featured",
+          })),
+        },
+      },
       include: {
         scenes: { orderBy: { sceneNumber: "asc" } },
         characters: { include: { character: true } },
@@ -300,13 +294,13 @@ router.post("/generate", async (req, res) => {
     });
 
     debug.story("=== STORY GENERATION COMPLETE ===", {
-      storyId: fullStory?.id,
-      title: fullStory?.title,
-      pages: fullStory?.scenes?.length,
-      images: fullStory?.scenes?.filter((s: any) => s.imageUrl).length,
+      storyId: story.id,
+      title: story.title,
+      pages: story.scenes.length,
+      images: story.scenes.filter((s) => s.imageUrl).length,
     });
 
-    sendComplete(fullStory);
+    sendComplete(story);
   } catch (e: any) {
     debug.error(`Story generation failed: ${e.message}`);
     sendError("Story generation failed. Please try again.");
