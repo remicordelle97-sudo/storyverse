@@ -18,50 +18,6 @@ function stringToColor(str: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-function BookSpine({ story, onClick }: { story: any; onClick: () => void }) {
-  const color = stringToColor(story.id);
-  const universeName = story.universe?.name || "";
-
-  return (
-    <button
-      onClick={onClick}
-      className={`group relative ${color} rounded-sm shadow-md hover:shadow-xl hover:-translate-y-2 transition-all duration-200 flex flex-col justify-between overflow-hidden`}
-      style={{ width: "70px", height: "220px" }}
-    >
-      {/* Spine edge effect */}
-      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-black/20" />
-      <div className="absolute right-0 top-0 bottom-0 w-px bg-white/10" />
-
-      {/* Title */}
-      <div className="flex-1 flex items-center justify-center px-1.5 py-4">
-        <p
-          className="text-white font-semibold text-center leading-tight"
-          style={{
-            fontSize: "10px",
-            writingMode: "vertical-rl",
-            textOrientation: "mixed",
-            maxHeight: "160px",
-            overflow: "hidden",
-          }}
-        >
-          {story.title}
-        </p>
-      </div>
-
-      {/* Bottom accent */}
-      <div className="h-3 bg-black/15 flex items-center justify-center">
-        <div className="w-4 h-0.5 bg-white/30 rounded-full" />
-      </div>
-
-      {/* Hover tooltip */}
-      <div className="absolute -top-16 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg">
-        <p className="font-medium">{story.title}</p>
-        {universeName && <p className="text-white/60 text-[10px]">{universeName}</p>}
-        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-2 h-2 bg-stone-800 rotate-45" />
-      </div>
-    </button>
-  );
-}
 
 function BookCover({ story, onClick, isAdmin, onTogglePublic }: { story: any; onClick: () => void; isAdmin?: boolean; onTogglePublic?: () => void }) {
   const color = stringToColor(story.id);
@@ -146,7 +102,7 @@ export default function Library() {
   const { user, isAdmin, logout } = useAuth();
   const queryClient = useQueryClient();
   const [showMenu, setShowMenu] = useState(false);
-  const [viewMode, setViewMode] = useState<"covers" | "spines">("covers");
+  const viewMode = "covers";
 
   const { data: stories = [], isLoading } = useQuery({
     queryKey: ["stories-all"],
@@ -176,7 +132,7 @@ export default function Library() {
   };
 
   // Group stories into shelves (items per shelf depends on view mode)
-  const perShelf = viewMode === "covers" ? 5 : 8;
+  const perShelf = 5;
   const shelves: any[][] = [];
   for (let i = 0; i < stories.length; i += perShelf) {
     shelves.push(stories.slice(i, i + perShelf));
@@ -194,30 +150,6 @@ export default function Library() {
             My Library
           </h1>
           <div className="flex items-center gap-4">
-            {/* View toggle */}
-            <div className="flex bg-white rounded-lg border border-stone-200 p-0.5">
-              <button
-                onClick={() => setViewMode("covers")}
-                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                  viewMode === "covers"
-                    ? "bg-amber-900 text-white"
-                    : "text-stone-500 hover:text-stone-700"
-                }`}
-              >
-                Covers
-              </button>
-              <button
-                onClick={() => setViewMode("spines")}
-                className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-                  viewMode === "spines"
-                    ? "bg-amber-900 text-white"
-                    : "text-stone-500 hover:text-stone-700"
-                }`}
-              >
-                Spines
-              </button>
-            </div>
-
             <div className="flex items-center gap-3">
               {user?.picture && (
                 <img
@@ -331,8 +263,7 @@ export default function Library() {
           <div className="bg-amber-900/10 rounded-2xl p-6 border border-amber-900/10">
             {shelves.map((shelf, i) => (
               <Shelf key={i}>
-                {shelf.map((story: any) =>
-                  viewMode === "covers" ? (
+                {shelf.map((story: any) => (
                     <BookCover
                       key={story.id}
                       story={story}
@@ -343,14 +274,7 @@ export default function Library() {
                         queryClient.invalidateQueries({ queryKey: ["stories-all"] });
                       }}
                     />
-                  ) : (
-                    <BookSpine
-                      key={story.id}
-                      story={story}
-                      onClick={() => navigate(`/reading/${story.id}`)}
-                    />
-                  )
-                )}
+                ))}
               </Shelf>
             ))}
           </div>
