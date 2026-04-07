@@ -21,7 +21,7 @@ export const MOODS = ["gentle", "funny", "exciting", "mysterious"];
 
 // Plan limits
 export const PLAN_LIMITS: Record<string, { storiesPerMonth: number; maxUniverses: number }> = {
-  free: { storiesPerMonth: 5, maxUniverses: 3 },
+  free: { storiesPerMonth: 5, maxUniverses: 1 },
   premium: { storiesPerMonth: Infinity, maxUniverses: Infinity },
   admin: { storiesPerMonth: Infinity, maxUniverses: Infinity },
 };

@@ -259,17 +259,16 @@ export default function Library() {
                     >
                       New Story
                     </button>
-                    {(!universeQuota || universeQuota.allowed) && (
-                      <button
-                        onClick={() => {
-                          setShowMenu(false);
-                          navigate("/new-universe");
-                        }}
-                        className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-                      >
-                        New Universe
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        setShowMenu(false);
+                        navigate("/new-universe");
+                      }}
+                      disabled={universeQuota && !universeQuota.allowed}
+                      className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors disabled:text-stone-300 disabled:cursor-not-allowed"
+                    >
+                      New Universe{universeQuota && !universeQuota.allowed ? " (limit reached)" : ""}
+                    </button>
                     {isAdmin && (
                       <>
                         <div className="border-t border-stone-100 my-1" />
