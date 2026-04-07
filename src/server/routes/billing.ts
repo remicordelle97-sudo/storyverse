@@ -4,9 +4,8 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { authMiddleware } from "../middleware/auth.js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2025-04-30.basil",
-});
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+const stripe = stripeKey ? new Stripe(stripeKey) : null;
 
 const PRICE_ID = process.env.STRIPE_PRICE_ID || "";
 const APP_URL = process.env.APP_URL || "http://localhost:3000";
@@ -15,6 +14,7 @@ const router = Router();
 
 // Create a Stripe Checkout session for upgrading to premium
 router.post("/create-checkout", authMiddleware, async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Billing not configured" });
   try {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: req.userId as string },
@@ -57,6 +57,7 @@ router.post("/create-checkout", authMiddleware, async (req, res) => {
 
 // Create a Stripe Customer Portal session for managing subscription
 router.post("/create-portal", authMiddleware, async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Billing not configured" });
   try {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: req.userId as string },
@@ -83,6 +84,7 @@ router.post(
   "/webhook",
   raw({ type: "application/json" }),
   async (req, res) => {
+    if (!stripe) return res.status(503).json({ error: "Billing not configured" });
     const sig = req.headers["stripe-signature"] as string;
     const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
 
