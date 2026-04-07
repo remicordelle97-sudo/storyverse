@@ -212,4 +212,35 @@ router.post("/:id/toggle-public", requireAdmin, async (req, res) => {
   }
 });
 
+// Delete a universe and all its data (admin only)
+router.delete("/:id", requireAdmin, async (req, res) => {
+  try {
+    const universeId = req.params.id as string;
+    const universe = await prisma.universe.findUnique({ where: { id: universeId } });
+    if (!universe) {
+      return res.status(404).json({ error: "Universe not found" });
+    }
+
+    // Delete in order: story characters → scenes → stories → characters → locations → universe
+    const stories = await prisma.story.findMany({ where: { universeId }, select: { id: true } });
+    const storyIds = stories.map((s) => s.id);
+
+    if (storyIds.length > 0) {
+      await prisma.storyCharacter.deleteMany({ where: { storyId: { in: storyIds } } });
+      await prisma.scene.deleteMany({ where: { storyId: { in: storyIds } } });
+      await prisma.story.deleteMany({ where: { universeId } });
+    }
+
+    await prisma.character.deleteMany({ where: { universeId } });
+    await prisma.location.deleteMany({ where: { universeId } });
+    await prisma.universe.delete({ where: { id: universeId } });
+
+    debug.universe(`Deleted universe "${universe.name}" and all its data`);
+    res.json({ ok: true });
+  } catch (e: any) {
+    debug.error(`Failed to delete universe: ${e.message}`);
+    res.status(500).json({ error: "Failed to delete universe" });
+  }
+});
+
 export default router;

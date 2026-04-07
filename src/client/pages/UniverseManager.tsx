@@ -12,6 +12,7 @@ import {
   generateLocationReferenceSheet,
   generateStyleReference,
   toggleUniversePublic,
+  deleteUniverse,
 } from "../api/client";
 
 function ActionButton({
@@ -163,19 +164,32 @@ export default function UniverseManager() {
               <div className="bg-white rounded-xl border border-stone-200 p-5">
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="text-lg font-bold text-stone-800">{universe.name}</h2>
-                  <button
-                    onClick={async () => {
-                      await toggleUniversePublic(universe.id);
-                      invalidate();
-                    }}
-                    className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors ${
-                      universe.isPublic
-                        ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                        : "bg-stone-100 text-stone-400 hover:bg-stone-200"
-                    }`}
-                  >
-                    {universe.isPublic ? "Featured (public)" : "Publish to all users"}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        await toggleUniversePublic(universe.id);
+                        invalidate();
+                      }}
+                      className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors ${
+                        universe.isPublic
+                          ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                          : "bg-stone-100 text-stone-400 hover:bg-stone-200"
+                      }`}
+                    >
+                      {universe.isPublic ? "Featured (public)" : "Publish to all users"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!confirm(`Delete "${universe.name}" and all its stories, characters, and locations? This cannot be undone.`)) return;
+                        await deleteUniverse(universe.id);
+                        queryClient.invalidateQueries({ queryKey: ["universes"] });
+                        setSelectedId(null);
+                      }}
+                      className="text-[10px] px-2.5 py-1 rounded-full font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
                 <p className="text-sm text-stone-500 mb-3">{universe.settingDescription}</p>
                 <div className="space-y-2 text-xs">

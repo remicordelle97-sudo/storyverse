@@ -36,6 +36,8 @@ export const createPortalSession = () =>
 
 export const toggleUniversePublic = (id: string) =>
   request<{ isPublic: boolean }>(`/universes/${id}/toggle-public`, { method: "POST" });
+export const deleteUniverse = (id: string) =>
+  request<{ ok: boolean }>(`/universes/${id}`, { method: "DELETE" });
 export const getUniverseQuota = () =>
   request<{ allowed: boolean; used: number; limit: number; remaining: number }>("/universes/quota");
 export const getUniverses = () => request<any[]>("/universes");

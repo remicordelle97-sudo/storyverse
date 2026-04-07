@@ -42,17 +42,12 @@ router.get("/", async (req, res) => {
       return res.json(stories);
     }
 
-    // User's own stories + public stories
-    const userUniverses = await prisma.universe.findMany({
-      where: { userId: req.userId },
-      select: { id: true },
-    });
-
+    // User's own stories (created by them) + public/featured stories
     const stories = await prisma.story.findMany({
       where: {
         OR: [
-          { universeId: { in: userUniverses.map((u) => u.id) } },
           { createdById: req.userId as string },
+          { createdById: null, universe: { userId: req.userId as string } },
           { isPublic: true },
         ],
       },
@@ -83,8 +78,10 @@ router.get("/:id", async (req, res) => {
     if (!story) {
       return res.status(404).json({ error: "Story not found" });
     }
-    // Allow access to public stories or own stories
-    if (!story.isPublic && !await verifyUniverseOwnership(story.universeId, req.userId as string)) {
+    // Allow access to: public stories, own universe stories, or stories the user created
+    const isOwner = await verifyUniverseOwnership(story.universeId, req.userId as string);
+    const isCreator = story.createdById === (req.userId as string);
+    if (!story.isPublic && !isOwner && !isCreator) {
       return res.status(403).json({ error: "Access denied" });
     }
     res.json(story);
