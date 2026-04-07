@@ -4,8 +4,10 @@ const JWT_SECRET = process.env.JWT_SECRET || "storyverse-dev-secret-change-in-pr
 const ACCESS_TOKEN_EXPIRY = "1h";
 const REFRESH_TOKEN_EXPIRY = "7d";
 
-export function signAccessToken(userId: string, familyId: string | null): string {
-  return jwt.sign({ userId, familyId }, JWT_SECRET, {
+export function signAccessToken(userId: string, familyId: string | null, impersonatedBy?: string): string {
+  const payload: Record<string, any> = { userId, familyId };
+  if (impersonatedBy) payload.impersonatedBy = impersonatedBy;
+  return jwt.sign(payload, JWT_SECRET, {
     expiresIn: ACCESS_TOKEN_EXPIRY,
   });
 }

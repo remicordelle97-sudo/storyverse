@@ -14,11 +14,22 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
   if (!req.userId) {
     return res.status(401).json({ error: "Authentication required" });
   }
+
+  // Check if the user is admin directly
   const user = await prisma.user.findUnique({ where: { id: req.userId } });
-  if (!user || user.role !== "admin") {
-    return res.status(403).json({ error: "Admin access required" });
+  if (user?.role === "admin") return next();
+
+  // Check if this is an impersonation token from an admin
+  const header = req.headers.authorization;
+  if (header?.startsWith("Bearer ")) {
+    const payload = verifyToken(header.slice(7));
+    if (payload.impersonatedBy) {
+      const admin = await prisma.user.findUnique({ where: { id: payload.impersonatedBy } });
+      if (admin?.role === "admin") return next();
+    }
   }
-  next();
+
+  return res.status(403).json({ error: "Admin access required" });
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction) {

@@ -146,8 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("universeId");
   };
 
-  // During impersonation, isAdmin is false so the admin sees the normal user experience
-  const isAdmin = !isImpersonating && user?.role === "admin";
+  // Admin retains full powers during impersonation
+  const isAdmin = user?.role === "admin" || (isImpersonating && adminUser?.role === "admin");
 
   return (
     <AuthContext.Provider

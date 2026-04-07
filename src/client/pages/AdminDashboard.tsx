@@ -5,7 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const { startImpersonation } = useAuth();
+  const { user: currentUser, startImpersonation } = useAuth();
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin-users"],
@@ -136,12 +136,14 @@ export default function AdminDashboard() {
                       {new Date(u.createdAt).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleImpersonate(u.id)}
-                        className="text-xs px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors font-medium"
-                      >
-                        View as
-                      </button>
+                      {u.id !== currentUser?.id && (
+                        <button
+                          onClick={() => handleImpersonate(u.id)}
+                          className="text-xs px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors font-medium"
+                        >
+                          View
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

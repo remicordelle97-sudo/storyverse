@@ -89,7 +89,7 @@ router.post("/impersonate/:userId", async (req, res) => {
       targetEmail: targetUser.email,
     });
 
-    const accessToken = signAccessToken(targetUser.id, null);
+    const accessToken = signAccessToken(targetUser.id, null, adminId as string);
 
     res.json({
       accessToken,
