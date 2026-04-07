@@ -113,9 +113,7 @@ export default function StoryBuilder() {
     }
   };
 
-  const allSteps = generateImages
-    ? ["building", "writing", "saving", "illustrating"]
-    : ["building", "writing", "saving"];
+  const allSteps = ["building", "writing", "saving"];
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">

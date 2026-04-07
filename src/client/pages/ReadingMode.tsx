@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getStory, regenerateStoryImages } from "../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getStory, getStoryStatus, regenerateStoryImages } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
 
@@ -201,11 +201,29 @@ export default function ReadingMode() {
   const [prevView, setPrevView] = useState<View>("title");
   const [prevPageIndex, setPrevPageIndex] = useState(0);
 
+  const queryClient = useQueryClient();
+
   const { data: story, isLoading } = useQuery({
     queryKey: ["story", storyId],
     queryFn: () => getStory(storyId!),
     enabled: !!storyId,
   });
+
+  // Poll for image generation status when story is illustrating
+  const isIllustrating = story?.status === "illustrating";
+  const { data: storyStatus } = useQuery({
+    queryKey: ["story-status", storyId],
+    queryFn: () => getStoryStatus(storyId!),
+    enabled: !!storyId && isIllustrating,
+    refetchInterval: isIllustrating ? 5000 : false,
+  });
+
+  // When status changes to published, refetch the full story to get image URLs
+  useEffect(() => {
+    if (storyStatus?.status === "published" && isIllustrating) {
+      queryClient.invalidateQueries({ queryKey: ["story", storyId] });
+    }
+  }, [storyStatus?.status, isIllustrating, storyId, queryClient]);
 
   const pages = story?.scenes || [];
   const totalPages = pages.length;
@@ -328,6 +346,31 @@ export default function ReadingMode() {
         <p className="text-stone-400" style={{ fontFamily: "Lexend, sans-serif" }}>
           Story not found
         </p>
+      </div>
+    );
+  }
+
+  if (isIllustrating) {
+    const imagesReady = storyStatus?.imagesReady || 0;
+    const totalImages = storyStatus?.totalPages || 0;
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center gap-6">
+        <div className="text-center" style={{ fontFamily: "Lexend, sans-serif" }}>
+          <h2 className="text-white text-xl font-bold mb-2">{story.title}</h2>
+          <p className="text-stone-400 text-sm mb-4">
+            Creating illustrations...
+          </p>
+          <p className="text-stone-500 text-xs">
+            {imagesReady} of {totalImages} illustrations ready
+          </p>
+        </div>
+        {/* Progress bar */}
+        <div className="w-64 h-2 bg-stone-700 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-amber-500 rounded-full transition-all duration-500"
+            style={{ width: totalImages > 0 ? `${(imagesReady / totalImages) * 100}%` : "0%" }}
+          />
+        </div>
       </div>
     );
   }

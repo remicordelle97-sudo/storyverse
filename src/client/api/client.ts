@@ -86,6 +86,8 @@ export const getStoryQuota = () =>
 export const getStories = (universeId?: string) =>
   request<any[]>(universeId ? `/stories?universeId=${universeId}` : "/stories");
 export const getStory = (id: string) => request<any>(`/stories/${id}`);
+export const getStoryStatus = (id: string) =>
+  request<{ status: string; hasIllustrations: boolean; imagesReady: number; totalPages: number }>(`/stories/${id}/status`);
 export const toggleStoryPublic = (id: string) =>
   request<{ isPublic: boolean }>(`/stories/${id}/toggle-public`, { method: "POST" });
 export const deleteStory = (id: string) =>

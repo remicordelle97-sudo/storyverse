@@ -64,6 +64,34 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Check story status (for polling during image generation)
+router.get("/:id/status", async (req, res) => {
+  try {
+    const story = await prisma.story.findUnique({
+      where: { id: req.params.id as string },
+      select: {
+        id: true,
+        status: true,
+        hasIllustrations: true,
+        scenes: { select: { sceneNumber: true, imageUrl: true }, orderBy: { sceneNumber: "asc" } },
+      },
+    });
+    if (!story) return res.status(404).json({ error: "Story not found" });
+
+    const imagesReady = story.scenes.filter((s) => s.imageUrl).length;
+    const totalPages = story.scenes.length;
+
+    res.json({
+      status: story.status,
+      hasIllustrations: story.hasIllustrations,
+      imagesReady,
+      totalPages,
+    });
+  } catch {
+    res.status(500).json({ error: "Failed to check status" });
+  }
+});
+
 // Full story with scenes and characters
 router.get("/:id", async (req, res) => {
   try {
@@ -203,7 +231,6 @@ router.post("/generate", async (req, res) => {
       select: { name: true, appearance: true, outfit: true, specialDetail: true },
     });
 
-    // Check if client is still connected
     if (res.closed) {
       debug.story("Client disconnected before story generation");
       return;
@@ -223,41 +250,7 @@ router.post("/generate", async (req, res) => {
       pages: generated.pages.length,
     });
 
-    if (res.closed) {
-      debug.story("Client disconnected after story generation");
-      return;
-    }
-
-    // Step 3: Generate images (if enabled)
-    let imageMap = new Map<number, string>();
-
-    if (generateImages) {
-      debug.image(`=== IMAGE GENERATION START ===`);
-      sendProgress("illustrating", `Creating ${generated.pages.length} illustrations...`);
-
-      try {
-        imageMap = await generateStoryImages(
-          universeId,
-          characterIds,
-          mood,
-          generated.pages,
-          (pageNum, total, _imageUrl) => {
-            sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);
-          },
-          generated.characterAnchors
-        );
-      } catch (imgErr: any) {
-        debug.error(`Image generation failed (saving story without images): ${imgErr.message}`);
-        sendProgress("illustrating", "Some illustrations failed — saving story without them...");
-      }
-    }
-
-    if (res.closed) {
-      debug.story("Client disconnected after image generation");
-      return;
-    }
-
-    // Step 4: Save everything to database at once (no orphaned records)
+    // Step 3: Save story with text (images pending)
     sendProgress("saving", `"${generated.title}" — saving...`);
 
     const story = await prisma.story.create({
@@ -268,16 +261,16 @@ router.post("/generate", async (req, res) => {
         mood: mood,
         language: language || "en",
         ageGroup,
-        status: "published",
-        hasIllustrations: imageMap.size > 0,
+        status: generateImages ? "illustrating" : "published",
+        hasIllustrations: false,
         scenes: {
           create: generated.pages.map((page) => ({
             sceneNumber: page.page_number,
             content: page.content,
             imagePrompt: page.image_prompt || "",
-            imageUrl: imageMap.get(page.page_number) || "",
+            imageUrl: "",
             imageSeed: 0,
-            imageEngine: imageMap.has(page.page_number) ? "gemini" : "",
+            imageEngine: "",
           })),
         },
         characters: {
@@ -293,14 +286,45 @@ router.post("/generate", async (req, res) => {
       },
     });
 
-    debug.story("=== STORY GENERATION COMPLETE ===", {
-      storyId: story.id,
-      title: story.title,
-      pages: story.scenes.length,
-      images: story.scenes.filter((s) => s.imageUrl).length,
-    });
+    debug.story("Story text saved", { storyId: story.id, title: story.title });
 
+    // Return story ID to client — client will poll for completion
     sendComplete(story);
+
+    // Step 4: Generate images in the background (after response is sent)
+    if (generateImages) {
+      debug.image(`=== BACKGROUND IMAGE GENERATION START for story ${story.id} ===`);
+
+      generateStoryImages(
+        universeId,
+        characterIds,
+        mood,
+        generated.pages,
+        async (pageNum, total, imageUrl) => {
+          const scene = story.scenes.find((s) => s.sceneNumber === pageNum);
+          if (scene) {
+            await prisma.scene.update({
+              where: { id: scene.id },
+              data: { imageUrl, imageEngine: "gemini" },
+            });
+          }
+          debug.image(`Background image ${pageNum}/${total} saved for story ${story.id}`);
+        },
+        generated.characterAnchors
+      ).then(async () => {
+        await prisma.story.update({
+          where: { id: story.id },
+          data: { status: "published", hasIllustrations: true },
+        });
+        debug.image(`=== BACKGROUND IMAGE GENERATION COMPLETE for story ${story.id} ===`);
+      }).catch(async (err) => {
+        debug.error(`Background image generation failed for story ${story.id}: ${err.message}`);
+        await prisma.story.update({
+          where: { id: story.id },
+          data: { status: "published" },
+        });
+      });
+    }
   } catch (e: any) {
     debug.error(`Story generation failed: ${e.message}`);
     sendError("Story generation failed. Please try again.");
