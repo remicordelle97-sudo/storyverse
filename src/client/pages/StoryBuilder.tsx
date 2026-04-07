@@ -243,7 +243,8 @@ export default function StoryBuilder() {
             </div>
           </section>
 
-          {/* Story structure (testing) */}
+          {/* Story structure (admin only) */}
+          {isAdmin && (
           <section className="mb-8">
             <label className="block text-sm font-medium text-stone-700 mb-1">
               Story structure
@@ -273,6 +274,7 @@ export default function StoryBuilder() {
               ))}
             </div>
           </section>
+          )}
 
 
           {/* Illustrations toggle */}
