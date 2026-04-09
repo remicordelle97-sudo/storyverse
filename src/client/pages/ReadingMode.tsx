@@ -551,13 +551,13 @@ export default function ReadingMode() {
         {/* @ts-ignore - react-pageflip types */}
         <HTMLFlipBook
           ref={bookRef}
-          width={550}
-          height={700}
+          width={480}
+          height={620}
           size="stretch"
-          minWidth={300}
-          maxWidth={650}
-          minHeight={400}
-          maxHeight={850}
+          minWidth={260}
+          maxWidth={560}
+          minHeight={340}
+          maxHeight={730}
           drawShadow={true}
           flippingTime={800}
           showCover={true}

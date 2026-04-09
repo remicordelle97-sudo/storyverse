@@ -176,7 +176,7 @@ export default function Library() {
       }}
     >
       {/* Header */}
-      <div className="max-w-[95vw] mx-auto px-4 pt-6 pb-4 relative z-10">
+      <div className="max-w-[95vw] mx-auto px-4 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <h1
             className="text-3xl font-bold text-amber-900"
@@ -185,29 +185,12 @@ export default function Library() {
             My Library
           </h1>
           <div className="flex items-center gap-4">
-            {/* FAQ */}
-            <div className="relative">
-              <button
-                onClick={() => setShowFaq(!showFaq)}
-                className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
-              >
-                FAQ
-              </button>
-              {showFaq && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowFaq(false)} />
-                  <div className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-lg border border-stone-200 p-5 w-80 space-y-4">
-                    {FAQ_ITEMS.map((item) => (
-                      <div key={item.q}>
-                        <h3 className="text-sm font-semibold text-stone-800">{item.q}</h3>
-                        <p className="text-xs text-stone-500 mt-1">{item.a}</p>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
+            <button
+              onClick={() => setShowFaq(!showFaq)}
+              className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
+            >
+              FAQ
+            </button>
             <div className="flex items-center gap-3">
               {user?.picture && (
                 <img
@@ -227,99 +210,95 @@ export default function Library() {
                 Sign out
               </button>
             </div>
-
-            {/* + Button */}
-            <div className="relative">
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="w-10 h-10 bg-amber-800 text-white rounded-full flex items-center justify-center hover:bg-amber-700 transition-colors shadow-sm text-xl font-light"
-              >
-                +
-              </button>
-              {showMenu && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setShowMenu(false)}
-                  />
-                  <div className="absolute right-0 top-12 z-50 bg-white rounded-xl shadow-lg border border-stone-200 py-2 w-48">
-                    <button
-                      onClick={handleNewStory}
-                      className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-                    >
-                      New Story
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowMenu(false);
-                        navigate("/new-universe");
-                      }}
-                      disabled={universeQuota && !universeQuota.allowed}
-                      className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors disabled:text-stone-300 disabled:cursor-not-allowed"
-                    >
-                      New Universe{universeQuota && !universeQuota.allowed ? " (limit reached)" : ""}
-                    </button>
-                    {isAdmin && (
-                      <>
-                        <div className="border-t border-stone-100 my-1" />
-                        <button
-                          onClick={() => {
-                            setShowMenu(false);
-                            navigate("/universe-manager");
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
-                        >
-                          Manage Universes
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowMenu(false);
-                            navigate("/admin");
-                          }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
-                        >
-                          Admin
-                        </button>
-                      </>
-                    )}
-                    {!isAdmin && (
-                      <>
-                        <div className="border-t border-stone-100 my-1" />
-                        {user?.plan === "premium" ? (
-                          <button
-                            onClick={async () => {
-                              setShowMenu(false);
-                              const { url } = await createPortalSession();
-                              window.location.href = url;
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
-                          >
-                            Manage Subscription
-                          </button>
-                        ) : (
-                          <button
-                            onClick={async () => {
-                              setShowMenu(false);
-                              const { url } = await createCheckoutSession();
-                              window.location.href = url;
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-amber-800 hover:bg-stone-50 transition-colors font-medium"
-                          >
-                            Upgrade to Premium
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="w-10 h-10 bg-amber-800 text-white rounded-full flex items-center justify-center hover:bg-amber-700 transition-colors shadow-sm text-xl font-light"
+            >
+              +
+            </button>
           </div>
         </div>
       </div>
 
+      {/* FAQ modal — centered on screen */}
+      {showFaq && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setShowFaq(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="bg-white rounded-xl shadow-xl border border-stone-200 p-6 w-96 max-h-[80vh] overflow-y-auto space-y-4 pointer-events-auto">
+              <h2 className="text-lg font-bold text-stone-800 mb-2">FAQ</h2>
+              {FAQ_ITEMS.map((item) => (
+                <div key={item.q}>
+                  <h3 className="text-sm font-semibold text-stone-800">{item.q}</h3>
+                  <p className="text-xs text-stone-500 mt-1">{item.a}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* + Menu overlay */}
+      {showMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+          <div className="fixed top-16 right-4 z-50 bg-white rounded-xl shadow-lg border border-stone-200 py-2 w-48">
+            <button
+              onClick={handleNewStory}
+              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+            >
+              New Story
+            </button>
+            <button
+              onClick={() => { setShowMenu(false); navigate("/new-universe"); }}
+              disabled={universeQuota && !universeQuota.allowed}
+              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors disabled:text-stone-300 disabled:cursor-not-allowed"
+            >
+              New Universe{universeQuota && !universeQuota.allowed ? " (limit reached)" : ""}
+            </button>
+            {isAdmin && (
+              <>
+                <div className="border-t border-stone-100 my-1" />
+                <button
+                  onClick={() => { setShowMenu(false); navigate("/universe-manager"); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
+                >
+                  Manage Universes
+                </button>
+                <button
+                  onClick={() => { setShowMenu(false); navigate("/admin"); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
+                >
+                  Admin
+                </button>
+              </>
+            )}
+            {!isAdmin && (
+              <>
+                <div className="border-t border-stone-100 my-1" />
+                {user?.plan === "premium" ? (
+                  <button
+                    onClick={async () => { setShowMenu(false); const { url } = await createPortalSession(); window.location.href = url; }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
+                  >
+                    Manage Subscription
+                  </button>
+                ) : (
+                  <button
+                    onClick={async () => { setShowMenu(false); const { url } = await createCheckoutSession(); window.location.href = url; }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-amber-800 hover:bg-stone-50 transition-colors font-medium"
+                  >
+                    Upgrade to Premium
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </>
+      )}
+
       {/* Bookshelf */}
-      <div className="max-w-[95vw] mx-auto px-4 py-4 relative z-10">
+      <div className="max-w-[95vw] mx-auto px-4 py-4">
         {isLoading ? (
           <div className="py-20 text-center">
             <p className="text-stone-400" style={{ fontFamily: "Georgia, serif" }}>
@@ -331,21 +310,21 @@ export default function Library() {
             {shelves.map((shelf, i) => (
               <Shelf key={i}>
                 {shelf.map((story: any) => (
-                    <BookCover
-                      key={story.id}
-                      story={story}
-                      onClick={() => navigate(`/reading/${story.id}`)}
-                      isAdmin={isAdmin}
-                      onTogglePublic={async () => {
-                        await toggleStoryPublic(story.id);
-                        queryClient.invalidateQueries({ queryKey: ["stories-all"] });
-                      }}
-                      onDelete={async () => {
-                        if (!confirm(`Delete "${story.title}"? This cannot be undone.`)) return;
-                        await deleteStory(story.id);
-                        queryClient.invalidateQueries({ queryKey: ["stories-all"] });
-                      }}
-                    />
+                  <BookCover
+                    key={story.id}
+                    story={story}
+                    onClick={() => navigate(`/reading/${story.id}`)}
+                    isAdmin={isAdmin}
+                    onTogglePublic={async () => {
+                      await toggleStoryPublic(story.id);
+                      queryClient.invalidateQueries({ queryKey: ["stories-all"] });
+                    }}
+                    onDelete={async () => {
+                      if (!confirm(`Delete "${story.title}"? This cannot be undone.`)) return;
+                      await deleteStory(story.id);
+                      queryClient.invalidateQueries({ queryKey: ["stories-all"] });
+                    }}
+                  />
                 ))}
               </Shelf>
             ))}
@@ -353,13 +332,9 @@ export default function Library() {
         ) : (
           <div className="py-2">
             <Shelf>
-              {/* Empty shelf with CTA */}
               <div className="flex items-center justify-center w-full py-8">
                 <div className="text-center">
-                  <p
-                    className="text-stone-400 text-lg mb-4"
-                    style={{ fontFamily: "Georgia, serif" }}
-                  >
+                  <p className="text-stone-400 text-lg mb-4" style={{ fontFamily: "Georgia, serif" }}>
                     Your bookshelf is empty
                   </p>
                   <button
