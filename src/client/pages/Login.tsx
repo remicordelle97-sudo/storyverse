@@ -1,6 +1,14 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+
+const FAQ_ITEMS = [
+  { q: "What is Storyverse?", a: "Storyverse creates personalised bedtime stories with unique illustrations for each tale." },
+  { q: "How are stories created?", a: "Each story is crafted based on your child's universe — their favourite characters, settings, and themes." },
+  { q: "Are the illustrations unique?", a: "Yes! Every story comes with custom illustrations that match your characters and art style." },
+  { q: "How many stories can I create?", a: "On the free plan you can create up to 3 stories per month. Upgrade to Premium for unlimited stories." },
+  { q: "Can I customise characters?", a: "Absolutely! Create your own universes with custom characters, and they'll appear consistently across all your stories." },
+];
 
 declare global {
   interface Window {
@@ -19,6 +27,7 @@ export default function Login() {
   const { user, loading, login } = useAuth();
   const navigate = useNavigate();
   const buttonRef = useRef<HTMLDivElement>(null);
+  const [showFaq, setShowFaq] = useState(false);
 
   useEffect(() => {
     if (!loading && user) {
@@ -80,6 +89,33 @@ export default function Login() {
       />
       {/* Subtle dark overlay so the login box is readable */}
       <div className="absolute inset-0 bg-black/15" />
+
+      {/* FAQ button — top right */}
+      <div className="absolute top-4 right-4 z-20">
+        <button
+          onClick={() => setShowFaq(!showFaq)}
+          className="px-4 py-2 text-sm font-medium text-white/80 hover:text-white rounded-lg transition-colors"
+          style={{ background: "rgba(0,0,0,0.3)", backdropFilter: "blur(8px)" }}
+        >
+          FAQ
+        </button>
+        {showFaq && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowFaq(false)} />
+            <div
+              className="absolute top-12 right-0 w-80 rounded-xl shadow-2xl p-5 space-y-4 z-50"
+              style={{ background: "rgba(255,253,247,0.92)", backdropFilter: "blur(12px)" }}
+            >
+              {FAQ_ITEMS.map((item) => (
+                <div key={item.q}>
+                  <h3 className="text-sm font-semibold text-stone-800">{item.q}</h3>
+                  <p className="text-xs text-stone-500 mt-1">{item.a}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
 
       {/* Login card */}
       <div
