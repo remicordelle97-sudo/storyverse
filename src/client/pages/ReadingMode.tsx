@@ -561,6 +561,7 @@ export default function ReadingMode() {
           showCover={true}
           maxShadowOpacity={0.5}
           mobileScrollSupport={false}
+          showPageCorners={false}
           onFlip={handleFlip}
           className="book-flip"
           style={{
