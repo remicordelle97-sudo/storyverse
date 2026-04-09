@@ -76,8 +76,8 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { stor
               onClick={(e) => { e.stopPropagation(); onTogglePublic(); }}
               className={`flex-1 text-[10px] py-1 rounded transition-colors ${
                 story.isPublic
-                  ? "bg-yellow-900/60 text-yellow-300 hover:bg-yellow-900/80"
-                  : "bg-amber-900/40 text-amber-400/60 hover:bg-amber-900/60"
+                  ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                  : "bg-stone-100 text-stone-400 hover:bg-stone-200"
               }`}
             >
               {story.isPublic ? "Unpublish" : "Publish"}
@@ -86,7 +86,7 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { stor
           {onDelete && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="text-[10px] px-2 py-1 rounded bg-red-900/40 text-red-400 hover:bg-red-900/60 transition-colors"
+              className="text-[10px] px-2 py-1 rounded bg-red-50 text-red-400 hover:bg-red-100 transition-colors"
             >
               Delete
             </button>
@@ -104,24 +104,20 @@ function Shelf({ children }: { children: React.ReactNode }) {
       <div className="flex items-end gap-4 px-8 pb-0 min-h-[230px] flex-wrap">
         {children}
       </div>
-      {/* Shelf plank — thick wood with front lip and bracket shadow */}
+      {/* Shelf plank */}
       <div className="relative">
-        {/* Top surface */}
         <div
           className="h-5 rounded-t-sm"
-          style={{ background: "linear-gradient(to bottom, #8B6914, #6B4F10)" }}
+          style={{ background: "linear-gradient(to bottom, #C4A265, #A8884E)" }}
         />
-        {/* Front lip */}
         <div
           className="h-2"
-          style={{ background: "linear-gradient(to bottom, #5C4210, #4A350D)" }}
+          style={{ background: "linear-gradient(to bottom, #96773F, #856A38)" }}
         />
-        {/* Bottom edge highlight */}
-        <div className="h-[2px]" style={{ background: "#3D2B09" }} />
-        {/* Shadow cast on wall below */}
+        <div className="h-[2px]" style={{ background: "#7A6034" }} />
         <div
-          className="h-8"
-          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.35), transparent)" }}
+          className="h-6"
+          style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.1), transparent)" }}
         />
       </div>
     </div>
@@ -176,22 +172,14 @@ export default function Library() {
     <div
       className="min-h-screen"
       style={{
-        background: "linear-gradient(to bottom, #3E2613 0%, #2C1A0E 30%, #231408 100%)",
+        background: "linear-gradient(to bottom, #FAF6EE 0%, #F3ECE0 50%, #EDE4D3 100%)",
       }}
     >
-      {/* Warm overhead lighting effect */}
-      <div
-        className="fixed inset-x-0 top-0 h-40 pointer-events-none"
-        style={{
-          background: "radial-gradient(ellipse 80% 100% at 50% 0%, rgba(180,130,60,0.12), transparent)",
-        }}
-      />
-
       {/* Header */}
       <div className="max-w-[95vw] mx-auto px-4 pt-6 pb-4 relative z-10">
         <div className="flex items-center justify-between">
           <h1
-            className="text-3xl font-bold text-amber-200/90"
+            className="text-3xl font-bold text-amber-900"
             style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
           >
             My Library
@@ -201,21 +189,18 @@ export default function Library() {
             <div className="relative">
               <button
                 onClick={() => setShowFaq(!showFaq)}
-                className="text-sm text-amber-400/50 hover:text-amber-300 transition-colors"
+                className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
               >
                 FAQ
               </button>
               {showFaq && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowFaq(false)} />
-                  <div
-                    className="absolute right-0 top-8 z-50 rounded-xl shadow-2xl p-5 w-80 space-y-4 border border-amber-900/30"
-                    style={{ background: "rgba(62, 38, 19, 0.95)", backdropFilter: "blur(12px)" }}
-                  >
+                  <div className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-lg border border-stone-200 p-5 w-80 space-y-4">
                     {FAQ_ITEMS.map((item) => (
                       <div key={item.q}>
-                        <h3 className="text-sm font-semibold text-amber-200">{item.q}</h3>
-                        <p className="text-xs text-amber-400/60 mt-1">{item.a}</p>
+                        <h3 className="text-sm font-semibold text-stone-800">{item.q}</h3>
+                        <p className="text-xs text-stone-500 mt-1">{item.a}</p>
                       </div>
                     ))}
                   </div>
@@ -228,7 +213,7 @@ export default function Library() {
                 <img
                   src={user.picture}
                   alt=""
-                  className="w-8 h-8 rounded-full ring-2 ring-amber-800/40"
+                  className="w-8 h-8 rounded-full"
                   referrerPolicy="no-referrer"
                 />
               )}
@@ -237,7 +222,7 @@ export default function Library() {
                   await logout();
                   navigate("/login");
                 }}
-                className="text-sm text-amber-400/50 hover:text-amber-300 transition-colors"
+                className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
               >
                 Sign out
               </button>
@@ -247,7 +232,7 @@ export default function Library() {
             <div className="relative">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="w-10 h-10 bg-amber-700 text-amber-100 rounded-full flex items-center justify-center hover:bg-amber-600 transition-colors shadow-lg text-xl font-light"
+                className="w-10 h-10 bg-amber-800 text-white rounded-full flex items-center justify-center hover:bg-amber-700 transition-colors shadow-sm text-xl font-light"
               >
                 +
               </button>
@@ -257,13 +242,10 @@ export default function Library() {
                     className="fixed inset-0 z-40"
                     onClick={() => setShowMenu(false)}
                   />
-                  <div
-                    className="absolute right-0 top-12 z-50 rounded-xl shadow-2xl py-2 w-48 border border-amber-900/30"
-                    style={{ background: "rgba(62, 38, 19, 0.95)", backdropFilter: "blur(12px)" }}
-                  >
+                  <div className="absolute right-0 top-12 z-50 bg-white rounded-xl shadow-lg border border-stone-200 py-2 w-48">
                     <button
                       onClick={handleNewStory}
-                      className="w-full text-left px-4 py-2.5 text-sm text-amber-200 hover:bg-amber-900/40 transition-colors"
+                      className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
                     >
                       New Story
                     </button>
@@ -273,19 +255,19 @@ export default function Library() {
                         navigate("/new-universe");
                       }}
                       disabled={universeQuota && !universeQuota.allowed}
-                      className="w-full text-left px-4 py-2.5 text-sm text-amber-200 hover:bg-amber-900/40 transition-colors disabled:text-amber-700 disabled:cursor-not-allowed"
+                      className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors disabled:text-stone-300 disabled:cursor-not-allowed"
                     >
                       New Universe{universeQuota && !universeQuota.allowed ? " (limit reached)" : ""}
                     </button>
                     {isAdmin && (
                       <>
-                        <div className="border-t border-amber-800/40 my-1" />
+                        <div className="border-t border-stone-100 my-1" />
                         <button
                           onClick={() => {
                             setShowMenu(false);
                             navigate("/universe-manager");
                           }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-amber-400/60 hover:bg-amber-900/40 transition-colors"
+                          className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
                         >
                           Manage Universes
                         </button>
@@ -294,7 +276,7 @@ export default function Library() {
                             setShowMenu(false);
                             navigate("/admin");
                           }}
-                          className="w-full text-left px-4 py-2.5 text-sm text-amber-400/60 hover:bg-amber-900/40 transition-colors"
+                          className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
                         >
                           Admin
                         </button>
@@ -302,7 +284,7 @@ export default function Library() {
                     )}
                     {!isAdmin && (
                       <>
-                        <div className="border-t border-amber-800/40 my-1" />
+                        <div className="border-t border-stone-100 my-1" />
                         {user?.plan === "premium" ? (
                           <button
                             onClick={async () => {
@@ -310,7 +292,7 @@ export default function Library() {
                               const { url } = await createPortalSession();
                               window.location.href = url;
                             }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-amber-400/60 hover:bg-amber-900/40 transition-colors"
+                            className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
                           >
                             Manage Subscription
                           </button>
@@ -321,7 +303,7 @@ export default function Library() {
                               const { url } = await createCheckoutSession();
                               window.location.href = url;
                             }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-amber-300 hover:bg-amber-900/40 transition-colors font-medium"
+                            className="w-full text-left px-4 py-2.5 text-sm text-amber-800 hover:bg-stone-50 transition-colors font-medium"
                           >
                             Upgrade to Premium
                           </button>
@@ -340,7 +322,7 @@ export default function Library() {
       <div className="max-w-[95vw] mx-auto px-4 py-4 relative z-10">
         {isLoading ? (
           <div className="py-20 text-center">
-            <p className="text-amber-400/40" style={{ fontFamily: "Georgia, serif" }}>
+            <p className="text-stone-400" style={{ fontFamily: "Georgia, serif" }}>
               Loading your library...
             </p>
           </div>
@@ -375,14 +357,14 @@ export default function Library() {
               <div className="flex items-center justify-center w-full py-8">
                 <div className="text-center">
                   <p
-                    className="text-amber-400/30 text-lg mb-4"
+                    className="text-stone-400 text-lg mb-4"
                     style={{ fontFamily: "Georgia, serif" }}
                   >
                     Your bookshelf is empty
                   </p>
                   <button
                     onClick={() => navigate("/new-universe")}
-                    className="px-6 py-3 bg-amber-700 text-amber-100 rounded-lg font-medium hover:bg-amber-600 transition-colors"
+                    className="px-6 py-3 bg-amber-800 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors"
                     style={{ fontFamily: "Georgia, serif" }}
                   >
                     Create your first universe
