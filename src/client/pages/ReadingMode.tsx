@@ -198,9 +198,9 @@ function storyColor(id: string): string {
 
 const pageInner = "absolute inset-0 overflow-hidden";
 
-const CoverPage = forwardRef<HTMLDivElement, { title: string; color: string; subtitle?: string }>(
+const CoverPage = forwardRef<HTMLDivElement, { title?: string; color: string; subtitle?: string }>(
   ({ title, color, subtitle }, ref) => (
-    <div ref={ref} className="cover-page" data-color={color}>
+    <div ref={ref} className="cover-page">
       <div
         className={`${pageInner} flex flex-col items-center justify-center p-8 md:p-12`}
         style={{ background: color }}
@@ -210,12 +210,14 @@ const CoverPage = forwardRef<HTMLDivElement, { title: string; color: string; sub
         {/* Subtle texture overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
 
-        <h1
-          className="text-3xl md:text-4xl font-bold text-white text-center leading-tight mb-4 relative z-10"
-          style={{ textShadow: "0 2px 8px rgba(0,0,0,0.3)" }}
-        >
-          {title}
-        </h1>
+        {title && (
+          <h1
+            className="text-3xl md:text-4xl font-bold text-white text-center leading-tight mb-4 relative z-10"
+            style={{ textShadow: "0 2px 8px rgba(0,0,0,0.3)" }}
+          >
+            {title}
+          </h1>
+        )}
         {subtitle && (
           <div className="text-white/60 text-sm italic relative z-10">{subtitle}</div>
         )}
@@ -546,6 +548,15 @@ export default function ReadingMode() {
 
       {/* Book */}
       <div className="flex items-center justify-center w-full px-4 py-8" style={{ minHeight: "100vh" }}>
+        {/* Inner cover peek — colored border visible around the page edges */}
+        <div
+          className="rounded-sm"
+          style={{
+            padding: "3px",
+            background: storyColor(story.id),
+            filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.6))",
+          }}
+        >
         {/* @ts-ignore - react-pageflip types */}
         <HTMLFlipBook
           ref={bookRef}
@@ -564,9 +575,7 @@ export default function ReadingMode() {
           showPageCorners={false}
           onFlip={handleFlip}
           className="book-flip"
-          style={{
-            filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.6))",
-          }}
+          style={{}}
         >
           {/* Title page (front cover — shown alone) */}
           <CoverPage title={story.title} color={storyColor(story.id)} subtitle="A Storyverse tale" />
@@ -602,9 +611,10 @@ export default function ReadingMode() {
             onBack={() => navigate("/library")}
           />
 
-          {/* Back cover (shown alone, mirrors the front cover) */}
-          <CoverPage title={story.title} color={storyColor(story.id)} />
+          {/* Back cover (shown alone, no title) */}
+          <CoverPage color={storyColor(story.id)} />
         </HTMLFlipBook>
+        </div>
       </div>
     </div>
   );

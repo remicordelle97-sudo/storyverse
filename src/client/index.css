@@ -8,9 +8,10 @@
   background-color: #F5ECD7;
 }
 
-/* Cover pages use the story's color instead of beige */
+/* Cover pages: transparent so the inner div's color shows through */
+.cover-page.stf__item,
 .stf__item.cover-page {
-  background-color: transparent;
+  background-color: transparent !important;
 }
 
 /* Spine shadow at the center of the open book spread.
