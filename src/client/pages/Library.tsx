@@ -101,7 +101,7 @@ function Shelf({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-4">
       {/* Books */}
-      <div className="flex items-end gap-3 sm:gap-4 px-3 sm:px-8 pb-0 min-h-[230px] flex-wrap justify-center sm:justify-start">
+      <div className="flex items-end gap-3 sm:gap-4 px-3 sm:px-8 pb-0 min-h-[230px] overflow-x-auto sm:overflow-x-visible sm:flex-wrap sm:justify-start flex-nowrap">
         {children}
       </div>
       {/* Shelf plank */}
