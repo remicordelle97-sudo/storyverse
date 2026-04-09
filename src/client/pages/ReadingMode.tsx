@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, forwardRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getStory, getStoryStatus, regenerateStoryImages } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
+import HTMLFlipBook from "react-pageflip";
 
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
   try {
@@ -36,7 +37,6 @@ async function exportStoryAsPdf(story: any) {
   const darkText = { r: 60, g: 50, b: 40 };
   const mediumText = { r: 140, g: 130, b: 120 };
   const lightText = { r: 160, g: 150, b: 140 };
-  const borderColor = { r: 212, g: 197, b: 160 };     // #D4C5A0
 
   // Helper: draw parchment page background with edge shadow near spine
   function drawPageBg(x: number, w: number, isLeftPage: boolean) {
@@ -175,26 +175,139 @@ async function exportStoryAsPdf(story: any) {
   pdf.save(`${safeName}.pdf`);
 }
 
-type View = "title" | "page" | "end";
+// --- Book pages as forwardRef components ---
+
+const TitlePage = forwardRef<HTMLDivElement, { title: string }>(({ title }, ref) => (
+  <div
+    ref={ref}
+    className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
+    style={{ background: "linear-gradient(to right, #EDE3C8, #F5ECD7)" }}
+  >
+    <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight">
+      {title}
+    </h1>
+  </div>
+));
+
+const SubtitlePage = forwardRef<HTMLDivElement>((_, ref) => (
+  <div
+    ref={ref}
+    className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
+    style={{ background: "linear-gradient(to left, #EDE3C8, #F5ECD7)" }}
+  >
+    <div className="text-stone-400 text-sm italic mb-6">A Storyverse tale</div>
+    <p className="text-stone-400 text-xs animate-pulse">Turn to begin</p>
+  </div>
+));
+
+const IllustrationPage = forwardRef<HTMLDivElement, { imageUrl?: string; pageNum: number }>(
+  ({ imageUrl, pageNum }, ref) => (
+    <div
+      ref={ref}
+      className="relative flex items-center justify-center h-full"
+      style={{ background: "linear-gradient(135deg, #EDE3C8, #F5ECD7)" }}
+    >
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={`Illustration for page ${pageNum}`}
+          className="w-full h-full object-contain"
+          style={{
+            mixBlendMode: "multiply",
+            filter: "brightness(1.08)",
+          }}
+          draggable={false}
+        />
+      ) : (
+        <div className="text-stone-400/40 text-sm">Illustration</div>
+      )}
+      <div className="absolute bottom-3 left-0 right-0 text-center">
+        <span className="text-stone-500/50 text-xs">{pageNum}</span>
+      </div>
+    </div>
+  )
+);
+
+const TextPage = forwardRef<
+  HTMLDivElement,
+  { content: string; pageNum: number; sceneIndex: number; totalScenes: number }
+>(({ content, pageNum, sceneIndex, totalScenes }, ref) => (
+  <div
+    ref={ref}
+    className="flex flex-col justify-between relative h-full"
+    style={{ background: "linear-gradient(135deg, #F5ECD7, #EDE3C8)" }}
+  >
+    <div className="flex-1 flex items-center px-8 md:px-12 py-8 md:py-10">
+      <p
+        className="text-stone-800 leading-[1.85] tracking-wide text-left"
+        style={{
+          fontSize: "clamp(1rem, 1.8vw + 0.4rem, 1.4rem)",
+          wordSpacing: "0.05em",
+          letterSpacing: "0.02em",
+        }}
+      >
+        {content}
+      </p>
+    </div>
+    <div className="text-center pb-3">
+      <span className="text-stone-500/50 text-xs">{pageNum}</span>
+    </div>
+    <div className="absolute top-3 right-4">
+      <span className="text-stone-400/40 text-[10px]">
+        {sceneIndex + 1} of {totalScenes}
+      </span>
+    </div>
+  </div>
+));
+
+const EndPage = forwardRef<HTMLDivElement, { title: string }>(({ title }, ref) => (
+  <div
+    ref={ref}
+    className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
+    style={{ background: "linear-gradient(to right, #EDE3C8, #F5ECD7)" }}
+  >
+    <p className="text-stone-800 text-4xl md:text-5xl font-light italic">The End</p>
+    <p className="text-stone-500 text-sm mt-3">{title}</p>
+  </div>
+));
+
+const BackCoverPage = forwardRef<
+  HTMLDivElement,
+  { onReadAgain: () => void; onBack: () => void }
+>(({ onReadAgain, onBack }, ref) => (
+  <div
+    ref={ref}
+    className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
+    style={{ background: "linear-gradient(to left, #EDE3C8, #F5ECD7)" }}
+  >
+    <div className="flex flex-col gap-4 items-center">
+      <button
+        onClick={onReadAgain}
+        className="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
+      >
+        Read again
+      </button>
+      <button
+        onClick={onBack}
+        className="px-6 py-3 text-stone-500 hover:text-stone-800 transition-colors"
+      >
+        Back to library
+      </button>
+    </div>
+  </div>
+));
 
 export default function ReadingMode() {
   const { storyId } = useParams<{ storyId: string }>();
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const [pageIndex, setPageIndex] = useState(0);
-  const [view, setView] = useState<View>("title");
-  const [transitioning, setTransitioning] = useState(false);
-  const [direction, setDirection] = useState<"forward" | "back">("forward");
+  const [currentPage, setCurrentPage] = useState(0);
   const [controlsVisible, setControlsVisible] = useState(true);
   const [controlsTimer, setControlsTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [exporting, setExporting] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [regenProgress, setRegenProgress] = useState("");
-  const [flipping, setFlipping] = useState(false);
-  const [flipDirection, setFlipDirection] = useState<"forward" | "back">("forward");
-  // Track previous state so we can show old content on the flipping page
-  const [prevView, setPrevView] = useState<View>("title");
-  const [prevPageIndex, setPrevPageIndex] = useState(0);
+  const bookRef = useRef<any>(null);
 
   const queryClient = useQueryClient();
 
@@ -220,8 +333,25 @@ export default function ReadingMode() {
     }
   }, [storyStatus?.status, isIllustrating, storyId, queryClient]);
 
-  const pages = story?.scenes || [];
-  const totalPages = pages.length;
+  const scenes = story?.scenes || [];
+  const totalScenes = scenes.length;
+
+  // Total book pages: title + subtitle + (illustration + text per scene) + end + back cover
+  const totalBookPages = 2 + totalScenes * 2 + 2;
+
+  // Map book page index to scene index for the progress dots
+  const sceneIndexFromPage = useCallback(
+    (bookPage: number) => {
+      // Pages 0-1 are title/subtitle, then pairs of illustration+text
+      if (bookPage < 2) return -1;
+      const sceneRelative = bookPage - 2;
+      if (sceneRelative >= totalScenes * 2) return -1;
+      return Math.floor(sceneRelative / 2);
+    },
+    [totalScenes]
+  );
+
+  const currentSceneIndex = sceneIndexFromPage(currentPage);
 
   const showControls = useCallback(() => {
     setControlsVisible(true);
@@ -232,97 +362,29 @@ export default function ReadingMode() {
 
   // Hide controls after inactivity
   useEffect(() => {
-    if (view !== "page") {
-      setControlsVisible(true);
-      return;
-    }
     const timer = setTimeout(() => setControlsVisible(false), 3000);
     setControlsTimer(timer);
     return () => clearTimeout(timer);
-  }, [view]);
+  }, []);
 
-  const goTo = useCallback(
-    (newView: View, newIndex: number, dir: "forward" | "back") => {
-      if (transitioning) return;
-      setDirection(dir);
-      setFlipDirection(dir);
-      setPrevView(view);
-      setPrevPageIndex(pageIndex);
-      setFlipping(true);
-      setTransitioning(true);
-      // Update content immediately — the old content is preserved via prevView/prevPageIndex
-      // on the flipping overlay, so the swap underneath is hidden
-      setView(newView);
-      setPageIndex(newIndex);
-      // End animation after flip completes
-      setTimeout(() => {
-        setFlipping(false);
-        setTransitioning(false);
-      }, 500);
-    },
-    [transitioning, view, pageIndex]
-  );
-
-  const goForward = useCallback(() => {
-    if (view === "title") {
-      goTo("page", 0, "forward");
-    } else if (view === "page" && pageIndex < totalPages - 1) {
-      goTo("page", pageIndex + 1, "forward");
-    } else if (view === "page" && pageIndex === totalPages - 1) {
-      goTo("end", pageIndex, "forward");
-    }
-  }, [view, pageIndex, totalPages, goTo]);
-
-  const goBack = useCallback(() => {
-    if (view === "page" && pageIndex > 0) {
-      goTo("page", pageIndex - 1, "back");
-    } else if (view === "page" && pageIndex === 0) {
-      goTo("title", 0, "back");
-    } else if (view === "end") {
-      goTo("page", totalPages - 1, "back");
-    }
-  }, [view, pageIndex, totalPages, goTo]);
-
-  // Keyboard navigation
+  // Keyboard: Escape to close (arrow keys handled by react-pageflip)
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight" || e.key === " ") {
-        e.preventDefault();
-        goForward();
-      } else if (e.key === "ArrowLeft") {
-        e.preventDefault();
-        goBack();
-      } else if (e.key === "Escape") {
+      if (e.key === "Escape") {
         navigate("/library");
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [goForward, goBack, navigate]);
+  }, [navigate]);
 
-  // Touch swipe
-  useEffect(() => {
-    let startX = 0;
-    let startY = 0;
-    const handleTouchStart = (e: TouchEvent) => {
-      startX = e.touches[0].clientX;
-      startY = e.touches[0].clientY;
-    };
-    const handleTouchEnd = (e: TouchEvent) => {
-      const dx = e.changedTouches[0].clientX - startX;
-      const dy = e.changedTouches[0].clientY - startY;
-      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-        if (dx < 0) goForward();
-        else goBack();
-      }
-    };
-    window.addEventListener("touchstart", handleTouchStart);
-    window.addEventListener("touchend", handleTouchEnd);
-    return () => {
-      window.removeEventListener("touchstart", handleTouchStart);
-      window.removeEventListener("touchend", handleTouchEnd);
-    };
-  }, [goForward, goBack]);
+  const handleFlip = useCallback((e: any) => {
+    setCurrentPage(e.data);
+  }, []);
+
+  const handleReadAgain = useCallback(() => {
+    bookRef.current?.pageFlip()?.flip(0);
+  }, []);
 
   if (isLoading) {
     return (
@@ -369,7 +431,7 @@ export default function ReadingMode() {
     );
   }
 
-  if (pages.length === 0) {
+  if (scenes.length === 0) {
     return (
       <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center gap-4">
         <p className="text-stone-400" style={{ fontFamily: "Lexend, sans-serif" }}>
@@ -385,7 +447,9 @@ export default function ReadingMode() {
     );
   }
 
-  const page = pages[pageIndex];
+  // Build page number labels: title pages don't get numbers,
+  // then scene pages are numbered sequentially
+  let pageCounter = 1;
 
   return (
     <div
@@ -406,13 +470,13 @@ export default function ReadingMode() {
         >
           &times; Close
         </button>
-        {view === "page" && (
+        {currentSceneIndex >= 0 && (
           <div className="flex gap-1.5">
-            {pages.map((_: any, i: number) => (
+            {scenes.map((_: any, i: number) => (
               <div
                 key={i}
                 className={`w-1.5 h-1.5 rounded-full transition-colors ${
-                  i === pageIndex ? "bg-white" : "bg-white/20"
+                  i === currentSceneIndex ? "bg-white" : "bg-white/20"
                 }`}
               />
             ))}
@@ -463,334 +527,65 @@ export default function ReadingMode() {
         </div>
       </div>
 
-      {/* Tap zones */}
-      {view === "page" && (
-        <>
-          <div
-            className="fixed left-0 top-0 w-1/3 h-full z-40 cursor-pointer"
-            onClick={(e) => { e.stopPropagation(); goBack(); }}
-          />
-          <div
-            className="fixed right-0 top-0 w-2/3 h-full z-40 cursor-pointer"
-            onClick={(e) => { e.stopPropagation(); goForward(); }}
-          />
-        </>
-      )}
-
-      {/* Book container with perspective for 3D flip */}
-      <div
-        className="flex items-center justify-center px-4 py-8 w-full"
-        style={{ minHeight: "100vh" }}
-        onClick={view === "title" ? goForward : undefined}
-      >
-        <div
-          className="relative w-full max-w-7xl mx-auto"
+      {/* Book */}
+      <div className="flex items-center justify-center w-full px-4 py-8" style={{ minHeight: "100vh" }}>
+        {/* @ts-ignore - react-pageflip types */}
+        <HTMLFlipBook
+          ref={bookRef}
+          width={550}
+          height={700}
+          size="stretch"
+          minWidth={300}
+          maxWidth={700}
+          minHeight={400}
+          maxHeight={900}
+          drawShadow={true}
+          flippingTime={800}
+          showCover={true}
+          maxShadowOpacity={0.5}
+          mobileScrollSupport={false}
+          onFlip={handleFlip}
+          className="book-flip"
           style={{
-            perspective: "2500px",
             filter: "drop-shadow(0 30px 70px rgba(0,0,0,0.5))",
           }}
         >
-          {/* Flip overlay — animates a page turning over the book spread */}
-          {flipping && (
-            <div
-              className="absolute inset-0 z-30 pointer-events-none"
-              style={{ perspective: "2500px" }}
-            >
-              {/* Shadow cast on the page beneath during flip */}
-              <div
-                className={`absolute top-0 ${flipDirection === "forward" ? "left-1/2" : "left-0"} w-1/2 h-full`}
-                style={{
-                  background: "rgba(0,0,0,0.08)",
-                  animation: `flipShadow 500ms ease-in-out forwards`,
-                }}
-              />
-              <div
-                className={`absolute ${flipDirection === "forward" ? "right-0" : "left-0"} top-0 w-1/2 h-full`}
-                style={{
-                  transformStyle: "preserve-3d",
-                  transformOrigin: flipDirection === "forward" ? "left center" : "right center",
-                  animation: `pageFlip${flipDirection === "forward" ? "Forward" : "Back"} 500ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards`,
-                }}
-              >
-                {/* Front face — the old page being lifted */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    backfaceVisibility: "hidden",
-                    background: flipDirection === "forward"
-                      ? "linear-gradient(to left, #E0D6B8, #F5ECD7 20%)"
-                      : "linear-gradient(to right, #E0D6B8, #F5ECD7 20%)",
-                    borderRadius: flipDirection === "forward" ? "0 8px 8px 0" : "8px 0 0 8px",
-                  }}
-                />
-                {/* Back face — the underside of the turning page */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    backfaceVisibility: "hidden",
-                    transform: "rotateY(180deg)",
-                    background: flipDirection === "forward"
-                      ? "linear-gradient(to right, #DDD3B8, #EDE3C8 20%)"
-                      : "linear-gradient(to left, #DDD3B8, #EDE3C8 20%)",
-                    borderRadius: flipDirection === "forward" ? "8px 0 0 8px" : "0 8px 8px 0",
-                  }}
-                />
-              </div>
-            </div>
-          )}
+          {/* Title page */}
+          <TitlePage title={story.title} />
 
-          {/* Book spread */}
-          <div
-            className="flex flex-col md:flex-row"
-            style={{ minHeight: "min(85vh, 700px)" }}
-          >
-            {/* Render current view */}
-            {view === "title" && (
-              <>
-                {/* Left page — title */}
-                <div
-                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 relative rounded-l-lg cursor-pointer"
-                  style={{
-                    background: "linear-gradient(to right, #EDE3C8, #F5ECD7)",
-                    transform: "rotateY(1deg)",
-                    transformOrigin: "right center",
-                    boxShadow: "inset -20px 0 30px -15px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight mb-4">
-                    {story.title}
-                  </h1>
-                </div>
+          {/* Subtitle page */}
+          <SubtitlePage />
 
-                {/* Spine */}
-                <div
-                  className="hidden md:block w-[4px] relative z-20 flex-shrink-0"
-                  style={{
-                    background: "linear-gradient(to bottom, #B8A878, #96845C, #B8A878)",
-                    boxShadow: "-3px 0 12px rgba(0,0,0,0.15), 3px 0 12px rgba(0,0,0,0.15)",
-                  }}
-                />
+          {/* Scene pages: illustration + text for each scene */}
+          {scenes.flatMap((scene: any, i: number) => {
+            const illustrationNum = pageCounter++;
+            const textNum = pageCounter++;
+            return [
+              <IllustrationPage
+                key={`illust-${i}`}
+                imageUrl={scene.imageUrl}
+                pageNum={illustrationNum}
+              />,
+              <TextPage
+                key={`text-${i}`}
+                content={scene.content}
+                pageNum={textNum}
+                sceneIndex={i}
+                totalScenes={totalScenes}
+              />,
+            ];
+          })}
 
-                {/* Right page */}
-                <div
-                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 rounded-r-lg cursor-pointer"
-                  style={{
-                    background: "linear-gradient(to left, #EDE3C8, #F5ECD7)",
-                    transform: "rotateY(-1deg)",
-                    transformOrigin: "left center",
-                    boxShadow: "inset 20px 0 30px -15px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  <div className="text-stone-400 text-sm italic mb-6">A Storyverse tale</div>
-                  <p className="text-stone-400 text-xs animate-pulse">Tap to begin</p>
-                </div>
-              </>
-            )}
+          {/* End page */}
+          <EndPage title={story.title} />
 
-            {view === "page" && page && (() => {
-              const imageOnLeft = pageIndex % 2 === 0;
-
-              const illustrationPage = (
-                <div
-                  className={`flex-1 relative flex items-center justify-center ${imageOnLeft ? "rounded-l-lg" : "rounded-r-lg"}`}
-                  style={{
-                    background: imageOnLeft
-                      ? "linear-gradient(to right, #EDE3C8, #F5ECD7)"
-                      : "linear-gradient(to left, #EDE3C8, #F5ECD7)",
-                    transform: imageOnLeft ? "rotateY(1deg)" : "rotateY(-1deg)",
-                    transformOrigin: imageOnLeft ? "right center" : "left center",
-                    boxShadow: imageOnLeft
-                      ? "inset -20px 0 30px -15px rgba(0,0,0,0.08)"
-                      : "inset 20px 0 30px -15px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  {page.imageUrl ? (
-                    <img
-                      src={page.imageUrl}
-                      alt={`Illustration for page ${pageIndex + 1}`}
-                      className={`w-full h-full object-contain ${imageOnLeft ? "rounded-l-lg" : "rounded-r-lg"}`}
-                      style={{
-                        minHeight: "min(85vh, 700px)",
-                        mixBlendMode: "multiply",
-                        filter: "brightness(1.08)",
-                      }}
-                      draggable={false}
-                    />
-                  ) : (
-                    <div
-                      className="w-full flex items-center justify-center"
-                      style={{
-                        minHeight: "min(85vh, 700px)",
-                        background: "linear-gradient(135deg, #E8DFC8, #DDD3B8)",
-                      }}
-                    >
-                      <div className="text-stone-400/40 text-sm">Illustration</div>
-                    </div>
-                  )}
-                  <div className="absolute bottom-3 left-0 right-0 text-center">
-                    <span className="text-stone-500/50 text-xs">
-                      {imageOnLeft ? pageIndex * 2 + 1 : pageIndex * 2 + 2}
-                    </span>
-                  </div>
-                </div>
-              );
-
-              const textPage = (
-                <div
-                  className={`flex-1 flex flex-col justify-between relative ${imageOnLeft ? "rounded-r-lg" : "rounded-l-lg"}`}
-                  style={{
-                    background: imageOnLeft
-                      ? "linear-gradient(to left, #EDE3C8, #F5ECD7)"
-                      : "linear-gradient(to right, #EDE3C8, #F5ECD7)",
-                    minHeight: "min(85vh, 700px)",
-                    transform: imageOnLeft ? "rotateY(-1deg)" : "rotateY(1deg)",
-                    transformOrigin: imageOnLeft ? "left center" : "right center",
-                    boxShadow: imageOnLeft
-                      ? "inset 20px 0 30px -15px rgba(0,0,0,0.08)"
-                      : "inset -20px 0 30px -15px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  <div className="flex-1 flex items-center px-8 md:px-12 py-8 md:py-10">
-                    <p
-                      className="text-stone-800 leading-[1.85] tracking-wide text-left"
-                      style={{
-                        fontSize: "clamp(1rem, 1.8vw + 0.4rem, 1.4rem)",
-                        wordSpacing: "0.05em",
-                        letterSpacing: "0.02em",
-                      }}
-                    >
-                      {page.content}
-                    </p>
-                  </div>
-                  <div className="text-center pb-3">
-                    <span className="text-stone-500/50 text-xs">
-                      {imageOnLeft ? pageIndex * 2 + 2 : pageIndex * 2 + 1}
-                    </span>
-                  </div>
-                  <div className="absolute top-3 right-4">
-                    <span className="text-stone-400/40 text-[10px]">
-                      {pageIndex + 1} of {totalPages}
-                    </span>
-                  </div>
-                </div>
-              );
-
-              return (
-                <>
-                  {imageOnLeft ? illustrationPage : textPage}
-                  <div
-                    className="hidden md:block w-[4px] relative z-20 flex-shrink-0"
-                    style={{
-                      background: "linear-gradient(to bottom, #B8A878, #96845C, #B8A878)",
-                      boxShadow: "-3px 0 12px rgba(0,0,0,0.15), 3px 0 12px rgba(0,0,0,0.15)",
-                    }}
-                  />
-                  {imageOnLeft ? textPage : illustrationPage}
-                </>
-              );
-            })()}
-
-            {view === "end" && (
-              <>
-                <div
-                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 rounded-l-lg"
-                  style={{
-                    background: "linear-gradient(to right, #EDE3C8, #F5ECD7)",
-                    transform: "rotateY(1deg)",
-                    transformOrigin: "right center",
-                    boxShadow: "inset -20px 0 30px -15px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  <p className="text-stone-800 text-4xl md:text-5xl font-light italic">
-                    The End
-                  </p>
-                  <p className="text-stone-500 text-sm mt-3">{story.title}</p>
-                </div>
-                <div
-                  className="hidden md:block w-[4px] relative z-20 flex-shrink-0"
-                  style={{
-                    background: "linear-gradient(to bottom, #B8A878, #96845C, #B8A878)",
-                    boxShadow: "-3px 0 12px rgba(0,0,0,0.15), 3px 0 12px rgba(0,0,0,0.15)",
-                  }}
-                />
-                <div
-                  className="flex-1 flex flex-col items-center justify-center p-8 md:p-12 rounded-r-lg"
-                  style={{
-                    background: "linear-gradient(to left, #EDE3C8, #F5ECD7)",
-                    transform: "rotateY(-1deg)",
-                    transformOrigin: "left center",
-                    boxShadow: "inset 20px 0 30px -15px rgba(0,0,0,0.08)",
-                  }}
-                >
-                  <div className="flex flex-col gap-4 items-center">
-                    <button
-                      onClick={() => { setView("title"); setPageIndex(0); }}
-                      className="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
-                    >
-                      Read again
-                    </button>
-                    <button
-                      onClick={() => navigate("/library")}
-                      className="px-6 py-3 text-stone-500 hover:text-stone-800 transition-colors"
-                    >
-                      Back to library
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+          {/* Back cover */}
+          <BackCoverPage
+            onReadAgain={handleReadAgain}
+            onBack={() => navigate("/library")}
+          />
+        </HTMLFlipBook>
       </div>
-
-      {/* Page flip keyframe animations */}
-      <style>{`
-        @keyframes pageFlipForward {
-          0% {
-            transform: rotateY(0deg);
-            box-shadow: -5px 0 15px rgba(0,0,0,0.1);
-          }
-          40% {
-            box-shadow: -15px 0 40px rgba(0,0,0,0.25);
-          }
-          100% {
-            transform: rotateY(-180deg);
-            box-shadow: 0 0 5px rgba(0,0,0,0.05);
-          }
-        }
-        @keyframes pageFlipBack {
-          0% {
-            transform: rotateY(0deg);
-            box-shadow: 5px 0 15px rgba(0,0,0,0.1);
-          }
-          40% {
-            box-shadow: 15px 0 40px rgba(0,0,0,0.25);
-          }
-          100% {
-            transform: rotateY(180deg);
-            box-shadow: 0 0 5px rgba(0,0,0,0.05);
-          }
-        }
-        @keyframes flipShadow {
-          0% { opacity: 0; }
-          40% { opacity: 1; }
-          100% { opacity: 0; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          @keyframes pageFlipForward {
-            0% { opacity: 1; }
-            100% { opacity: 0; }
-          }
-          @keyframes pageFlipBack {
-            0% { opacity: 1; }
-            100% { opacity: 0; }
-          }
-          @keyframes flipShadow {
-            0% { opacity: 0; }
-            100% { opacity: 0; }
-          }
-        }
-      `}</style>
     </div>
   );
 }

@@ -27,6 +27,7 @@
     "jspdf": "^4.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-pageflip": "^2.0.3",
     "react-router-dom": "^6.28.0",
     "stripe": "^22.0.0"
   },
