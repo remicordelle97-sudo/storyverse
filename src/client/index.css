@@ -2,9 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-/* react-pageflip: ensure pages fill their container with solid background */
-.stf__item > div {
-  width: 100%;
-  height: 100%;
+/* react-pageflip: the library overwrites inline styles on .stf__item via
+   style.cssText, so background must come from a class-based rule. */
+.stf__item {
   background-color: #F5ECD7;
 }

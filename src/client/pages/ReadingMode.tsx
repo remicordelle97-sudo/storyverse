@@ -177,52 +177,53 @@ async function exportStoryAsPdf(story: any) {
 
 // --- Book pages as forwardRef components ---
 
+// The library adds .stf__item to the ref'd div and overwrites ALL inline styles
+// via style.cssText. It also sets display:block, overriding Tailwind flex classes.
+// Solution: keep the outer ref'd div bare. Put all layout in an inner wrapper
+// with absolute positioning to fill the page.
+
+const pageInner = "absolute inset-0 overflow-hidden";
+
 const TitlePage = forwardRef<HTMLDivElement, { title: string }>(({ title }, ref) => (
-  <div
-    ref={ref}
-    className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
-    style={{ background: "#F5ECD7" }}
-  >
-    <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight">
-      {title}
-    </h1>
+  <div ref={ref}>
+    <div className={`${pageInner} flex flex-col items-center justify-center p-8 md:p-12`}>
+      <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight">
+        {title}
+      </h1>
+    </div>
   </div>
 ));
 
 const SubtitlePage = forwardRef<HTMLDivElement>((_, ref) => (
-  <div
-    ref={ref}
-    className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
-    style={{ background: "#F5ECD7" }}
-  >
-    <div className="text-stone-400 text-sm italic mb-6">A Storyverse tale</div>
-    <p className="text-stone-400 text-xs animate-pulse">Turn to begin</p>
+  <div ref={ref}>
+    <div className={`${pageInner} flex flex-col items-center justify-center p-8 md:p-12`}>
+      <div className="text-stone-400 text-sm italic mb-6">A Storyverse tale</div>
+      <p className="text-stone-400 text-xs animate-pulse">Turn to begin</p>
+    </div>
   </div>
 ));
 
 const IllustrationPage = forwardRef<HTMLDivElement, { imageUrl?: string; pageNum: number }>(
   ({ imageUrl, pageNum }, ref) => (
-    <div
-      ref={ref}
-      className="relative flex items-center justify-center h-full"
-      style={{ background: "#F5ECD7" }}
-    >
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={`Illustration for page ${pageNum}`}
-          className="w-full h-full object-contain"
-          style={{
-            mixBlendMode: "multiply",
-            filter: "brightness(1.08)",
-          }}
-          draggable={false}
-        />
-      ) : (
-        <div className="text-stone-400/40 text-sm">Illustration</div>
-      )}
-      <div className="absolute bottom-3 left-0 right-0 text-center">
-        <span className="text-stone-500/50 text-xs">{pageNum}</span>
+    <div ref={ref}>
+      <div className={`${pageInner} flex items-center justify-center`}>
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={`Illustration for page ${pageNum}`}
+            className="w-full h-full object-contain"
+            style={{
+              mixBlendMode: "multiply",
+              filter: "brightness(1.08)",
+            }}
+            draggable={false}
+          />
+        ) : (
+          <div className="text-stone-400/40 text-sm">Illustration</div>
+        )}
+        <div className="absolute bottom-3 left-0 right-0 text-center">
+          <span className="text-stone-500/50 text-xs">{pageNum}</span>
+        </div>
       </div>
     </div>
   )
@@ -232,42 +233,38 @@ const TextPage = forwardRef<
   HTMLDivElement,
   { content: string; pageNum: number; sceneIndex: number; totalScenes: number }
 >(({ content, pageNum, sceneIndex, totalScenes }, ref) => (
-  <div
-    ref={ref}
-    className="flex flex-col justify-between relative h-full"
-    style={{ background: "#F5ECD7" }}
-  >
-    <div className="flex-1 flex items-center px-8 md:px-12 py-8 md:py-10">
-      <p
-        className="text-stone-800 leading-[1.85] tracking-wide text-left"
-        style={{
-          fontSize: "clamp(1rem, 1.8vw + 0.4rem, 1.4rem)",
-          wordSpacing: "0.05em",
-          letterSpacing: "0.02em",
-        }}
-      >
-        {content}
-      </p>
-    </div>
-    <div className="text-center pb-3">
-      <span className="text-stone-500/50 text-xs">{pageNum}</span>
-    </div>
-    <div className="absolute top-3 right-4">
-      <span className="text-stone-400/40 text-[10px]">
-        {sceneIndex + 1} of {totalScenes}
-      </span>
+  <div ref={ref}>
+    <div className={`${pageInner} flex flex-col justify-between`}>
+      <div className="flex-1 flex items-center px-8 md:px-12 py-8 md:py-10">
+        <p
+          className="text-stone-800 leading-[1.85] tracking-wide text-left"
+          style={{
+            fontSize: "clamp(1rem, 1.8vw + 0.4rem, 1.4rem)",
+            wordSpacing: "0.05em",
+            letterSpacing: "0.02em",
+          }}
+        >
+          {content}
+        </p>
+      </div>
+      <div className="text-center pb-3">
+        <span className="text-stone-500/50 text-xs">{pageNum}</span>
+      </div>
+      <div className="absolute top-3 right-4">
+        <span className="text-stone-400/40 text-[10px]">
+          {sceneIndex + 1} of {totalScenes}
+        </span>
+      </div>
     </div>
   </div>
 ));
 
 const EndPage = forwardRef<HTMLDivElement, { title: string }>(({ title }, ref) => (
-  <div
-    ref={ref}
-    className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
-    style={{ background: "#F5ECD7" }}
-  >
-    <p className="text-stone-800 text-4xl md:text-5xl font-light italic">The End</p>
-    <p className="text-stone-500 text-sm mt-3">{title}</p>
+  <div ref={ref}>
+    <div className={`${pageInner} flex flex-col items-center justify-center p-8 md:p-12`}>
+      <p className="text-stone-800 text-4xl md:text-5xl font-light italic">The End</p>
+      <p className="text-stone-500 text-sm mt-3">{title}</p>
+    </div>
   </div>
 ));
 
@@ -275,24 +272,22 @@ const BackCoverPage = forwardRef<
   HTMLDivElement,
   { onReadAgain: () => void; onBack: () => void }
 >(({ onReadAgain, onBack }, ref) => (
-  <div
-    ref={ref}
-    className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
-    style={{ background: "#F5ECD7" }}
-  >
-    <div className="flex flex-col gap-4 items-center">
-      <button
-        onClick={onReadAgain}
-        className="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
-      >
-        Read again
-      </button>
-      <button
-        onClick={onBack}
-        className="px-6 py-3 text-stone-500 hover:text-stone-800 transition-colors"
-      >
-        Back to library
-      </button>
+  <div ref={ref}>
+    <div className={`${pageInner} flex flex-col items-center justify-center p-8 md:p-12`}>
+      <div className="flex flex-col gap-4 items-center">
+        <button
+          onClick={onReadAgain}
+          className="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary/90 transition-colors"
+        >
+          Read again
+        </button>
+        <button
+          onClick={onBack}
+          className="px-6 py-3 text-stone-500 hover:text-stone-800 transition-colors"
+        >
+          Back to library
+        </button>
+      </div>
     </div>
   </div>
 ));
