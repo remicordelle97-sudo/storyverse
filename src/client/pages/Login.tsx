@@ -83,36 +83,9 @@ export default function Login() {
       {/* Subtle dark overlay so the login box is readable */}
       <div className="absolute inset-0 bg-black/15" />
 
-      {/* FAQ button — top right */}
-      <div className="absolute top-4 right-4 z-20">
-        <button
-          onClick={() => setShowFaq(!showFaq)}
-          className="px-4 py-2 text-sm font-medium text-white/80 hover:text-white rounded-lg transition-colors"
-          style={{ background: "rgba(0,0,0,0.3)", backdropFilter: "blur(8px)" }}
-        >
-          FAQ
-        </button>
-        {showFaq && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowFaq(false)} />
-            <div
-              className="absolute top-12 right-0 w-80 rounded-xl shadow-2xl p-5 space-y-4 z-50"
-              style={{ background: "rgba(255,253,247,0.92)", backdropFilter: "blur(12px)" }}
-            >
-              {FAQ_ITEMS.map((item) => (
-                <div key={item.q}>
-                  <h3 className="text-sm font-semibold text-stone-800">{item.q}</h3>
-                  <p className="text-xs text-stone-500 mt-1">{item.a}</p>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-
       {/* Login card */}
       <div
-        className="relative z-10 text-center px-10 py-12 rounded-2xl shadow-2xl"
+        className="relative z-10 text-center px-10 py-10 rounded-2xl shadow-2xl"
         style={{
           background: "rgba(255, 253, 247, 0.45)",
           backdropFilter: "blur(8px)",
@@ -133,12 +106,30 @@ export default function Login() {
         >
           Storyverse
         </h1>
-        <p className="text-stone-500 text-sm mb-8">
+        <p className="text-stone-500 text-sm mb-6">
           Where every bedtime becomes an adventure
         </p>
-        <div className="flex justify-center">
+        <div className="flex justify-center mb-6">
           <div ref={buttonRef} />
         </div>
+
+        {/* FAQ toggle */}
+        <button
+          onClick={() => setShowFaq(!showFaq)}
+          className="text-xs text-stone-400 hover:text-stone-600 transition-colors relative z-10"
+        >
+          {showFaq ? "Hide FAQ" : "FAQ"}
+        </button>
+        {showFaq && (
+          <div className="mt-3 text-left space-y-3 relative z-10">
+            {FAQ_ITEMS.map((item) => (
+              <div key={item.q}>
+                <h3 className="text-xs font-semibold text-stone-700">{item.q}</h3>
+                <p className="text-[11px] text-stone-500 mt-0.5">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
