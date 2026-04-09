@@ -121,9 +121,9 @@ export default function Login() {
       <div
         className="relative z-10 text-center px-10 py-12 rounded-2xl shadow-2xl"
         style={{
-          background: "rgba(255, 253, 247, 0.7)",
-          backdropFilter: "blur(10px)",
-          border: "1px solid rgba(212, 197, 160, 0.4)",
+          background: "rgba(255, 253, 247, 0.45)",
+          backdropFilter: "blur(8px)",
+          border: "1px solid rgba(212, 197, 160, 0.3)",
           maxWidth: "400px",
           width: "100%",
         }}
