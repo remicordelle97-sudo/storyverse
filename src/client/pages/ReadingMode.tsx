@@ -541,7 +541,7 @@ export default function ReadingMode() {
           maxHeight={900}
           drawShadow={true}
           flippingTime={800}
-          showCover={true}
+          showCover={false}
           maxShadowOpacity={0.5}
           mobileScrollSupport={false}
           onFlip={handleFlip}
