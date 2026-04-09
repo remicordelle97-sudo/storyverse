@@ -526,6 +526,7 @@ export default function ReadingMode() {
               {regenerating ? regenProgress : "Regen images"}
             </button>
           )}
+          {isAdmin && (
           <button
             onClick={async (e) => {
               e.stopPropagation();
@@ -543,6 +544,7 @@ export default function ReadingMode() {
           >
             {exporting ? "Saving..." : "Save PDF"}
           </button>
+          )}
         </div>
       </div>
 
