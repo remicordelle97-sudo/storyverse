@@ -116,11 +116,35 @@ function Shelf({ children }: { children: React.ReactNode }) {
   );
 }
 
+const FAQ_ITEMS = [
+  {
+    q: "What is Storyverse?",
+    a: "Storyverse creates personalised bedtime stories with unique illustrations for each tale.",
+  },
+  {
+    q: "How are stories created?",
+    a: "Each story is crafted based on your child's universe — their favourite characters, settings, and themes.",
+  },
+  {
+    q: "Are the illustrations unique?",
+    a: "Yes! Every story comes with custom illustrations that match your characters and art style.",
+  },
+  {
+    q: "How many stories can I create?",
+    a: "On the free plan you can create up to 3 stories per month. Upgrade to Premium for unlimited stories.",
+  },
+  {
+    q: "Can I customise characters?",
+    a: "Absolutely! Create your own universes with custom characters, and they'll appear consistently across all your stories.",
+  },
+];
+
 export default function Library() {
   const navigate = useNavigate();
   const { user, isAdmin, logout } = useAuth();
   const queryClient = useQueryClient();
   const [showMenu, setShowMenu] = useState(false);
+  const [showFaq, setShowFaq] = useState(false);
   const viewMode = "covers";
 
   const { data: stories = [], isLoading } = useQuery({
@@ -160,7 +184,7 @@ export default function Library() {
   return (
     <div className="min-h-screen bg-amber-950/5">
       {/* Header */}
-      <div className="max-w-5xl mx-auto px-4 pt-6 pb-4">
+      <div className="max-w-[95vw] mx-auto px-4 pt-6 pb-4">
         <div className="flex items-center justify-between">
           <h1
             className="text-3xl font-bold text-amber-900"
@@ -169,6 +193,29 @@ export default function Library() {
             My Library
           </h1>
           <div className="flex items-center gap-4">
+            {/* FAQ */}
+            <div className="relative">
+              <button
+                onClick={() => setShowFaq(!showFaq)}
+                className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
+              >
+                FAQ
+              </button>
+              {showFaq && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowFaq(false)} />
+                  <div className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-lg border border-stone-200 p-5 w-80 space-y-4">
+                    {FAQ_ITEMS.map((item) => (
+                      <div key={item.q}>
+                        <h3 className="text-sm font-semibold text-stone-800">{item.q}</h3>
+                        <p className="text-xs text-stone-500 mt-1">{item.a}</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <div className="flex items-center gap-3">
               {user?.picture && (
                 <img
@@ -280,7 +327,7 @@ export default function Library() {
       </div>
 
       {/* Bookshelf */}
-      <div className="max-w-5xl mx-auto px-4 py-4">
+      <div className="max-w-[95vw] mx-auto px-4 py-4">
         {isLoading ? (
           <div className="py-20 text-center">
             <p className="text-stone-400" style={{ fontFamily: "Lexend, sans-serif" }}>
