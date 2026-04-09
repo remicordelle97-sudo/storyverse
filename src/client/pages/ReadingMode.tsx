@@ -477,10 +477,10 @@ export default function ReadingMode() {
       onClick={showControls}
       style={{ fontFamily: "Lexend, sans-serif" }}
     >
-      {/* Controls overlay */}
+      {/* Controls overlay — always visible on mobile, auto-hide on desktop */}
       <div
-        className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 py-4 transition-opacity duration-300 ${
-          controlsVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+        className={`fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 transition-opacity duration-300 ${
+          controlsVisible ? "opacity-100" : "sm:opacity-0 sm:pointer-events-none"
         }`}
       >
         <button
