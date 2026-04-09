@@ -79,15 +79,15 @@ export default function Login() {
         }}
       />
       {/* Subtle dark overlay so the login box is readable */}
-      <div className="absolute inset-0 bg-black/30" />
+      <div className="absolute inset-0 bg-black/15" />
 
       {/* Login card */}
       <div
         className="relative z-10 text-center px-10 py-12 rounded-2xl shadow-2xl"
         style={{
-          background: "rgba(255, 253, 247, 0.92)",
-          backdropFilter: "blur(12px)",
-          border: "1px solid rgba(212, 197, 160, 0.5)",
+          background: "rgba(255, 253, 247, 0.7)",
+          backdropFilter: "blur(10px)",
+          border: "1px solid rgba(212, 197, 160, 0.4)",
           maxWidth: "400px",
           width: "100%",
         }}
