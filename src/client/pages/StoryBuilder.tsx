@@ -11,7 +11,7 @@ const STEP_LABELS: Record<string, string> = {
   building: "Building your story world",
   writing: "Writing the story",
   saving: "Saving pages",
-  illustrating: "Creating illustrations",
+  illustrating: "Illustrating your story",
 };
 
 export default function StoryBuilder() {
@@ -340,7 +340,7 @@ export default function StoryBuilder() {
             disabled={!hero || !universeId || (quota && !quota.allowed)}
             className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {quota && !quota.allowed ? "Monthly limit reached" : "Generate story"}
+            {quota && !quota.allowed ? "Monthly limit reached" : "Create story"}
           </button>
         </>
       )}
