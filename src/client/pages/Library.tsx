@@ -101,7 +101,7 @@ function Shelf({ children }: { children: React.ReactNode }) {
   return (
     <div className="mb-4">
       {/* Books */}
-      <div className="flex items-end gap-4 px-8 pb-0 min-h-[230px] flex-wrap">
+      <div className="flex items-end gap-3 sm:gap-4 px-3 sm:px-8 pb-0 min-h-[230px] flex-wrap justify-center sm:justify-start">
         {children}
       </div>
       {/* Shelf plank */}
@@ -225,7 +225,7 @@ export default function Library() {
         <>
           <div className="fixed inset-0 z-40 bg-black/20" onClick={() => setShowFaq(false)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-            <div className="bg-white rounded-xl shadow-xl border border-stone-200 p-6 w-96 max-h-[80vh] overflow-y-auto space-y-4 pointer-events-auto">
+            <div className="bg-white rounded-xl shadow-xl border border-stone-200 p-6 w-full max-w-sm mx-4 max-h-[80vh] overflow-y-auto space-y-4 pointer-events-auto">
               <h2 className="text-lg font-bold text-stone-800 mb-2">FAQ</h2>
               {FAQ_ITEMS.map((item) => (
                 <div key={item.q}>

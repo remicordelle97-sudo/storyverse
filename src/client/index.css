@@ -15,24 +15,25 @@
 }
 
 /* Spine shadow at the center of the open book spread.
-   z-index: 2 keeps it above static pages but below the flipping page
-   and the library's own flip shadows (which use higher z-indices). */
-.stf__block::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 30px;
-  background: linear-gradient(
-    to right,
-    transparent,
-    rgba(0, 0, 0, 0.06) 25%,
-    rgba(0, 0, 0, 0.12) 50%,
-    rgba(0, 0, 0, 0.06) 75%,
-    transparent
-  );
-  pointer-events: none;
-  z-index: 2;
+   Hidden on narrow screens where portrait (single-page) mode is active. */
+@media (min-width: 640px) {
+  .stf__block::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 30px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(0, 0, 0, 0.06) 25%,
+      rgba(0, 0, 0, 0.12) 50%,
+      rgba(0, 0, 0, 0.06) 75%,
+      transparent
+    );
+    pointer-events: none;
+    z-index: 2;
+  }
 }

@@ -48,7 +48,7 @@ export default function Login() {
         window.google?.accounts.id.renderButton(buttonRef.current, {
           theme: "outline",
           size: "large",
-          width: 320,
+          width: 280,
           text: "signin_with",
           shape: "rectangular",
         });
@@ -85,7 +85,7 @@ export default function Login() {
 
       {/* Login card */}
       <div
-        className="relative z-10 text-center px-10 py-10 rounded-2xl shadow-2xl"
+        className="relative z-10 text-center px-6 sm:px-10 py-10 rounded-2xl shadow-2xl mx-4"
         style={{
           background: "rgba(255, 253, 247, 0.45)",
           backdropFilter: "blur(8px)",

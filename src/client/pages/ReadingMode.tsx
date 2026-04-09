@@ -490,11 +490,11 @@ export default function ReadingMode() {
           &times; Close
         </button>
         {currentSceneIndex >= 0 && (
-          <div className="flex gap-1.5">
+          <div className="flex gap-1.5 sm:gap-2">
             {scenes.map((_: any, i: number) => (
               <div
                 key={i}
-                className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                className={`w-2 h-2 sm:w-1.5 sm:h-1.5 rounded-full transition-colors ${
                   i === currentSceneIndex ? "bg-white" : "bg-white/20"
                 }`}
               />
@@ -549,17 +549,18 @@ export default function ReadingMode() {
       </div>
 
       {/* Book */}
-      <div className="flex items-center justify-center w-full px-4 py-8" style={{ minHeight: "100vh" }}>
+      <div className="flex items-center justify-center w-full px-2 sm:px-4 py-4 sm:py-8" style={{ minHeight: "100vh" }}>
         {/* @ts-ignore - react-pageflip types */}
         <HTMLFlipBook
           ref={bookRef}
           width={480}
           height={620}
           size="stretch"
-          minWidth={260}
+          minWidth={160}
           maxWidth={560}
-          minHeight={340}
+          minHeight={240}
           maxHeight={730}
+          usePortrait={true}
           drawShadow={true}
           flippingTime={800}
           showCover={true}
