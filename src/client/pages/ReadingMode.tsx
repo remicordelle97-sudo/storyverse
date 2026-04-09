@@ -556,7 +556,7 @@ export default function ReadingMode() {
           width={480}
           height={620}
           size="stretch"
-          minWidth={160}
+          minWidth={200}
           maxWidth={560}
           minHeight={240}
           maxHeight={730}
