@@ -7,3 +7,29 @@
 .stf__item {
   background-color: #F5ECD7;
 }
+
+/* Spine shadow — adds depth at the center of the open book spread */
+.stf__parent {
+  position: relative;
+}
+.stf__parent::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(0, 0, 0, 0.08) 20%,
+    rgba(0, 0, 0, 0.15) 45%,
+    rgba(0, 0, 0, 0.18) 50%,
+    rgba(0, 0, 0, 0.15) 55%,
+    rgba(0, 0, 0, 0.08) 80%,
+    transparent
+  );
+  pointer-events: none;
+  z-index: 10;
+}

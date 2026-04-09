@@ -187,18 +187,10 @@ const pageInner = "absolute inset-0 overflow-hidden";
 const TitlePage = forwardRef<HTMLDivElement, { title: string }>(({ title }, ref) => (
   <div ref={ref}>
     <div className={`${pageInner} flex flex-col items-center justify-center p-8 md:p-12`}>
-      <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight">
+      <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight mb-4">
         {title}
       </h1>
-    </div>
-  </div>
-));
-
-const SubtitlePage = forwardRef<HTMLDivElement>((_, ref) => (
-  <div ref={ref}>
-    <div className={`${pageInner} flex flex-col items-center justify-center p-8 md:p-12`}>
-      <div className="text-stone-400 text-sm italic mb-6">A Storyverse tale</div>
-      <p className="text-stone-400 text-xs animate-pulse">Turn to begin</p>
+      <div className="text-stone-400 text-sm italic">A Storyverse tale</div>
     </div>
   </div>
 ));
@@ -331,15 +323,15 @@ export default function ReadingMode() {
   const scenes = story?.scenes || [];
   const totalScenes = scenes.length;
 
-  // Total book pages: title + subtitle + (illustration + text per scene) + end + back cover
-  const totalBookPages = 2 + totalScenes * 2 + 2;
+  // Total book pages: front cover + (2 per scene) + end + buttons + back cover
+  const totalBookPages = 1 + totalScenes * 2 + 3;
 
   // Map book page index to scene index for the progress dots
+  // Page 0 is title cover (alone), then scene pages start at page 1
   const sceneIndexFromPage = useCallback(
     (bookPage: number) => {
-      // Pages 0-1 are title/subtitle, then pairs of illustration+text
-      if (bookPage < 2) return -1;
-      const sceneRelative = bookPage - 2;
+      if (bookPage < 1) return -1;
+      const sceneRelative = bookPage - 1;
       if (sceneRelative >= totalScenes * 2) return -1;
       return Math.floor(sceneRelative / 2);
     },
@@ -362,10 +354,16 @@ export default function ReadingMode() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Keyboard: Escape to close (arrow keys handled by react-pageflip)
+  // Keyboard navigation
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "ArrowRight" || e.key === " ") {
+        e.preventDefault();
+        bookRef.current?.pageFlip()?.flipNext();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        bookRef.current?.pageFlip()?.flipPrev();
+      } else if (e.key === "Escape") {
         navigate("/library");
       }
     };
@@ -527,29 +525,26 @@ export default function ReadingMode() {
         {/* @ts-ignore - react-pageflip types */}
         <HTMLFlipBook
           ref={bookRef}
-          width={550}
-          height={700}
+          width={500}
+          height={650}
           size="stretch"
-          minWidth={300}
-          maxWidth={700}
-          minHeight={400}
-          maxHeight={900}
+          minWidth={280}
+          maxWidth={550}
+          minHeight={360}
+          maxHeight={720}
           drawShadow={true}
           flippingTime={800}
-          showCover={false}
+          showCover={true}
           maxShadowOpacity={0.5}
           mobileScrollSupport={false}
           onFlip={handleFlip}
           className="book-flip"
           style={{
-            filter: "drop-shadow(0 30px 70px rgba(0,0,0,0.5))",
+            filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.6))",
           }}
         >
-          {/* Title page */}
+          {/* Title page (front cover — shown alone) */}
           <TitlePage title={story.title} />
-
-          {/* Subtitle page */}
-          <SubtitlePage />
 
           {/* Scene pages: alternate image left/right per scene */}
           {scenes.flatMap((scene: any, i: number) => {
@@ -575,14 +570,15 @@ export default function ReadingMode() {
             return imageOnLeft ? [illust, text] : [text, illust];
           })}
 
-          {/* End page */}
+          {/* End spread: "The End" on left, buttons on right */}
           <EndPage title={story.title} />
-
-          {/* Back cover */}
           <BackCoverPage
             onReadAgain={handleReadAgain}
             onBack={() => navigate("/library")}
           />
+
+          {/* Back cover (shown alone, mirrors the front cover) */}
+          <TitlePage title={story.title} />
         </HTMLFlipBook>
       </div>
     </div>
