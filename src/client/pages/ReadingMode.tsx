@@ -271,11 +271,6 @@ const TextPage = forwardRef<
       <div className="text-center pb-3">
         <span className="text-stone-500/50 text-xs">{pageNum}</span>
       </div>
-      <div className="absolute top-4 right-5 z-10">
-        <span className="text-stone-500 text-[11px]">
-          {sceneIndex + 1} of {totalScenes}
-        </span>
-      </div>
     </div>
   </div>
 ));
