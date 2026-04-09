@@ -175,6 +175,20 @@ async function exportStoryAsPdf(story: any) {
   pdf.save(`${safeName}.pdf`);
 }
 
+// Deterministic color from story ID — must match Library.tsx stringToColor
+function storyColor(id: string): string {
+  const colors = [
+    "#b91c1c", "#1e40af", "#047857", "#6b21a8",
+    "#b45309", "#be123c", "#3730a3", "#0f766e",
+    "#c2410c", "#0e7490", "#5b21b6", "#0369a1",
+  ];
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
 // --- Book pages as forwardRef components ---
 
 // The library adds .stf__item to the ref'd div and overwrites ALL inline styles
@@ -184,16 +198,31 @@ async function exportStoryAsPdf(story: any) {
 
 const pageInner = "absolute inset-0 overflow-hidden";
 
-const TitlePage = forwardRef<HTMLDivElement, { title: string }>(({ title }, ref) => (
-  <div ref={ref}>
-    <div className={`${pageInner} flex flex-col items-center justify-center p-8 md:p-12`}>
-      <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight mb-4">
-        {title}
-      </h1>
-      <div className="text-stone-400 text-sm italic">A Storyverse tale</div>
+const CoverPage = forwardRef<HTMLDivElement, { title: string; color: string; subtitle?: string }>(
+  ({ title, color, subtitle }, ref) => (
+    <div ref={ref} className="cover-page" data-color={color}>
+      <div
+        className={`${pageInner} flex flex-col items-center justify-center p-8 md:p-12`}
+        style={{ background: color }}
+      >
+        {/* Spine edge */}
+        <div className="absolute left-0 top-0 bottom-0 w-4" style={{ background: "rgba(0,0,0,0.2)" }} />
+        {/* Subtle texture overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
+
+        <h1
+          className="text-3xl md:text-4xl font-bold text-white text-center leading-tight mb-4 relative z-10"
+          style={{ textShadow: "0 2px 8px rgba(0,0,0,0.3)" }}
+        >
+          {title}
+        </h1>
+        {subtitle && (
+          <div className="text-white/60 text-sm italic relative z-10">{subtitle}</div>
+        )}
+      </div>
     </div>
-  </div>
-));
+  )
+);
 
 const IllustrationPage = forwardRef<HTMLDivElement, { imageUrl?: string; pageNum: number }>(
   ({ imageUrl, pageNum }, ref) => (
@@ -544,7 +573,7 @@ export default function ReadingMode() {
           }}
         >
           {/* Title page (front cover — shown alone) */}
-          <TitlePage title={story.title} />
+          <CoverPage title={story.title} color={storyColor(story.id)} subtitle="A Storyverse tale" />
 
           {/* Scene pages: alternate image left/right per scene */}
           {scenes.flatMap((scene: any, i: number) => {
@@ -578,7 +607,7 @@ export default function ReadingMode() {
           />
 
           {/* Back cover (shown alone, mirrors the front cover) */}
-          <TitlePage title={story.title} />
+          <CoverPage title={story.title} color={storyColor(story.id)} />
         </HTMLFlipBook>
       </div>
     </div>
