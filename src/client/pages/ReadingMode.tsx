@@ -181,7 +181,7 @@ const TitlePage = forwardRef<HTMLDivElement, { title: string }>(({ title }, ref)
   <div
     ref={ref}
     className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
-    style={{ background: "linear-gradient(to right, #EDE3C8, #F5ECD7)" }}
+    style={{ background: "#F5ECD7" }}
   >
     <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight">
       {title}
@@ -193,7 +193,7 @@ const SubtitlePage = forwardRef<HTMLDivElement>((_, ref) => (
   <div
     ref={ref}
     className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
-    style={{ background: "linear-gradient(to left, #EDE3C8, #F5ECD7)" }}
+    style={{ background: "#F5ECD7" }}
   >
     <div className="text-stone-400 text-sm italic mb-6">A Storyverse tale</div>
     <p className="text-stone-400 text-xs animate-pulse">Turn to begin</p>
@@ -205,7 +205,7 @@ const IllustrationPage = forwardRef<HTMLDivElement, { imageUrl?: string; pageNum
     <div
       ref={ref}
       className="relative flex items-center justify-center h-full"
-      style={{ background: "linear-gradient(135deg, #EDE3C8, #F5ECD7)" }}
+      style={{ background: "#F5ECD7" }}
     >
       {imageUrl ? (
         <img
@@ -235,7 +235,7 @@ const TextPage = forwardRef<
   <div
     ref={ref}
     className="flex flex-col justify-between relative h-full"
-    style={{ background: "linear-gradient(135deg, #F5ECD7, #EDE3C8)" }}
+    style={{ background: "#F5ECD7" }}
   >
     <div className="flex-1 flex items-center px-8 md:px-12 py-8 md:py-10">
       <p
@@ -264,7 +264,7 @@ const EndPage = forwardRef<HTMLDivElement, { title: string }>(({ title }, ref) =
   <div
     ref={ref}
     className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
-    style={{ background: "linear-gradient(to right, #EDE3C8, #F5ECD7)" }}
+    style={{ background: "#F5ECD7" }}
   >
     <p className="text-stone-800 text-4xl md:text-5xl font-light italic">The End</p>
     <p className="text-stone-500 text-sm mt-3">{title}</p>
@@ -278,7 +278,7 @@ const BackCoverPage = forwardRef<
   <div
     ref={ref}
     className="flex flex-col items-center justify-center p-8 md:p-12 h-full"
-    style={{ background: "linear-gradient(to left, #EDE3C8, #F5ECD7)" }}
+    style={{ background: "#F5ECD7" }}
   >
     <div className="flex flex-col gap-4 items-center">
       <button
@@ -556,24 +556,28 @@ export default function ReadingMode() {
           {/* Subtitle page */}
           <SubtitlePage />
 
-          {/* Scene pages: illustration + text for each scene */}
+          {/* Scene pages: alternate image left/right per scene */}
           {scenes.flatMap((scene: any, i: number) => {
-            const illustrationNum = pageCounter++;
-            const textNum = pageCounter++;
-            return [
+            const imageOnLeft = i % 2 === 0;
+            const firstNum = pageCounter++;
+            const secondNum = pageCounter++;
+            const illust = (
               <IllustrationPage
                 key={`illust-${i}`}
                 imageUrl={scene.imageUrl}
-                pageNum={illustrationNum}
-              />,
+                pageNum={imageOnLeft ? firstNum : secondNum}
+              />
+            );
+            const text = (
               <TextPage
                 key={`text-${i}`}
                 content={scene.content}
-                pageNum={textNum}
+                pageNum={imageOnLeft ? secondNum : firstNum}
                 sceneIndex={i}
                 totalScenes={totalScenes}
-              />,
-            ];
+              />
+            );
+            return imageOnLeft ? [illust, text] : [text, illust];
           })}
 
           {/* End page */}
