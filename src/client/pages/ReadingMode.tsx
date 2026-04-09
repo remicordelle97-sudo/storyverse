@@ -243,25 +243,24 @@ export default function ReadingMode() {
 
   const goTo = useCallback(
     (newView: View, newIndex: number, dir: "forward" | "back") => {
-      if (flipping) return;
-      setFlipDirection(dir);
+      if (transitioning) return;
       setDirection(dir);
-      // Save current state so the flip overlay can show old content
+      setFlipDirection(dir);
       setPrevView(view);
       setPrevPageIndex(pageIndex);
-      // Start flip animation — content stays as old page
       setFlipping(true);
-      // Swap content at the midpoint (when page is edge-on at 90deg)
-      setTimeout(() => {
-        setView(newView);
-        setPageIndex(newIndex);
-      }, 300);
-      // End animation
+      setTransitioning(true);
+      // Update content immediately — the old content is preserved via prevView/prevPageIndex
+      // on the flipping overlay, so the swap underneath is hidden
+      setView(newView);
+      setPageIndex(newIndex);
+      // End animation after flip completes
       setTimeout(() => {
         setFlipping(false);
-      }, 600);
+        setTransitioning(false);
+      }, 500);
     },
-    [flipping, view, pageIndex]
+    [transitioning, view, pageIndex]
   );
 
   const goForward = useCallback(() => {
@@ -495,25 +494,32 @@ export default function ReadingMode() {
           {flipping && (
             <div
               className="absolute inset-0 z-30 pointer-events-none"
-              style={{ perspective: "2000px" }}
+              style={{ perspective: "2500px" }}
             >
+              {/* Shadow cast on the page beneath during flip */}
+              <div
+                className={`absolute top-0 ${flipDirection === "forward" ? "left-1/2" : "left-0"} w-1/2 h-full`}
+                style={{
+                  background: "rgba(0,0,0,0.08)",
+                  animation: `flipShadow 500ms ease-in-out forwards`,
+                }}
+              />
               <div
                 className={`absolute ${flipDirection === "forward" ? "right-0" : "left-0"} top-0 w-1/2 h-full`}
                 style={{
                   transformStyle: "preserve-3d",
                   transformOrigin: flipDirection === "forward" ? "left center" : "right center",
-                  animation: `pageFlip${flipDirection === "forward" ? "Forward" : "Back"} 600ms ease-in-out forwards`,
+                  animation: `pageFlip${flipDirection === "forward" ? "Forward" : "Back"} 500ms cubic-bezier(0.4, 0.0, 0.2, 1) forwards`,
                 }}
               >
-                {/* Front face — looks like the old page being lifted */}
+                {/* Front face — the old page being lifted */}
                 <div
                   className="absolute inset-0"
                   style={{
                     backfaceVisibility: "hidden",
                     background: flipDirection === "forward"
-                      ? "linear-gradient(to left, #E8DEBD, #F5ECD7)"
-                      : "linear-gradient(to right, #E8DEBD, #F5ECD7)",
-                    boxShadow: "0 0 40px rgba(0,0,0,0.2)",
+                      ? "linear-gradient(to left, #E0D6B8, #F5ECD7 20%)"
+                      : "linear-gradient(to right, #E0D6B8, #F5ECD7 20%)",
                     borderRadius: flipDirection === "forward" ? "0 8px 8px 0" : "8px 0 0 8px",
                   }}
                 />
@@ -524,9 +530,8 @@ export default function ReadingMode() {
                     backfaceVisibility: "hidden",
                     transform: "rotateY(180deg)",
                     background: flipDirection === "forward"
-                      ? "linear-gradient(to right, #E2D9C0, #EDE3C8)"
-                      : "linear-gradient(to left, #E2D9C0, #EDE3C8)",
-                    boxShadow: "0 0 40px rgba(0,0,0,0.2)",
+                      ? "linear-gradient(to right, #DDD3B8, #EDE3C8 20%)"
+                      : "linear-gradient(to left, #DDD3B8, #EDE3C8 20%)",
                     borderRadius: flipDirection === "forward" ? "8px 0 0 8px" : "0 8px 8px 0",
                   }}
                 />
@@ -741,14 +746,35 @@ export default function ReadingMode() {
       {/* Page flip keyframe animations */}
       <style>{`
         @keyframes pageFlipForward {
-          0% { transform: rotateY(0deg); }
-          50% { transform: rotateY(-90deg); box-shadow: -10px 0 40px rgba(0,0,0,0.3); }
-          100% { transform: rotateY(-180deg); box-shadow: none; }
+          0% {
+            transform: rotateY(0deg);
+            box-shadow: -5px 0 15px rgba(0,0,0,0.1);
+          }
+          40% {
+            box-shadow: -15px 0 40px rgba(0,0,0,0.25);
+          }
+          100% {
+            transform: rotateY(-180deg);
+            box-shadow: 0 0 5px rgba(0,0,0,0.05);
+          }
         }
         @keyframes pageFlipBack {
-          0% { transform: rotateY(0deg); }
-          50% { transform: rotateY(90deg); box-shadow: 10px 0 40px rgba(0,0,0,0.3); }
-          100% { transform: rotateY(180deg); box-shadow: none; }
+          0% {
+            transform: rotateY(0deg);
+            box-shadow: 5px 0 15px rgba(0,0,0,0.1);
+          }
+          40% {
+            box-shadow: 15px 0 40px rgba(0,0,0,0.25);
+          }
+          100% {
+            transform: rotateY(180deg);
+            box-shadow: 0 0 5px rgba(0,0,0,0.05);
+          }
+        }
+        @keyframes flipShadow {
+          0% { opacity: 0; }
+          40% { opacity: 1; }
+          100% { opacity: 0; }
         }
         @media (prefers-reduced-motion: reduce) {
           @keyframes pageFlipForward {
@@ -757,6 +783,10 @@ export default function ReadingMode() {
           }
           @keyframes pageFlipBack {
             0% { opacity: 1; }
+            100% { opacity: 0; }
+          }
+          @keyframes flipShadow {
+            0% { opacity: 0; }
             100% { opacity: 0; }
           }
         }
