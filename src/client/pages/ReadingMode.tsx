@@ -548,25 +548,16 @@ export default function ReadingMode() {
 
       {/* Book */}
       <div className="flex items-center justify-center w-full px-4 py-8" style={{ minHeight: "100vh" }}>
-        {/* Inner cover peek — colored border visible around the page edges */}
-        <div
-          className="rounded-sm"
-          style={{
-            padding: "3px",
-            background: storyColor(story.id),
-            filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.6))",
-          }}
-        >
         {/* @ts-ignore - react-pageflip types */}
         <HTMLFlipBook
           ref={bookRef}
-          width={500}
-          height={650}
+          width={550}
+          height={700}
           size="stretch"
-          minWidth={280}
-          maxWidth={550}
-          minHeight={360}
-          maxHeight={720}
+          minWidth={300}
+          maxWidth={650}
+          minHeight={400}
+          maxHeight={850}
           drawShadow={true}
           flippingTime={800}
           showCover={true}
@@ -575,7 +566,9 @@ export default function ReadingMode() {
           showPageCorners={false}
           onFlip={handleFlip}
           className="book-flip"
-          style={{}}
+          style={{
+            filter: "drop-shadow(0 25px 60px rgba(0,0,0,0.6))",
+          }}
         >
           {/* Title page (front cover — shown alone) */}
           <CoverPage title={story.title} color={storyColor(story.id)} subtitle="A Storyverse tale" />
@@ -614,7 +607,6 @@ export default function ReadingMode() {
           {/* Back cover (shown alone, no title) */}
           <CoverPage color={storyColor(story.id)} />
         </HTMLFlipBook>
-        </div>
       </div>
     </div>
   );
