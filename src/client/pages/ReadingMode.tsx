@@ -72,11 +72,6 @@ async function exportStoryAsPdf(story: any) {
   drawPageBg(halfW, halfW, false);
   drawSpine();
 
-  // Decorative border on left page
-  pdf.setDrawColor(borderColor.r, borderColor.g, borderColor.b);
-  pdf.setLineWidth(0.5);
-  pdf.rect(12, 12, halfW - 24, pageH - 24);
-
   // Title text (left page, centered)
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(28);
@@ -557,11 +552,7 @@ export default function ReadingMode() {
                     boxShadow: "inset -20px 0 30px -15px rgba(0,0,0,0.08)",
                   }}
                 >
-                  <div
-                    className="absolute inset-6 md:inset-10 rounded-sm pointer-events-none"
-                    style={{ border: "2px solid #D4C5A0" }}
-                  />
-                  <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight mb-4 relative z-10">
+                  <h1 className="text-3xl md:text-5xl font-bold text-stone-800 text-center leading-tight mb-4">
                     {story.title}
                   </h1>
                 </div>
