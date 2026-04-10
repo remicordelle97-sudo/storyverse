@@ -187,7 +187,7 @@ ${userPrompt}`;
  */
 async function refineImagePrompts(
   story: GeneratedStory,
-  characterData?: { name: string; appearance: string; outfit: string; specialDetail: string }[]
+  characterData?: { name: string; appearance: string; outfit: string }[]
 ): Promise<GeneratedStory> {
   const promptList = story.pages.map((p) => ({
     page_number: p.page_number,
@@ -231,7 +231,7 @@ Return ONLY valid JSON. No markdown fences.`,
         role: "user",
         content: `Review and rewrite these ${promptList.length} image prompts as a cohesive set for a children's picture book titled "${story.title}":
 
-${characterData && characterData.length > 0 ? `CHARACTER VISUAL DATA (use exact hex codes from outfits):\n${characterData.map((c) => `${c.name}:\n  Appearance: ${c.appearance}\n  Outfit: ${c.outfit}\n  Detail: ${c.specialDetail}`).join("\n\n")}\n\n` : ""}IMAGE PROMPTS:
+${characterData && characterData.length > 0 ? `CHARACTER VISUAL DATA (use exact hex codes from outfits):\n${characterData.map((c) => `${c.name}:\n  Appearance: ${c.appearance}\n  Outfit: ${c.outfit}`).join("\n\n")}\n\n` : ""}IMAGE PROMPTS:
 ${JSON.stringify(promptList, null, 2)}
 
 Return exactly this JSON:
@@ -298,7 +298,7 @@ export async function generateStory(
   writePrompt: string,
   ageGroup: string,
   onProgress?: (step: string, detail?: string) => void,
-  characterData?: { name: string; appearance: string; outfit: string; specialDetail: string }[]
+  characterData?: { name: string; appearance: string; outfit: string }[]
 ): Promise<GeneratedStory> {
   // Step 1: Plan
   onProgress?.("planning", "Planning the story...");

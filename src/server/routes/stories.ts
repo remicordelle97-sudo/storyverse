@@ -226,7 +226,7 @@ router.post("/generate", async (req, res) => {
     // Fetch character visual data for identity anchors
     const storyCharacters = await prisma.character.findMany({
       where: { id: { in: characterIds } },
-      select: { name: true, appearance: true, outfit: true, specialDetail: true },
+      select: { name: true, appearance: true, outfit: true },
     });
 
     if (res.closed) {
