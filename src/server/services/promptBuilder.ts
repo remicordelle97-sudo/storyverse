@@ -99,8 +99,7 @@ const STRUCTURE_GUIDELINES: Record<string, string> = {
 The protagonist must attempt to solve the central problem THREE times. This is one of the oldest and most satisfying patterns in children's storytelling. Think: "The Three Little Pigs" (straw, sticks, bricks), "Goldilocks and the Three Bears" (too hot, too cold, just right), "The Three Billy Goats Gruff" (small, medium, big).
 
 PREMISE FORMAT for Rule of Three:
-- "problem": The specific goal or need the character is trying to achieve. e.g. "Leo needs to get across the frozen lake to reach his friend."
-- "premise": "[Character] tries to [goal] — first by [attempt A], then [attempt B], before finally [attempt C]."
+- "premise": "[Character] tries to [goal] — first by [attempt A], then [attempt B], before finally [attempt C]." e.g. "Leo tries to cross the frozen lake to reach his friend — first by sliding across, then by building a bridge from branches, before finally discovering stepping stones hidden under the snow."
 - The three attempts should be genuinely different strategies, not just "try harder."
 
 PACING:
@@ -121,8 +120,7 @@ KEY RULES:
 Each new event, character, or detail builds on everything before it, creating a chain that grows and grows until it reaches a satisfying peak or playful collapse. Think: "The House That Jack Built," "If You Give a Mouse a Cookie," "There Was an Old Lady Who Swallowed a Fly."
 
 PREMISE FORMAT for Cumulative:
-- "problem": The pattern or chain that drives the story. e.g. "Every animal Rosie helps on her walk insists on following her, and the group gets bigger and sillier."
-- "premise": "Starting with [one small thing], a chain of [what accumulates] grows as [pattern], until [peak or collapse]."
+- "premise": "Starting with [one small thing], a chain of [what accumulates] grows as [pattern], until [peak or collapse]." e.g. "Starting with one hedgehog who wants company, a parade of animals grows as each new friend brings something noisier, until the whole procession crashes into the bakery."
 - There is no single "obstacle" — the fun comes from the accumulation and the payoff.
 
 PACING:
@@ -144,9 +142,8 @@ KEY RULES:
 The story ends where it began — same place, same situation — but the protagonist sees it completely differently because of what they experienced. Think: "Where the Wild Things Are" (bedroom → wild things → bedroom, but Max has processed his anger), "Owl Moon" (goes out → experience → returns home, transformed by wonder).
 
 PREMISE FORMAT for Circular:
-- "problem": What pulls the character away from the familiar, and what they will come to understand. e.g. "Rosie thinks her garden is boring and wants to find something more exciting — but she'll discover the magic was there all along."
-- "premise": "[Character] leaves [familiar place/routine] because [trigger], and returns to discover [what's different about how they see it]."
-- The "problem" here is about perspective, not a task to complete.
+- "premise": "[Character] leaves [familiar place/routine] because [trigger], and returns to discover [what's different about how they see it]." e.g. "Rosie leaves her garden because she thinks it's boring, and after a day exploring the woods, returns to discover her garden is full of tiny wonders she never noticed."
+- This is about perspective, not a task to complete.
 
 PACING:
 - Pages 1-2 (short) / 1-4 (long): THE ANCHOR SCENE. Describe the protagonist in a very specific place, doing a specific thing, feeling a specific way. Make this scene rich with sensory detail — the reader must REMEMBER it vividly because they will see it again at the end. Include a specific object, phrase, or sensory detail that will return later with new meaning.
@@ -166,8 +163,7 @@ KEY RULES:
 The protagonist leaves the safe and familiar, ventures into unknown territory, faces challenges that change them, and returns home transformed. This is the oldest story structure in human history. Think: "We're Going on a Bear Hunt," "The Snowy Day," "Rosie's Walk."
 
 PREMISE FORMAT for Journey & Return:
-- "problem": What draws the character out and what they must face. e.g. "Leo hears a strange melody coming from the Whispering Woods and sets out to find its source, but the forest grows darker and more confusing the deeper he goes."
-- "premise": "[Character] ventures from [home] to [destination] seeking [what], and returns changed by [what they discovered or learned]."
+- "premise": "[Character] ventures from [home] to [destination] seeking [what], and returns changed by [what they discovered or learned]." e.g. "Leo ventures from the village into the Whispering Woods seeking the source of a strange melody, and returns home with a new friend and the courage to try new things."
 - The transformation matters more than the destination.
 
 PACING:
@@ -190,8 +186,7 @@ KEY RULES:
 A clear, concrete problem is introduced early. The protagonist works through it with ingenuity, effort, and help from their unique qualities. The solution is earned, not given. Think: "Corduroy" (missing button), "Knuffle Bunny" (lost toy), "Dragons Love Tacos" (the wrong salsa).
 
 PREMISE FORMAT for Problem & Solution:
-- "problem": The specific, concrete problem. e.g. "Rosie's magnifying glass fell into the river and she needs it to read the treasure map."
-- "premise": "[Character] needs to [solve specific problem] because [concrete reason], but [specific obstacle stands in the way]."
+- "premise": "[Character] needs to [solve specific problem] because [concrete reason], but [specific obstacle stands in the way]." e.g. "Rosie needs to retrieve her magnifying glass from the river because she can't read the treasure map without it, but the current is too strong to wade in."
 - The problem must be something a child can picture and care about.
 
 PACING:
@@ -218,8 +213,7 @@ KEY RULES:
 Two characters who seem incompatible, different, or even opposed discover a genuine connection. The story is about how they move from distance to closeness. Think: "Charlotte's Web" (a pig and a spider become inseparable), "The Fox and the Hound" (natural enemies become best friends), "Frog and Toad" (an adventurous frog and a cautious toad find balance), "Stellaluna" (a bat raised by birds discovers belonging), "Enemy Pie" (a boy tries to defeat his enemy and accidentally makes a friend).
 
 PREMISE FORMAT for Unlikely Friendship:
-- "problem": What keeps the two characters apart initially, and what brings them together. e.g. "Rosie the Rabbit and Gus the Badger both want the last jar of honey at the market — but a rainstorm traps them under the same awning."
-- "premise": "[Character A] and [Character B] couldn't be more different — [key difference] — but when [circumstance throws them together], they discover [unexpected connection]."
+- "premise": "[Character A] and [Character B] couldn't be more different — [key difference] — but when [circumstance throws them together], they discover [unexpected connection]." e.g. "Rosie the Rabbit and Gus the Badger couldn't be more different — Rosie never stops moving and Gus never leaves his burrow — but when a rainstorm traps them under the same awning, they discover they both love telling terrible jokes."
 - Neither character is wrong for being who they are. The story is about finding connection, not fixing someone.
 
 PACING:
