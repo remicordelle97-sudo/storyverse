@@ -49,13 +49,13 @@ async function planStory(
 Your plan must be CONCRETE — no vague hooks or mysteries. Every beat must say specifically what happens, who is involved, and where it takes place. A reader of just the plan should understand the entire story.
 
 THE MOST IMPORTANT RULE — EARLY CLARITY:
-The listener must understand what the story is ABOUT within the first 2 pages. By the end of page 2, a child should be able to answer: "What does the character want?" and "What's in the way?" If the problem is not crystal clear by page 2, the plan has failed. Do NOT spend multiple pages on leisurely scene-setting before revealing the problem. The problem can appear on page 1.
+The listener must understand what the story is ABOUT within the first 2 pages. By the end of page 2, a child should be able to answer: "What's happening?" and "What's this story going to be about?" — whether that's a problem to solve, a journey beginning, a pattern starting, or two characters meeting. Do NOT spend multiple pages on leisurely scene-setting before the story's engine starts. The core driver can appear on page 1.
 
 RULES:
-- "problem": State the core problem in plain language a child would understand. Be specific: "Rosie's magnifying glass fell into the river" NOT "Rosie faces a challenge."
-- "premise": One sentence: "[character] wants/needs [specific thing] because [concrete reason], but [specific obstacle]." Every word must be concrete — no "must figure things out" or "faces an unexpected situation."
-- "opening_state": What specifically happens on page 1. Must establish WHO, WHERE, and WHAT IS HAPPENING. The problem should be visible or directly foreshadowed here — not hidden for a reveal later.
-- "resolution": How the story specifically ends. Must directly resolve the problem stated above.
+- "problem": State the core driver of the story in plain language a child would understand. What this means depends on the story structure — see the PREMISE FORMAT section in the structure guidelines below. Be specific: "Rosie's magnifying glass fell into the river" NOT "Rosie faces a challenge."
+- "premise": Follow the PREMISE FORMAT specified in the structure guidelines. Each story archetype has its own premise template — use it.
+- "opening_state": What specifically happens on page 1. Must establish WHO, WHERE, and WHAT IS HAPPENING. The story's core driver should be visible or directly foreshadowed here — not hidden for a reveal later.
+- "resolution": How the story specifically ends. Must connect directly to the problem/premise.
 - Each page beat must say what CONCRETELY happens — not "something surprising happens" but "the bridge collapses when they're halfway across."
 - Characters listed per page must use their full names exactly as provided.
 - Locations must be specific named places from the universe.
@@ -63,7 +63,8 @@ RULES:
 SELF-CHECK before returning:
 1. Could a 4-year-old listener explain what the story is about after hearing just pages 1-2?
 2. Does every page beat say WHAT happens, not just that something happens?
-3. Does the resolution directly solve the problem stated in the "problem" field?
+3. Does the resolution connect directly to the problem/premise?
+4. Does the premise follow the PREMISE FORMAT template for this story's archetype?
 If any answer is no, revise the plan.
 
 Return ONLY valid JSON. No markdown fences.`,
@@ -76,13 +77,13 @@ Return ONLY valid JSON. No markdown fences.`,
 Create a plan for exactly ${pageCount} pages. Return this JSON:
 {
   "title": "Story title",
-  "problem": "Plain-language statement of the core problem. Must be concrete and specific.",
-  "premise": "[Character] wants/needs [specific thing] because [reason], but [obstacle].",
-  "opening_state": "Concrete description of page 1: who, where, what is happening, and how the problem appears or is foreshadowed.",
-  "resolution": "How the story ends and how the problem is specifically solved.",
+  "problem": "Plain-language statement of the story's core driver — follow the PREMISE FORMAT in the structure guidelines above.",
+  "premise": "One sentence following the archetype-specific PREMISE FORMAT template above.",
+  "opening_state": "Concrete description of page 1: who, where, what is happening, and how the story's core driver appears or is foreshadowed.",
+  "resolution": "How the story specifically ends. Must connect to the problem/premise.",
   "pages": [
     { "page": 1, "beat": "What concretely happens on this page", "characters": ["Full Name"], "location": "Specific Place" },
-    { "page": 2, "beat": "The problem becomes clear: [specific event]. The listener now knows what the character needs to do.", "characters": ["..."], "location": "..." }
+    { "page": 2, "beat": "The story's direction becomes clear: [specific event]. The listener now knows what this story is about.", "characters": ["..."], "location": "..." }
   ]
 }`,
       },
