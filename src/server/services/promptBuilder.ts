@@ -8,7 +8,7 @@ interface PromptInput {
   language: string;
   ageGroup: string;
   structure: string;
-  length: "short" | "long";
+  length: "short";
   parentPrompt: string;
 }
 
@@ -103,7 +103,7 @@ PREMISE FORMAT for Rule of Three:
 - The three attempts should be genuinely different strategies, not just "try harder."
 
 PACING:
-- Pages 1-2 (short) / 1-5 (long): Set the scene. Introduce the protagonist in their world. Establish the problem clearly — make it concrete and visual, not abstract.
+- Pages 1-2: Set the scene. Introduce the protagonist in their world. Establish the problem clearly — make it concrete and visual, not abstract.
 - First attempt (~25% of pages): The protagonist tries the most obvious solution. It seems to work at first, building hope — then fails in a small, slightly funny way. The failure should reveal something the protagonist didn't know.
 - Second attempt (~25% of pages): A completely different approach. The protagonist is more determined. Build tension higher. This attempt fails bigger or in a surprising, unexpected way. The failure should be more emotional — show the protagonist's frustration or doubt through body language and actions.
 - Third attempt (~25% of pages): The protagonist pauses. Reflects on what went wrong before. Combines a lesson or detail from BOTH previous failures into a new, creative solution that neither attempt alone could have produced. The success should feel clever and earned.
@@ -146,7 +146,7 @@ PREMISE FORMAT for Circular:
 - This is about perspective, not a task to complete.
 
 PACING:
-- Pages 1-2 (short) / 1-4 (long): THE ANCHOR SCENE. Describe the protagonist in a very specific place, doing a specific thing, feeling a specific way. Make this scene rich with sensory detail — the reader must REMEMBER it vividly because they will see it again at the end. Include a specific object, phrase, or sensory detail that will return later with new meaning.
+- Pages 1-2: THE ANCHOR SCENE. Describe the protagonist in a very specific place, doing a specific thing, feeling a specific way. Make this scene rich with sensory detail — the reader must REMEMBER it vividly because they will see it again at the end. Include a specific object, phrase, or sensory detail that will return later with new meaning.
 - Early pages: Something disrupts the anchor scene or calls the protagonist away. They leave — physically or emotionally — driven by a want, a curiosity, or an event.
 - Middle pages: The adventure. New places, encounters, challenges. The protagonist experiences things that gradually shift how they feel or what they understand. Plant at least 2-3 moments that will echo or contrast with the opening.
 - ~75% through: The turning point. Something happens — a realization, a connection, a quiet moment — that changes the protagonist's perspective. This doesn't need to be dramatic. Sometimes the most powerful shift is subtle.
@@ -167,7 +167,7 @@ PREMISE FORMAT for Journey & Return:
 - The transformation matters more than the destination.
 
 PACING:
-- Pages 1-2 (short) / 1-4 (long): THE KNOWN WORLD. Establish the protagonist's home, routine, or comfort zone with warm, sensory detail. Show what they love about it — but also hint at what pulls them outward (curiosity, a sound, a discovery, a dare, a need).
+- Pages 1-2: THE KNOWN WORLD. Establish the protagonist's home, routine, or comfort zone with warm, sensory detail. Show what they love about it — but also hint at what pulls them outward (curiosity, a sound, a discovery, a dare, a need).
 - Early pages: THE DEPARTURE. The protagonist crosses a threshold — leaves the familiar behind. This can be physical (crossing a river, entering a forest) or emotional (trying something new). Mark the moment clearly so the reader feels the shift.
 - Middle pages: THE UNKNOWN. Each new location or encounter should feel progressively MORE different from home. Introduce at least 3 distinct "waypoints" — places, characters, or challenges the protagonist passes through. Each waypoint should test a different quality of the protagonist and teach them something they didn't know.
 - ~65% through: THE FURTHEST POINT. This is the moment farthest from home — geographically, emotionally, or both. The biggest challenge or most important discovery happens here. The protagonist must face something that requires them to use everything they've gathered from the journey.
@@ -190,7 +190,7 @@ PREMISE FORMAT for Problem & Solution:
 - The problem must be something a child can picture and care about.
 
 PACING:
-- Pages 1-2 (short) / 1-4 (long): THE WORLD BEFORE. Show the protagonist in their normal life. Establish their personality, their quirks, what they care about. Everything is fine — or almost fine. Plant a small detail that will become important later.
+- Pages 1-2: THE WORLD BEFORE. Show the protagonist in their normal life. Establish their personality, their quirks, what they care about. Everything is fine — or almost fine. Plant a small detail that will become important later.
 - Early pages: THE PROBLEM ARRIVES. Something goes wrong, goes missing, shows up unexpectedly, or needs to be done. Make the problem concrete and visual — something the reader can picture and care about. The problem should feel urgent to the protagonist even if it seems small to an adult.
 - Middle pages: THE WORKING-THROUGH. This is the heart of the story. The protagonist tries to solve the problem. Show them:
   * First noticing and reacting to the problem (body language, not labels)
@@ -217,7 +217,7 @@ PREMISE FORMAT for Unlikely Friendship:
 - Neither character is wrong for being who they are. The story is about finding connection, not fixing someone.
 
 PACING:
-- Pages 1-2 (short) / 1-4 (long): THE TWO WORLDS. Introduce the two characters separately. Show how different they are — different habitats, different habits, different temperaments, different ways of seeing the world. Make each character vivid and sympathetic in their own right. The reader should like both of them individually before they meet.
+- Pages 1-2: THE TWO WORLDS. Introduce the two characters separately. Show how different they are — different habitats, different habits, different temperaments, different ways of seeing the world. Make each character vivid and sympathetic in their own right. The reader should like both of them individually before they meet.
 - Early pages: THE ENCOUNTER. The two characters meet — by accident, by necessity, or by circumstance. First impressions are wrong or awkward. There may be suspicion, confusion, a misunderstanding, or simply not knowing what to make of each other. Neither character is a villain — they are just different.
 - Middle pages: THE FRICTION AND THE FINDING. The characters are thrown together by circumstance (stuck in the same place, given the same task, caught in the same problem). Through spending time together, they discover surprising things they have in common, or they find that their differences complement each other. Show specific small moments of connection: a shared laugh, a moment of unexpected help, a discovery that the other is not what they assumed.
 - ~60% through: THE TEST. Something happens that threatens the budding friendship. A misunderstanding, an outside pressure, a moment where one character's instincts clash with the other's. One character may pull away or say something hurtful. This is the emotional low point.
@@ -272,7 +272,7 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
     where: { id: { in: input.characterIds } },
   });
 
-  const pageCount = input.length === "short" ? 10 : 32;
+  const pageCount = 10;
 
   // Fetch locations for the universe
   const locations = await prisma.location.findMany({
