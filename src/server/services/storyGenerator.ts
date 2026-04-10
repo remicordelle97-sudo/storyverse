@@ -21,6 +21,7 @@ export interface GeneratedStory {
 
 interface StoryPlan {
   title: string;
+  problem: string;
   premise: string;
   opening_state: string;
   resolution: string;
@@ -47,13 +48,23 @@ async function planStory(
 
 Your plan must be CONCRETE — no vague hooks or mysteries. Every beat must say specifically what happens, who is involved, and where it takes place. A reader of just the plan should understand the entire story.
 
+THE MOST IMPORTANT RULE — EARLY CLARITY:
+The listener must understand what the story is ABOUT within the first 2 pages. By the end of page 2, a child should be able to answer: "What does the character want?" and "What's in the way?" If the problem is not crystal clear by page 2, the plan has failed. Do NOT spend multiple pages on leisurely scene-setting before revealing the problem. The problem can appear on page 1.
+
 RULES:
-- "premise": One sentence that captures the entire story. Must name specific characters and the core conflict.
-- "opening_state": What specifically happens on page 1. Must establish WHO, WHERE, and WHAT IS HAPPENING. No teasing.
-- "resolution": How the story ends. Must be specific and satisfying.
+- "problem": State the core problem in plain language a child would understand. Be specific: "Rosie's magnifying glass fell into the river" NOT "Rosie faces a challenge."
+- "premise": One sentence: "[character] wants/needs [specific thing] because [concrete reason], but [specific obstacle]." Every word must be concrete — no "must figure things out" or "faces an unexpected situation."
+- "opening_state": What specifically happens on page 1. Must establish WHO, WHERE, and WHAT IS HAPPENING. The problem should be visible or directly foreshadowed here — not hidden for a reveal later.
+- "resolution": How the story specifically ends. Must directly resolve the problem stated above.
 - Each page beat must say what CONCRETELY happens — not "something surprising happens" but "the bridge collapses when they're halfway across."
 - Characters listed per page must use their full names exactly as provided.
 - Locations must be specific named places from the universe.
+
+SELF-CHECK before returning:
+1. Could a 4-year-old listener explain what the story is about after hearing just pages 1-2?
+2. Does every page beat say WHAT happens, not just that something happens?
+3. Does the resolution directly solve the problem stated in the "problem" field?
+If any answer is no, revise the plan.
 
 Return ONLY valid JSON. No markdown fences.`,
     messages: [
@@ -65,12 +76,13 @@ Return ONLY valid JSON. No markdown fences.`,
 Create a plan for exactly ${pageCount} pages. Return this JSON:
 {
   "title": "Story title",
-  "premise": "One sentence: [character] must [do what] because [why], but [obstacle].",
-  "opening_state": "Concrete description of page 1: who, where, what is happening right now.",
-  "resolution": "How the story specifically ends.",
+  "problem": "Plain-language statement of the core problem. Must be concrete and specific.",
+  "premise": "[Character] wants/needs [specific thing] because [reason], but [obstacle].",
+  "opening_state": "Concrete description of page 1: who, where, what is happening, and how the problem appears or is foreshadowed.",
+  "resolution": "How the story ends and how the problem is specifically solved.",
   "pages": [
     { "page": 1, "beat": "What concretely happens on this page", "characters": ["Full Name"], "location": "Specific Place" },
-    { "page": 2, "beat": "...", "characters": ["..."], "location": "..." }
+    { "page": 2, "beat": "The problem becomes clear: [specific event]. The listener now knows what the character needs to do.", "characters": ["..."], "location": "..." }
   ]
 }`,
       },
@@ -119,6 +131,7 @@ async function writeStory(
 
   const planContext = `=== STORY PLAN (follow this exactly) ===
 Title: ${plan.title}
+Problem: ${plan.problem}
 Premise: ${plan.premise}
 Opening: ${plan.opening_state}
 Resolution: ${plan.resolution}

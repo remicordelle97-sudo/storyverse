@@ -230,6 +230,7 @@ CRITICAL RULES:
 - Use exclamation marks sparingly. Most sentences should end with periods. Reserve ! for genuine surprise, outcries, or single emphatic moments (like "Help!" or "Look!"). Never use more than one ! per page. Let word choice and sentence rhythm convey excitement, not punctuation.
 
 CLARITY RULES:
+- The problem must be obvious by page 2. After hearing pages 1 and 2, a child must be able to answer "what does the character want?" and "what's stopping them?" If the listener doesn't know what the story is about by page 2, you have failed.
 - Don't tease, deliver. If page 1 mentions a job, task, secret, or mystery, the SAME page or the NEXT page must make it concrete. Never leave the reader wondering "what job?" or "what secret?" for more than one page turn. Vague hooks frustrate young listeners.
 - Every pronoun must have an obvious referent. "It", "the thing", "the secret" can only be used if the reader already knows EXACTLY what it refers to from the same page or the previous page. When in doubt, use the specific noun.
 - Page 1 must ground the reader. The opening page should establish WHO the character is, WHERE they are, and WHAT IS HAPPENING right now. Do not open with a mystery or tease. Save surprises for after the reader is oriented.
