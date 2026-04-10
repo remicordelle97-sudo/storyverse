@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt } from "./promptBuilder.js";
-import { CLAUDE_MODEL, TEMPERATURE_STANDARD, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT, MAX_TOKENS_LONG, MAX_TOKENS_SMALL } from "../lib/config.js";
+import { CLAUDE_MODEL, TEMPERATURE_STANDARD, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT, MAX_TOKENS_SMALL } from "../lib/config.js";
 import { debug } from "../lib/debug.js";
 
 const anthropic = new Anthropic();
@@ -34,10 +34,9 @@ interface StoryPlan {
  */
 async function planStory(
   userPrompt: string,
-  ageGroup: string,
-  length: "short" | "long"
+  ageGroup: string
 ): Promise<StoryPlan> {
-  const pageCount = length === "short" ? 10 : 32;
+  const pageCount = 10;
 
   const message = await anthropic.messages.create({
     model: CLAUDE_MODEL,
@@ -122,10 +121,9 @@ Create a plan for exactly ${pageCount} pages. Return this JSON:
 async function writeStory(
   userPrompt: string,
   plan: StoryPlan,
-  ageGroup: string,
-  length: "short" | "long"
+  ageGroup: string
 ): Promise<GeneratedStory> {
-  const maxTokens = length === "short" ? MAX_TOKENS_SHORT : MAX_TOKENS_LONG;
+  const maxTokens = MAX_TOKENS_SHORT;
 
   const planContext = `=== STORY PLAN (follow this exactly) ===
 Title: ${plan.title}
@@ -299,7 +297,6 @@ export async function generateStory(
   planPrompt: string,
   writePrompt: string,
   ageGroup: string,
-  length: "short" | "long" = "long",
   onProgress?: (step: string, detail?: string) => void,
   characterData?: { name: string; appearance: string; outfit: string; specialDetail: string }[]
 ): Promise<GeneratedStory> {
@@ -307,7 +304,7 @@ export async function generateStory(
   onProgress?.("planning", "Planning the story...");
   debug.story("Planning story...");
   const planStart = Date.now();
-  const plan = await planStory(planPrompt, ageGroup, length);
+  const plan = await planStory(planPrompt, ageGroup);
   debug.story(`Plan created in ${Date.now() - planStart}ms`, {
     title: plan.title,
     premise: plan.premise,
@@ -318,7 +315,7 @@ export async function generateStory(
   onProgress?.("writing", `Writing "${plan.title}"...`);
   debug.story("Writing story from plan...");
   const writeStart = Date.now();
-  const story = await writeStory(writePrompt, plan, ageGroup, length);
+  const story = await writeStory(writePrompt, plan, ageGroup);
   debug.story(`Story written in ${Date.now() - writeStart}ms`, {
     title: story.title,
     pages: story.pages.length,

@@ -47,7 +47,6 @@ export default function StoryBuilder() {
   const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
   const [ageGroup, setAgeGroup] = useState("4-5");
   const [structure, setStructure] = useState("problem-solution");
-  const [length] = useState<"short" | "long">("short");
   const [parentPrompt, setParentPrompt] = useState("");
   const [generateImages, setGenerateImages] = useState(!isAdmin);
   const [loading, setLoading] = useState(false);

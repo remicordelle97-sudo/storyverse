@@ -7,14 +7,10 @@ export const TEMPERATURE_CREATIVE = 0.85;
 
 // Token limits
 export const MAX_TOKENS_SHORT = 8000;
-export const MAX_TOKENS_LONG = 16000;
 export const MAX_TOKENS_SMALL = 4000;
 
-// Story lengths
-export const STORY_PAGES = {
-  short: 10,
-  long: 32,
-} as const;
+// Story pages (always 10)
+export const STORY_PAGES = 10;
 
 // Moods (randomly picked per story)
 export const MOODS = ["gentle", "funny", "exciting", "mysterious"];

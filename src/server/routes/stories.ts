@@ -160,7 +160,6 @@ router.post("/generate", async (req, res) => {
       language,
       ageGroup,
       structure: requestedStructure,
-      length,
       parentPrompt,
       generateImages,
     } = req.body;
@@ -195,7 +194,6 @@ router.post("/generate", async (req, res) => {
       mood,
       ageGroup,
       structure,
-      length: length || "long",
       generateImages: !!generateImages,
     });
 
@@ -211,7 +209,7 @@ router.post("/generate", async (req, res) => {
       language: language || "en",
       ageGroup,
       structure,
-      length: length || "long",
+      length: "short",
       parentPrompt: parentPrompt || "",
     });
 
@@ -240,7 +238,6 @@ router.post("/generate", async (req, res) => {
       planMessage,
       writeMessage,
       resolvedAgeGroup,
-      length || "long",
       (step, detail) => sendProgress(step, detail),
       storyCharacters
     );
