@@ -260,6 +260,10 @@ router.post("/generate", async (req, res) => {
         ageGroup,
         status: generateImages ? "illustrating" : "published",
         hasIllustrations: false,
+        debugPlanPrompt: planMessage,
+        debugWritePrompt: writeMessage,
+        debugPlan: JSON.stringify(generated.plan || {}),
+        debugStructure: structure,
         scenes: {
           create: generated.pages.map((page) => ({
             sceneNumber: page.page_number,
@@ -326,6 +330,36 @@ router.post("/generate", async (req, res) => {
     debug.error(`Story generation failed: ${e.message}`);
     sendError("Story generation failed. Please try again.");
   }
+});
+
+// Get debug data for a story (admin only)
+router.get("/:id/debug", requireAdmin, async (req, res) => {
+  const story = await prisma.story.findUnique({
+    where: { id: req.params.id as string },
+    select: {
+      id: true,
+      title: true,
+      mood: true,
+      ageGroup: true,
+      debugPlanPrompt: true,
+      debugWritePrompt: true,
+      debugPlan: true,
+      debugStructure: true,
+    },
+  });
+
+  if (!story) return res.status(404).json({ error: "Story not found" });
+
+  res.json({
+    id: story.id,
+    title: story.title,
+    mood: story.mood,
+    ageGroup: story.ageGroup,
+    structure: story.debugStructure,
+    planPrompt: story.debugPlanPrompt,
+    writePrompt: story.debugWritePrompt,
+    plan: story.debugPlan ? JSON.parse(story.debugPlan) : null,
+  });
 });
 
 // Regenerate images for an existing story

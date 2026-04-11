@@ -17,6 +17,8 @@ export interface GeneratedStory {
   title: string;
   pages: StoryPage[];
   characterAnchors?: Record<string, string>;
+  /** Raw plan object from the planner step (for debug) */
+  plan?: StoryPlan;
 }
 
 interface StoryPlan {
@@ -328,5 +330,6 @@ export async function generateStory(
   const refined = await refineImagePrompts(story, characterData);
   debug.story(`Image prompts refined in ${Date.now() - refineStart}ms`);
 
+  refined.plan = plan;
   return refined;
 }

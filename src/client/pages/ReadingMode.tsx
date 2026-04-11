@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef, forwardRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getStory, getStoryStatus, regenerateStoryImages } from "../api/client";
+import { getStory, getStoryStatus, getStoryDebug, regenerateStoryImages } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
 import HTMLFlipBook from "react-pageflip";
@@ -320,6 +320,7 @@ export default function ReadingMode() {
   const [exporting, setExporting] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [regenProgress, setRegenProgress] = useState("");
+  const [showDebug, setShowDebug] = useState(false);
   const bookRef = useRef<any>(null);
 
   const queryClient = useQueryClient();
@@ -328,6 +329,13 @@ export default function ReadingMode() {
     queryKey: ["story", storyId],
     queryFn: () => getStory(storyId!),
     enabled: !!storyId,
+  });
+
+  // Debug data (admin only, fetched on demand)
+  const { data: debugData } = useQuery({
+    queryKey: ["story-debug", storyId],
+    queryFn: () => getStoryDebug(storyId!),
+    enabled: !!storyId && isAdmin && showDebug,
   });
 
   // Poll for image generation status when story is illustrating
@@ -545,8 +553,63 @@ export default function ReadingMode() {
             {exporting ? "Saving..." : "Save PDF"}
           </button>
           )}
+          {isAdmin && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowDebug(!showDebug); }}
+              className="text-white/60 hover:text-white text-sm transition-colors"
+            >
+              {showDebug ? "Hide debug" : "Debug"}
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Debug panel (admin only) */}
+      {isAdmin && showDebug && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/50" onClick={() => setShowDebug(false)} />
+          <div className="fixed inset-4 sm:inset-10 z-50 bg-[#1e1e2e] rounded-xl overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+              <h2 className="text-white font-bold text-sm">Story Debug — {story?.title}</h2>
+              <button onClick={() => setShowDebug(false)} className="text-white/40 hover:text-white text-sm">&times; Close</button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-6 text-sm font-mono">
+              {!debugData ? (
+                <p className="text-white/40">Loading debug data...</p>
+              ) : !debugData.planPrompt ? (
+                <p className="text-white/40">No debug data stored for this story (generated before debug logging was added).</p>
+              ) : (
+                <>
+                  <div>
+                    <h3 className="text-amber-400 font-bold mb-1">Metadata</h3>
+                    <p className="text-white/60">Structure: <span className="text-white">{debugData.structure}</span></p>
+                    <p className="text-white/60">Mood: <span className="text-white">{debugData.mood}</span></p>
+                    <p className="text-white/60">Age group: <span className="text-white">{debugData.ageGroup}</span></p>
+                  </div>
+                  <div>
+                    <h3 className="text-amber-400 font-bold mb-1">Plan (generated)</h3>
+                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                      {JSON.stringify(debugData.plan, null, 2)}
+                    </pre>
+                  </div>
+                  <div>
+                    <h3 className="text-amber-400 font-bold mb-1">Plan Prompt (sent to planner)</h3>
+                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                      {debugData.planPrompt}
+                    </pre>
+                  </div>
+                  <div>
+                    <h3 className="text-amber-400 font-bold mb-1">Write Prompt (sent to writer)</h3>
+                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                      {debugData.writePrompt}
+                    </pre>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Book */}
       <div className="flex items-center justify-center w-full px-2 sm:px-4 py-4 sm:py-8" style={{ minHeight: "100vh" }}>
