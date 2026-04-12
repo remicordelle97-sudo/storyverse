@@ -639,24 +639,31 @@ export default function ReadingMode() {
           {/* Title page (front cover — shown alone) */}
           <CoverPage title={story.title} color={storyColor(story.id)} subtitle="A Storyverse tale" />
 
-          {/* Scene pages: always text then illustration */}
+          {/* Scene pages: alternate on desktop spreads, text-first on mobile */}
           {scenes.flatMap((scene: any, i: number) => {
-            const textNum = pageCounter++;
-            const illustNum = pageCounter++;
-            return [
-              <TextPage
-                key={`text-${i}`}
-                content={scene.content}
-                pageNum={textNum}
-                sceneIndex={i}
-                totalScenes={totalScenes}
-              />,
+            const firstNum = pageCounter++;
+            const secondNum = pageCounter++;
+            // Portrait mode (mobile): always text then illustration
+            // Landscape mode (desktop): alternate image left/right per scene
+            const isPortrait = window.innerWidth < 400;
+            const imageFirst = !isPortrait && i % 2 === 0;
+            const illust = (
               <IllustrationPage
                 key={`illust-${i}`}
                 imageUrl={scene.imageUrl}
-                pageNum={illustNum}
-              />,
-            ];
+                pageNum={imageFirst ? firstNum : secondNum}
+              />
+            );
+            const text = (
+              <TextPage
+                key={`text-${i}`}
+                content={scene.content}
+                pageNum={imageFirst ? secondNum : firstNum}
+                sceneIndex={i}
+                totalScenes={totalScenes}
+              />
+            );
+            return imageFirst ? [illust, text] : [text, illust];
           })}
 
           {/* End spread: "The End" on left, buttons on right */}
