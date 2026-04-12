@@ -604,6 +604,23 @@ export default function ReadingMode() {
                       {debugData.writePrompt}
                     </pre>
                   </div>
+                  {debugData.imagePrompts?.length > 0 && (
+                    <div>
+                      <h3 className="text-amber-400 font-bold mb-1">Image Prompts (per page)</h3>
+                      <div className="space-y-3">
+                        {debugData.imagePrompts.map((ip: any) => (
+                          <div key={ip.page} className="bg-black/30 rounded-lg p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-amber-300 text-xs font-bold">Page {ip.page}</span>
+                              {ip.imageUrl && <span className="text-green-400 text-[10px]">has image</span>}
+                              {!ip.imageUrl && <span className="text-red-400 text-[10px]">no image</span>}
+                            </div>
+                            <p className="text-white/80 text-xs leading-relaxed">{ip.prompt || "(empty)"}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -345,6 +345,10 @@ router.get("/:id/debug", requireAdmin, async (req, res) => {
       debugWritePrompt: true,
       debugPlan: true,
       debugStructure: true,
+      scenes: {
+        select: { sceneNumber: true, imagePrompt: true, imageUrl: true },
+        orderBy: { sceneNumber: "asc" },
+      },
     },
   });
 
@@ -359,6 +363,11 @@ router.get("/:id/debug", requireAdmin, async (req, res) => {
     planPrompt: story.debugPlanPrompt,
     writePrompt: story.debugWritePrompt,
     plan: story.debugPlan ? JSON.parse(story.debugPlan) : null,
+    imagePrompts: story.scenes.map((s) => ({
+      page: s.sceneNumber,
+      prompt: s.imagePrompt,
+      imageUrl: s.imageUrl,
+    })),
   });
 });
 
