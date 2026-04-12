@@ -15,11 +15,8 @@ interface PromptInput {
 const AGE_GUIDELINES: Record<string, string> = {
   "2-3": `WRITING LEVEL — Ages 2-3 (Toddler):
 - Each page has 1-2 short sentences (3-6 words each).
-- No conflict, tension, or scary moments — everything is gentle and safe.
-- Repeat key phrases throughout the story as a refrain the child can anticipate and join in on. For example: "And off they went, step by step!" should appear at least 3 times.
 - Focus on sensory details: describe colours, sounds, textures, smells ("the warm sand", "the red flower").
 - Characters express only simple emotions: happy, sad, surprised, sleepy. SHOW emotions through actions ("Leo's tail wagged") not labels ("Leo felt happy").
-- End with warmth, hugs, or bedtime cues.
 
 SENTENCE STRUCTURE — Ages 2-3:
 - ONE clause per sentence. No compound sentences. No "and then" joining two actions.
@@ -40,13 +37,9 @@ VOCABULARY — Ages 2-3:
 
   "4-5": `WRITING LEVEL — Ages 4-5 (Early Reader):
 - Each page has 2-3 sentences.
-- Include a recurring phrase or refrain that appears at key moments — something the child can predict and say along with the reader.
-- Gentle tension is OK (a lost item, a small misunderstanding) but resolve it within a few pages.
 - SHOW emotions through actions, body language, and dialogue — never state them. Write "Zuri's ears went flat" not "Zuri felt scared."
 - Include at least 2-3 sensory details per page: what things look, sound, smell, feel, or taste like.
 - Use light humour, funny sounds, and playful dialogue.
-- Be bold and surprising — children love the outrageous and unexpected. Think big: a puddle that leads to an underground garden, a tree that grows a new door every morning, a rock that's warm like a sleeping animal.
-- Always resolve uncertainty before the story ends.
 
 SENTENCE STRUCTURE — Ages 4-5:
 - Maximum ONE clause per sentence for most sentences.
@@ -68,14 +61,8 @@ VOCABULARY — Ages 4-5:
   "6-8": `WRITING LEVEL — Ages 6-8 (Confident Reader):
 - Each page has 3-4 sentences.
 - SHOW every emotion through actions, body language, and dialogue — never state them directly. Write "Leo clenched his paws and stared at the ground" not "Leo felt frustrated."
-- Real stakes and challenges are OK — characters can struggle, fail, and try again.
-- Characters can experience complex emotions: embarrassment, jealousy, guilt, determination — conveyed through their actions and words.
 - Dialogue should be witty and show distinct character voices — each character should sound different.
 - Include at least 2-3 sensory details per page across different senses.
-- Be surprising and imaginative — the more inventive and unexpected the world-building details, the more memorable the story. Don't settle for the obvious.
-- Subplots and mysteries are welcome — foreshadow and pay off details.
-- Themes can include fairness, responsibility, and standing up for others — but NEVER state a moral lesson. Let the reader draw their own conclusions from the characters' experiences.
-- The ending should feel earned, not handed to the characters.
 
 SENTENCE STRUCTURE — Ages 6-8:
 - Mix of simple sentences (one clause) and compound sentences (two clauses joined by "and," "but," "so").
