@@ -223,12 +223,6 @@ router.post("/generate", async (req, res) => {
     debug.story("Calling Claude for story generation...");
     const storyStart = Date.now();
 
-    // Fetch character visual data for identity anchors
-    const storyCharacters = await prisma.character.findMany({
-      where: { id: { in: characterIds } },
-      select: { name: true, appearance: true, outfit: true },
-    });
-
     if (res.closed) {
       debug.story("Client disconnected before story generation");
       return;
@@ -239,7 +233,6 @@ router.post("/generate", async (req, res) => {
       writeMessage,
       resolvedAgeGroup,
       (step, detail) => sendProgress(step, detail),
-      storyCharacters
     );
 
     debug.story(`Story generated in ${Date.now() - storyStart}ms`, {
@@ -311,7 +304,6 @@ router.post("/generate", async (req, res) => {
           }
           debug.image(`Background image ${pageNum}/${total} saved for story ${story.id}`);
         },
-        generated.characterAnchors
       ).then(async () => {
         await prisma.story.update({
           where: { id: story.id },

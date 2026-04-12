@@ -16,7 +16,6 @@ interface StoryPage {
 export interface GeneratedStory {
   title: string;
   pages: StoryPage[];
-  characterAnchors?: Record<string, string>;
   /** Raw plan object from the planner step (for debug) */
   plan?: StoryPlan;
 }
@@ -190,8 +189,7 @@ ${userPrompt}`;
  * - Specificity (concrete visual details, not vague descriptions)
  */
 async function refineImagePrompts(
-  story: GeneratedStory,
-  characterData?: { name: string; appearance: string; outfit: string }[]
+  story: GeneratedStory
 ): Promise<GeneratedStory> {
   const promptList = story.pages.map((p) => ({
     page_number: p.page_number,
@@ -218,31 +216,17 @@ RULES:
 - Consecutive pages should describe different character poses and body language — if a character is running on one page, they should be sitting, climbing, reaching, or turning on the next.
 - Do NOT describe character bodies, species details, clothing, or physical features — only name, expression, action, and setting.
 
-ALSO: For each character that appears in the story, write a comprehensive IDENTITY ANCHOR — a complete visual checklist that an illustrator can use to draw the character consistently on every page. Include ALL of the following:
-
-1. BODY: species/type, body shape, size/proportions (tall/short, round/slim, large/small), posture
-2. COLORS: exact hex codes for ALL body colors (skin/fur/scales, hair/mane, markings, patterns). Use the hex codes from the character data provided.
-3. FACE: eye color (hex) and shape, nose/beak/snout shape, mouth style, any facial markings or features
-4. OUTFIT: every clothing item with exact hex color codes, style details (collar type, sleeve length, buttons vs zipper, etc.)
-5. ACCESSORIES: every accessory with exact hex color codes, size, where it's worn/carried
-6. DISTINGUISHING MARKS: scars, patterns, missing features, unique textures
-
-Write each anchor as a detailed comma-separated list. Be specific enough that two different illustrators would draw the same character.
-
 Return ONLY valid JSON. No markdown fences.`,
     messages: [
       {
         role: "user",
         content: `Review and rewrite these ${promptList.length} image prompts as a cohesive set for a children's picture book titled "${story.title}":
 
-${characterData && characterData.length > 0 ? `CHARACTER VISUAL DATA (use exact hex codes from outfits):\n${characterData.map((c) => `${c.name}:\n  Appearance: ${c.appearance}\n  Outfit: ${c.outfit}`).join("\n\n")}\n\n` : ""}IMAGE PROMPTS:
+IMAGE PROMPTS:
 ${JSON.stringify(promptList, null, 2)}
 
 Return exactly this JSON:
 {
-  "characterAnchors": {
-    "Character Full Name": "small round rabbit, soft brown fur (#8B6F47), long floppy ears with pink inner (#F4B8C1), large round amber eyes (#D4A017), blue denim jacket (#2B5DAE) with silver zipper, orange rubber boots (#E87B35), tan satchel (#C4A882) with star patches, slightly chipped left front tooth"
-  },
   "pages": [
     { "page_number": 1, "image_prompt": "rewritten prompt", "characters_in_scene": ["Character Name"] }
   ]
@@ -271,12 +255,6 @@ Return exactly this JSON:
     const refined = JSON.parse(raw);
     if (!Array.isArray(refined.pages)) throw new Error("No pages array");
 
-    // Store character anchors
-    if (refined.characterAnchors) {
-      story.characterAnchors = refined.characterAnchors;
-      debug.story("Character anchors generated", Object.keys(refined.characterAnchors));
-    }
-
     // Merge refined prompts back into the story
     for (const refinedPage of refined.pages) {
       const original = story.pages.find((p) => p.page_number === refinedPage.page_number);
@@ -302,7 +280,6 @@ export async function generateStory(
   writePrompt: string,
   ageGroup: string,
   onProgress?: (step: string, detail?: string) => void,
-  characterData?: { name: string; appearance: string; outfit: string }[]
 ): Promise<GeneratedStory> {
   // Step 1: Plan
   onProgress?.("planning", "Planning the story...");
@@ -329,7 +306,7 @@ export async function generateStory(
   onProgress?.("refining", "Refining illustrations...");
   debug.story("Refining image prompts...");
   const refineStart = Date.now();
-  const refined = await refineImagePrompts(story, characterData);
+  const refined = await refineImagePrompts(story);
   debug.story(`Image prompts refined in ${Date.now() - refineStart}ms`);
 
   refined.plan = plan;

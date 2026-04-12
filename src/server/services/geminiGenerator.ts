@@ -378,7 +378,6 @@ export async function generateStoryImages(
   mood: string,
   pages: { page_number: number; image_prompt: string; characters_in_scene?: string[]; location?: string }[],
   onProgress?: (pageNum: number, total: number, imageUrl: string) => void,
-  characterAnchors?: Record<string, string>
 ): Promise<Map<number, string>> {
   const styleGuide = buildImageStyleGuide(mood);
   const results = new Map<number, string>();
