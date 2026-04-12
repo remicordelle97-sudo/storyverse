@@ -194,9 +194,6 @@ export default function UniverseManager() {
                 <p className="text-sm text-stone-500 mb-3">{universe.settingDescription}</p>
                 <div className="space-y-2 text-xs">
                   <div><span className="text-stone-400">Themes:</span> <span className="text-stone-600">{themes.join(", ")}</span></div>
-                  {universe.sensoryDetails && <div><span className="text-stone-400">Sensory:</span> <span className="text-stone-600">{universe.sensoryDetails}</span></div>}
-                  {universe.worldRules && <div><span className="text-stone-400">World rules:</span> <span className="text-stone-600">{universe.worldRules}</span></div>}
-                  {universe.scaleAndGeography && <div><span className="text-stone-400">Scale:</span> <span className="text-stone-600">{universe.scaleAndGeography}</span></div>}
                   <div><span className="text-stone-400">Avoid:</span> <span className="text-stone-600">{universe.avoidThemes || "None"}</span></div>
                 </div>
               </div>

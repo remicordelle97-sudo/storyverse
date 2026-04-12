@@ -54,7 +54,6 @@ Generate a single illustration of a scene from this world. This image will be us
 
 UNIVERSE: ${universe.name}
 SETTING: ${universe.settingDescription}
-${universe.scaleAndGeography ? `GEOGRAPHY: ${universe.scaleAndGeography}` : ""}
 
 RULES:
 - Show a simple, atmospheric landscape or environment from this world

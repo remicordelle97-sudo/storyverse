@@ -60,9 +60,6 @@ export default function NewUniverse() {
       const universe = await createUniverse({
         name: concept.name,
         settingDescription: concept.settingDescription,
-        sensoryDetails: concept.sensoryDetails || "",
-        worldRules: concept.worldRules || "",
-        scaleAndGeography: concept.scaleAndGeography || "",
         themes: JSON.stringify(allThemes),
         avoidThemes,
       });
