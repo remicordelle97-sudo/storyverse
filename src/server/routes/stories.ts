@@ -3,8 +3,8 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { checkStoryQuota } from "../lib/quota.js";
-import { buildPrompt } from "../services/promptBuilder.js";
-import { generateStory } from "../services/storyGenerator.js";
+import { buildPrompt, buildSystemPrompt } from "../services/promptBuilder.js";
+import { generateStory, PLANNER_SYSTEM_PROMPT } from "../services/storyGenerator.js";
 import { MOODS } from "../lib/config.js";
 import { generateStoryImages } from "../services/geminiGenerator.js";
 import { verifyUniverseOwnership, verifyUniverseAccess } from "../lib/ownership.js";
@@ -360,6 +360,8 @@ router.get("/:id/debug", requireAdmin, async (req, res) => {
     mood: story.mood,
     ageGroup: story.ageGroup,
     structure: story.debugStructure,
+    plannerSystemPrompt: PLANNER_SYSTEM_PROMPT,
+    writerSystemPrompt: buildSystemPrompt(story.ageGroup),
     planPrompt: story.debugPlanPrompt,
     writePrompt: story.debugWritePrompt,
     plan: story.debugPlan ? JSON.parse(story.debugPlan) : null,

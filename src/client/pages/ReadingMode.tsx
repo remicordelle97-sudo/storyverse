@@ -593,13 +593,25 @@ export default function ReadingMode() {
                     </pre>
                   </div>
                   <div>
-                    <h3 className="text-amber-400 font-bold mb-1">Plan Prompt (sent to planner)</h3>
+                    <h3 className="text-amber-400 font-bold mb-1">Planner System Prompt</h3>
+                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                      {debugData.plannerSystemPrompt}
+                    </pre>
+                  </div>
+                  <div>
+                    <h3 className="text-amber-400 font-bold mb-1">Plan User Prompt</h3>
                     <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
                       {debugData.planPrompt}
                     </pre>
                   </div>
                   <div>
-                    <h3 className="text-amber-400 font-bold mb-1">Write Prompt (sent to writer)</h3>
+                    <h3 className="text-amber-400 font-bold mb-1">Writer System Prompt</h3>
+                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                      {debugData.writerSystemPrompt}
+                    </pre>
+                  </div>
+                  <div>
+                    <h3 className="text-amber-400 font-bold mb-1">Writer User Prompt</h3>
                     <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
                       {debugData.writePrompt}
                     </pre>

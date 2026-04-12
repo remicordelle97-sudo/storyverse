@@ -29,22 +29,7 @@ interface StoryPlan {
   pages: { page: number; beat: string; characters: string[]; location: string }[];
 }
 
-/**
- * Step 1: Generate a story plan — a structured outline that commits
- * to concrete plot beats before any prose is written. This prevents
- * vague hooks, logical gaps, and orphaned setups.
- */
-async function planStory(
-  userPrompt: string,
-  ageGroup: string
-): Promise<StoryPlan> {
-  const pageCount = 10;
-
-  const message = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: MAX_TOKENS_SMALL,
-    temperature: TEMPERATURE_CREATIVE,
-    system: `You are a children's story planner. Create a detailed story outline that will guide the full story writing.
+export const PLANNER_SYSTEM_PROMPT = `You are a children's story planner. Create a detailed story outline that will guide the full story writing.
 
 Your plan must be CONCRETE — no vague hooks or mysteries. Every beat must say specifically what happens, who is involved, and where it takes place. A reader of just the plan should understand the entire story.
 
@@ -66,7 +51,24 @@ SELF-CHECK before returning:
 4. Does the premise follow the PREMISE FORMAT template for this story's archetype?
 If any answer is no, revise the plan.
 
-Return ONLY valid JSON. No markdown fences.`,
+Return ONLY valid JSON. No markdown fences.`;
+
+/**
+ * Step 1: Generate a story plan — a structured outline that commits
+ * to concrete plot beats before any prose is written. This prevents
+ * vague hooks, logical gaps, and orphaned setups.
+ */
+async function planStory(
+  userPrompt: string,
+  ageGroup: string
+): Promise<StoryPlan> {
+  const pageCount = 10;
+
+  const message = await anthropic.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: MAX_TOKENS_SMALL,
+    temperature: TEMPERATURE_CREATIVE,
+    system: PLANNER_SYSTEM_PROMPT,
     messages: [
       {
         role: "user",
