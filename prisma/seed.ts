@@ -37,7 +37,6 @@ async function main() {
       speciesOrType: "Lion",
       personalityTraits: JSON.stringify(["brave", "curious", "kind"]),
       appearance: "A young lion with a golden mane and warm amber eyes",
-      specialDetail: "Always carries a tiny blue backpack",
       role: "main",
     },
   });
@@ -49,8 +48,6 @@ async function main() {
       speciesOrType: "Zebra",
       personalityTraits: JSON.stringify(["funny", "loyal", "cautious"]),
       appearance: "A small zebra with bright eyes and an expressive face",
-      specialDetail:
-        "Has one stripe that zigzags differently from all the others",
       role: "supporting",
     },
   });

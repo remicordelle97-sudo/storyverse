@@ -223,7 +223,7 @@ ALSO: For each character that appears in the story, write a comprehensive IDENTI
 3. FACE: eye color (hex) and shape, nose/beak/snout shape, mouth style, any facial markings or features
 4. OUTFIT: every clothing item with exact hex color codes, style details (collar type, sleeve length, buttons vs zipper, etc.)
 5. ACCESSORIES: every accessory with exact hex color codes, size, where it's worn/carried
-6. DISTINGUISHING MARKS: scars, patterns, missing features, unique textures, special details
+6. DISTINGUISHING MARKS: scars, patterns, missing features, unique textures
 
 Write each anchor as a detailed comma-separated list. Be specific enough that two different illustrators would draw the same character.
 

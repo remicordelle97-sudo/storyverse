@@ -11,7 +11,6 @@ interface GeneratedCharacter {
   personality_traits: string[];
   appearance: string;
   outfit: string;
-  special_detail: string;
   relationship_archetype: string;
   role: "main" | "supporting";
 }
@@ -108,8 +107,7 @@ Return exactly this JSON:
       "personality_traits": ["trait1", "trait2", "trait3"],
       "relationship_archetype": "",
       "appearance": "Complete body-only visual specification...",
-      "outfit": "ALWAYS WEARS AND CARRIES (never remove any item):\\n- #hex item...",
-      "special_detail": "a fun memorable quirk"
+      "outfit": "ALWAYS WEARS AND CARRIES (never remove any item):\\n- #hex item..."
     },
     {
       "name": "Full name like Zuri the Zebra",
@@ -118,8 +116,7 @@ Return exactly this JSON:
       "personality_traits": ["trait1", "trait2", "trait3"],
       "relationship_archetype": "...",
       "appearance": "...",
-      "outfit": "...",
-      "special_detail": "..."
+      "outfit": "..."
     }
   ]
 }`,
@@ -163,7 +160,6 @@ Return exactly this JSON:
         personalityTraits: JSON.stringify(heroData.personality_traits),
         appearance: heroData.appearance,
         outfit: heroData.outfit || "",
-        specialDetail: heroData.special_detail || "",
       },
     });
   }
@@ -182,7 +178,6 @@ Return exactly this JSON:
         personalityTraits: JSON.stringify(char.personality_traits),
         appearance: char.appearance,
         outfit: char.outfit || "",
-        specialDetail: char.special_detail || "",
         relationshipArchetype: char.relationship_archetype || "",
         role: "supporting",
       },

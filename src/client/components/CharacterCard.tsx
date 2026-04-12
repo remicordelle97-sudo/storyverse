@@ -5,7 +5,6 @@ interface CharacterCardProps {
     speciesOrType: string;
     personalityTraits: string;
     appearance: string;
-    specialDetail: string;
     role: string;
   };
 }

@@ -38,7 +38,6 @@ router.post("/", async (req, res) => {
       personalityTraits,
       appearance,
       outfit,
-      specialDetail,
       role,
     } = req.body;
 
@@ -59,7 +58,6 @@ router.post("/", async (req, res) => {
             : JSON.stringify(personalityTraits),
         appearance,
         outfit: outfit || "",
-        specialDetail: specialDetail || "",
         role: role || "main",
       },
     });

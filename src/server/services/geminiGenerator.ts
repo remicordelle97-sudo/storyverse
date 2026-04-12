@@ -260,7 +260,6 @@ SPECIES: ${character.speciesOrType}
 BODY:
 ${character.appearance}
 ${outfitSection}
-${character.specialDetail ? `SPECIAL DETAIL: ${character.specialDetail}` : ""}
 
 ALL ${poseCount} studies must be FULL BODY views showing the character head to toe with their COMPLETE outfit and all accessories visible. Show different poses (standing, walking, sitting, reaching, turning) and different expressions, but always full body. No face-only close-ups.
 

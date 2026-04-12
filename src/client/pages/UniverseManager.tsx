@@ -280,7 +280,6 @@ export default function UniverseManager() {
                       detail={[
                         char.personalityTraits ? `Personality: ${char.personalityTraits}` : "",
                         char.outfit ? `Outfit: ${char.outfit}` : "",
-                        char.specialDetail ? `Detail: ${char.specialDetail}` : "",
                         char.relationshipArchetype ? `Archetype: ${char.relationshipArchetype}` : "",
                       ].filter(Boolean).join("\n")}
                       imageUrl={char.referenceImageUrl}
