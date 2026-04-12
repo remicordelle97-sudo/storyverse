@@ -639,28 +639,24 @@ export default function ReadingMode() {
           {/* Title page (front cover — shown alone) */}
           <CoverPage title={story.title} color={storyColor(story.id)} subtitle="A Storyverse tale" />
 
-          {/* Scene pages: alternate image left/right per scene */}
+          {/* Scene pages: always text then illustration */}
           {scenes.flatMap((scene: any, i: number) => {
-            const imageOnLeft = i % 2 === 0;
-            const firstNum = pageCounter++;
-            const secondNum = pageCounter++;
-            const illust = (
-              <IllustrationPage
-                key={`illust-${i}`}
-                imageUrl={scene.imageUrl}
-                pageNum={imageOnLeft ? firstNum : secondNum}
-              />
-            );
-            const text = (
+            const textNum = pageCounter++;
+            const illustNum = pageCounter++;
+            return [
               <TextPage
                 key={`text-${i}`}
                 content={scene.content}
-                pageNum={imageOnLeft ? secondNum : firstNum}
+                pageNum={textNum}
                 sceneIndex={i}
                 totalScenes={totalScenes}
-              />
-            );
-            return imageOnLeft ? [illust, text] : [text, illust];
+              />,
+              <IllustrationPage
+                key={`illust-${i}`}
+                imageUrl={scene.imageUrl}
+                pageNum={illustNum}
+              />,
+            ];
           })}
 
           {/* End spread: "The End" on left, buttons on right */}
