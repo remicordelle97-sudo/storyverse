@@ -83,7 +83,7 @@ async function planStory(
     model: CLAUDE_MODEL,
     max_tokens: MAX_TOKENS_SMALL,
     temperature: TEMPERATURE_CREATIVE,
-    system: PLANNER_SYSTEM_PROMPT,
+    system: [{ type: "text" as const, text: PLANNER_SYSTEM_PROMPT, cache_control: { type: "ephemeral" as const } }],
     messages: [
       {
         role: "user",
@@ -164,7 +164,7 @@ ${userPrompt}`;
     model: CLAUDE_MODEL,
     max_tokens: maxTokens,
     temperature: TEMPERATURE_STANDARD,
-    system: buildSystemPrompt(ageGroup),
+    system: [{ type: "text" as const, text: buildSystemPrompt(ageGroup), cache_control: { type: "ephemeral" as const } }],
     messages: [{ role: "user", content: planContext }],
   }));
 
@@ -214,11 +214,7 @@ async function refineImagePrompts(
     location: p.location,
   }));
 
-  const message = await withRetry(() => anthropic.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: MAX_TOKENS_SHORT,
-    temperature: TEMPERATURE_STANDARD,
-    system: `You are an art director for a children's picture book. You receive a set of image prompts for an entire book and rewrite them to work as a cohesive visual narrative.
+  const refinerSystemPrompt = `You are an art director for a children's picture book. You receive a set of image prompts for an entire book and rewrite them to work as a cohesive visual narrative.
 
 RULES:
 - Each prompt should describe a SCENE (setting, action, emotion, atmosphere) — NOT character bodies or anatomy. Character identity comes from reference images provided separately.
@@ -232,7 +228,13 @@ RULES:
 - Consecutive pages should describe different character poses and body language — if a character is running on one page, they should be sitting, climbing, reaching, or turning on the next.
 - Do NOT describe character bodies, species details, clothing, or physical features — only name, expression, action, and setting.
 
-Return ONLY valid JSON. No markdown fences.`,
+Return ONLY valid JSON. No markdown fences.`;
+
+  const message = await withRetry(() => anthropic.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: MAX_TOKENS_SHORT,
+    temperature: TEMPERATURE_STANDARD,
+    system: [{ type: "text" as const, text: refinerSystemPrompt, cache_control: { type: "ephemeral" as const } }],
     messages: [
       {
         role: "user",

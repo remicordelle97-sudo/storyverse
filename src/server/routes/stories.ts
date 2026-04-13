@@ -7,6 +7,7 @@ import { buildPrompt, buildSystemPrompt } from "../services/promptBuilder.js";
 import { generateStory, PLANNER_SYSTEM_PROMPT } from "../services/storyGenerator.js";
 import { MOODS } from "../lib/config.js";
 import { generateStoryImages } from "../services/geminiGenerator.js";
+import { enqueueImageGeneration } from "../lib/imageQueue.js";
 import { verifyUniverseOwnership, verifyUniverseAccess } from "../lib/ownership.js";
 
 const router = Router();
@@ -285,37 +286,23 @@ router.post("/generate", async (req, res) => {
     // Return story ID to client — client will poll for completion
     sendComplete(story);
 
-    // Step 4: Generate images in the background (after response is sent)
+    // Step 4: Queue image generation (runs in background via BullMQ or in-process fallback)
     if (generateImages) {
-      debug.image(`=== BACKGROUND IMAGE GENERATION START for story ${story.id} ===`);
-
-      generateStoryImages(
+      const sceneMap: Record<number, string> = {};
+      for (const scene of story.scenes) {
+        sceneMap[scene.sceneNumber] = scene.id;
+      }
+      enqueueImageGeneration({
+        storyId: story.id,
         universeId,
         characterIds,
         mood,
-        generated.pages,
-        async (pageNum, total, imageUrl) => {
-          const scene = story.scenes.find((s) => s.sceneNumber === pageNum);
-          if (scene) {
-            await prisma.scene.update({
-              where: { id: scene.id },
-              data: { imageUrl, imageEngine: "gemini" },
-            });
-          }
-          debug.image(`Background image ${pageNum}/${total} saved for story ${story.id}`);
-        },
-      ).then(async () => {
-        await prisma.story.update({
-          where: { id: story.id },
-          data: { status: "published", hasIllustrations: true },
-        });
-        debug.image(`=== BACKGROUND IMAGE GENERATION COMPLETE for story ${story.id} ===`);
-      }).catch(async (err) => {
-        debug.error(`Background image generation failed for story ${story.id}: ${err.message}`);
-        await prisma.story.update({
-          where: { id: story.id },
-          data: { status: "published" },
-        });
+        pages: generated.pages.map((p) => ({
+          page_number: p.page_number,
+          image_prompt: p.image_prompt,
+          characters_in_scene: p.characters_in_scene,
+        })),
+        sceneMap,
       });
     }
   } catch (e: any) {
