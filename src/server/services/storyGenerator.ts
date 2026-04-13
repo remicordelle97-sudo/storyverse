@@ -5,6 +5,22 @@ import { debug } from "../lib/debug.js";
 
 const anthropic = new Anthropic();
 
+/** Retry a function with exponential backoff on 429 rate limit errors */
+async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      const is429 = err?.status === 429 || err?.error?.type === "rate_limit_error";
+      if (!is429 || attempt === maxRetries) throw err;
+      const delay = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+      debug.story(`Rate limited, retrying in ${delay / 1000}s (attempt ${attempt + 1}/${maxRetries})...`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw new Error("Retry exhausted"); // unreachable
+}
+
 interface StoryPage {
   page_number: number;
   content: string;
@@ -63,7 +79,7 @@ async function planStory(
 ): Promise<StoryPlan> {
   const pageCount = 10;
 
-  const message = await anthropic.messages.create({
+  const message = await withRetry(() => anthropic.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: MAX_TOKENS_SMALL,
     temperature: TEMPERATURE_CREATIVE,
@@ -87,7 +103,7 @@ Create a plan for exactly ${pageCount} pages. Return this JSON:
 }`,
       },
     ],
-  });
+  }));
 
   if (message.stop_reason === "max_tokens") {
     throw new Error("Story plan was truncated — response exceeded token limit.");
@@ -144,13 +160,13 @@ CRITICAL: Obey the SENTENCE COUNT constraint in the output format section. Count
 
 ${userPrompt}`;
 
-  const message = await anthropic.messages.create({
+  const message = await withRetry(() => anthropic.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: maxTokens,
     temperature: TEMPERATURE_STANDARD,
     system: buildSystemPrompt(ageGroup),
     messages: [{ role: "user", content: planContext }],
-  });
+  }));
 
   if (message.stop_reason === "max_tokens") {
     throw new Error("Story generation was truncated — the story was too long for the token limit. Try a shorter story.");
@@ -198,7 +214,7 @@ async function refineImagePrompts(
     location: p.location,
   }));
 
-  const message = await anthropic.messages.create({
+  const message = await withRetry(() => anthropic.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: MAX_TOKENS_SHORT,
     temperature: TEMPERATURE_STANDARD,
@@ -233,7 +249,7 @@ Return exactly this JSON:
 }`,
       },
     ],
-  });
+  }));
 
   if (message.stop_reason === "max_tokens") {
     debug.error("Image prompt refinement was truncated, using original prompts");

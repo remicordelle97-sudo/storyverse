@@ -6,7 +6,7 @@ export const TEMPERATURE_STANDARD = 0.75;
 export const TEMPERATURE_CREATIVE = 0.85;
 
 // Token limits
-export const MAX_TOKENS_SHORT = 8000;
+export const MAX_TOKENS_SHORT = 4000;
 export const MAX_TOKENS_SMALL = 4000;
 
 // Story pages (always 10)
