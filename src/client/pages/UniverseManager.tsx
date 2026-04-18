@@ -162,7 +162,7 @@ export default function UniverseManager() {
                     </button>
                     <button
                       onClick={async () => {
-                        if (!confirm(`Delete "${universe.name}" and all its stories, characters, and locations? This cannot be undone.`)) return;
+                        if (!confirm(`Delete "${universe.name}" and all its stories and characters? This cannot be undone.`)) return;
                         await deleteUniverse(universe.id);
                         queryClient.invalidateQueries({ queryKey: ["universes"] });
                         setSelectedId(null);

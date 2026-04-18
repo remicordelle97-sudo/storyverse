@@ -26,7 +26,6 @@ interface StoryPage {
   content: string;
   image_prompt: string;
   characters_in_scene: string[];
-  location: string;
 }
 
 export interface GeneratedStory {
@@ -41,7 +40,7 @@ interface StoryPlan {
   premise: string;
   opening_state: string;
   resolution: string;
-  pages: { page: number; beat: string; characters: string[]; location: string }[];
+  pages: { page: number; beat: string; characters: string[] }[];
 }
 
 export const PLANNER_SYSTEM_PROMPT = `You are a children's story planner. Create a detailed story outline that will guide the full story writing.
@@ -57,7 +56,6 @@ RULES:
 - "resolution": How the story specifically ends. Must connect directly to the premise.
 - Each page beat must say what CONCRETELY happens — not "something surprising happens" but "the bridge collapses when they're halfway across."
 - Characters listed per page must use their full names exactly as provided.
-- Locations must be specific named places from the universe.
 
 SELF-CHECK before returning:
 1. Could a 4-year-old listener explain what the story is about after hearing just pages 1-2?
@@ -97,8 +95,8 @@ Create a plan for exactly ${pageCount} pages. Return this JSON:
   "opening_state": "Concrete description of page 1: who, where, what is happening, and how the story's core driver appears or is foreshadowed.",
   "resolution": "How the story specifically ends. Must connect to the premise.",
   "pages": [
-    { "page": 1, "beat": "What concretely happens on this page", "characters": ["Full Name"], "location": "Specific Place" },
-    { "page": 2, "beat": "The story's direction becomes clear: [specific event]. The listener now knows what this story is about.", "characters": ["..."], "location": "..." }
+    { "page": 1, "beat": "What concretely happens on this page", "characters": ["Full Name"] },
+    { "page": 2, "beat": "The story's direction becomes clear: [specific event]. The listener now knows what this story is about.", "characters": ["..."] }
   ]
 }`,
       },
@@ -151,7 +149,7 @@ Opening: ${plan.opening_state}
 Resolution: ${plan.resolution}
 
 Page-by-page beats:
-${plan.pages.map((p) => `Page ${p.page}: ${p.beat} [Characters: ${p.characters.join(", ")}] [Location: ${p.location}]`).join("\n")}
+${plan.pages.map((p) => `Page ${p.page}: ${p.beat} [Characters: ${p.characters.join(", ")}]`).join("\n")}
 
 IMPORTANT: Follow the plan above exactly. Each page's content must match its beat. Do not add new plot points not in the plan. Do not skip beats. The plan has already been checked for clarity and logical consistency — your job is to write beautiful prose that brings it to life.
 
@@ -211,7 +209,6 @@ async function refineImagePrompts(
     page_number: p.page_number,
     image_prompt: p.image_prompt,
     characters_in_scene: p.characters_in_scene,
-    location: p.location,
   }));
 
   const refinerSystemPrompt = `You are an art director for a children's picture book. You receive a set of image prompts for an entire book and rewrite them to work as a cohesive visual narrative.

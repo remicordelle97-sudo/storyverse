@@ -39,16 +39,13 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Single universe with characters and locations
+// Single universe with characters
 router.get("/:id", async (req, res) => {
   try {
     const universe = await prisma.universe.findUnique({
       where: { id: req.params.id as string },
       include: {
         characters: true,
-        locations: {
-          orderBy: { createdAt: "asc" },
-        },
       },
     });
     if (!universe) {
@@ -203,7 +200,7 @@ router.delete("/:id", requireAdmin, async (req, res) => {
       return res.status(404).json({ error: "Universe not found" });
     }
 
-    // Delete in order: story characters → scenes → stories → characters → locations → universe
+    // Delete in order: story characters → scenes → stories → characters → universe
     const stories = await prisma.story.findMany({ where: { universeId }, select: { id: true } });
     const storyIds = stories.map((s) => s.id);
 
@@ -214,7 +211,6 @@ router.delete("/:id", requireAdmin, async (req, res) => {
     }
 
     await prisma.character.deleteMany({ where: { universeId } });
-    await prisma.location.deleteMany({ where: { universeId } });
     await prisma.universe.delete({ where: { id: universeId } });
 
     debug.universe(`Deleted universe "${universe.name}" and all its data`);

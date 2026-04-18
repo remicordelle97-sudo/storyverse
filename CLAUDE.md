@@ -24,8 +24,8 @@ Full-stack children's storybook generator. React client (Vite, port 3000) talks 
 
 Two AI services work in sequence:
 
-1. **Claude** (`claude-sonnet-4-6` via Anthropic SDK) — generates text: universe concepts, character ensembles, location descriptions, story plans, and story prose
-2. **Gemini** (`gemini-3-pro-image-preview` via Google GenAI SDK) — generates images: character reference sheets, location reference sheets, and per-page story illustrations
+1. **Claude** (`claude-sonnet-4-6` via Anthropic SDK) — generates text: universe concepts, character ensembles, story plans, and story prose
+2. **Gemini** (`gemini-3-pro-image-preview` via Google GenAI SDK) — generates images: character reference sheets and per-page story illustrations
 
 ### Story Generation Flow
 
@@ -52,7 +52,6 @@ The prompts are split across two files with distinct responsibilities:
 - **`promptBuilder.ts`** — Assembles the **user messages** for both the planner and writer. Contains:
   - Universe context (name, setting, themes) — framed as backdrop, not plot
   - Character data (name, species, personality, archetype, role) — no special details
-  - Location data (name, description, landmarks)
   - 6 story structure archetypes with detailed pacing guides and archetype-specific premise templates
   - Age-specific guidelines (vocabulary bans, sentence structure rules, word counts)
   - Writer system prompt (style-only: show-don't-tell, rhythm, word choice, punctuation rules)
@@ -93,7 +92,7 @@ Image generation runs **in the background** after the story text is saved and re
 ### Data Model
 
 ```
-User → Universe → Character, Location, Story → Scene, StoryCharacter
+User → Universe → Character, Story → Scene, StoryCharacter
 ```
 
 **User**: Google OAuth, JWT auth. Roles: user, admin. Plans: free (5 stories/month, 1 universe), premium (unlimited), admin.

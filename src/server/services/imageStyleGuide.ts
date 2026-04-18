@@ -43,7 +43,6 @@ const SIMPLICITY_RULES = `SIMPLICITY:
 const CONTINUITY_RULES = `CONTINUITY:
 - Every image in a story must feel like it belongs to the same book. Same art style, same palette family, same lighting approach, same level of detail.
 - Characters must look identical to their reference images. Same proportions, same colors, same distinguishing features. If a character has a blue backpack, it appears in EVERY image where that character appears.
-- Recurring locations must look the same each time they appear (same trees, same colors, same layout).
 - If the story has a color arc (mood shifts), the shift should be gradual, not jarring. Transition through intermediate tones.`;
 
 /**

@@ -6,7 +6,6 @@ import billingRouter from "./routes/billing.js";
 import universesRouter from "./routes/universes.js";
 import charactersRouter from "./routes/characters.js";
 import storiesRouter from "./routes/stories.js";
-import locationsRouter from "./routes/locations.js";
 import adminRouter from "./routes/admin.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { startImageWorker } from "./lib/imageQueue.js";
@@ -37,7 +36,6 @@ app.use("/api/billing", billingRouter);
 app.use("/api/universes", authMiddleware, universesRouter);
 app.use("/api/characters", authMiddleware, charactersRouter);
 app.use("/api/stories", authMiddleware, storiesRouter);
-app.use("/api/locations", authMiddleware, locationsRouter);
 app.use("/api/admin", authMiddleware, adminRouter);
 
 // In production, serve the built React app

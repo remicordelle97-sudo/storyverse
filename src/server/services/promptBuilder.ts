@@ -263,18 +263,12 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
 
   const pageCount = 10;
 
-  // Fetch locations for the universe
-  const locations = await prisma.location.findMany({
-    where: { universeId: input.universeId },
-    orderBy: { createdAt: "asc" },
-  });
-
   // Story structure
   const structureGuide =
     STRUCTURE_GUIDELINES[input.structure] ||
     STRUCTURE_GUIDELINES["problem-solution"];
 
-  // === PLAN PROMPT: universe + characters + locations + structure + request ===
+  // === PLAN PROMPT: universe + characters + structure + request ===
   let planPrompt = `=== UNIVERSE ===
 Name: ${universe.name}
 Setting: ${universe.settingDescription}
@@ -292,19 +286,6 @@ Characters are complex — don't try to demonstrate every personality trait in a
     planPrompt += `\nPersonality: ${char.personalityTraits}`;
     if (char.relationshipArchetype && char.role !== "main") planPrompt += `\nArchetype: ${char.relationshipArchetype}`;
     planPrompt += `\nRole: ${char.role}\n\n`;
-  }
-
-  if (locations.length > 0) {
-    planPrompt += `=== LOCATIONS ===
-Use ONLY these locations in the story. Do not invent new locations. Reference them by name.\n\n`;
-    for (const loc of locations) {
-      planPrompt += `${loc.name} (${loc.role}): ${loc.description}`;
-      if (loc.landmarks) {
-        planPrompt += ` Key landmarks: ${loc.landmarks}`;
-      }
-      planPrompt += `\n`;
-    }
-    planPrompt += `\n`;
   }
 
   planPrompt += `${structureGuide}
@@ -341,7 +322,6 @@ The image_prompt should describe the SCENE, not the characters' bodies. Characte
 - Describe the MOOD and ATMOSPHERE of the scene
 - Do NOT describe characters' physical bodies, species details, or clothing — the illustrator already has reference images for that
 - Keep image_prompts to 2-3 sentences focused on scene, action, and emotion
-- "location" must be the EXACT name of a location from the story plan. Use the same name every time a location recurs
 
 {
   "title": "Story title",
@@ -350,8 +330,7 @@ The image_prompt should describe the SCENE, not the characters' bodies. Characte
       "page_number": 1,
       "content": "Page text here...",
       "image_prompt": "Scene description focused on setting, action, and emotion.",
-      "characters_in_scene": ["Leo the Lion", "Zuri the Zebra"],
-      "location": "The Savanna"
+      "characters_in_scene": ["Leo the Lion", "Zuri the Zebra"]
     }
   ]
 }`;

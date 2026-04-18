@@ -65,7 +65,7 @@ export default function NewUniverse() {
       });
 
       // Generate style reference image first — this anchors the visual style
-      // for all subsequent image generation (characters, locations, stories)
+      // for all subsequent image generation (characters and stories)
       setSavingStep("Creating art style...");
       await generateStyleReference(universe.id);
 
