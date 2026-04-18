@@ -4,12 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getUniverses,
   getUniverse,
-  getLocations,
   regenerateCharacterSheet,
   generateAllCharacterSheets,
   generateCharacters,
-  generateLocations,
-  generateLocationReferenceSheet,
   generateStyleReference,
   toggleUniversePublic,
   deleteUniverse,
@@ -75,16 +72,8 @@ export default function UniverseManager() {
     retry: 1,
   });
 
-  const { data: locations = [] } = useQuery({
-    queryKey: ["locations", selectedId],
-    queryFn: () => getLocations(selectedId!),
-    enabled: !!selectedId,
-    retry: 1,
-  });
-
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["universe", selectedId] });
-    queryClient.invalidateQueries({ queryKey: ["locations", selectedId] });
   };
 
   const doAction = async (id: string, fn: () => Promise<any>) => {
@@ -105,13 +94,6 @@ export default function UniverseManager() {
 
   let themes: string[] = [];
   try { themes = universe ? JSON.parse(universe.themes) : []; } catch { themes = []; }
-
-  // Collect all existing sheet URLs for style reference
-  const allSheetUrls = [
-    ...(universe?.characters || []).filter((c: any) => c.referenceImageUrl).map((c: any) => c.referenceImageUrl),
-    ...locations.filter((l: any) => l.referenceImageUrl).map((l: any) => l.referenceImageUrl),
-  ];
-
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -290,49 +272,6 @@ export default function UniverseManager() {
                     />
                   ))}
                 </div>
-              </div>
-
-              {/* Locations */}
-              <div className="bg-white rounded-xl border border-stone-200 p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-stone-700 text-sm">
-                    Locations ({locations.length})
-                  </h3>
-                  {locations.length === 0 && (
-                    <ActionButton
-                      onClick={() => doAction("gen-locs", () => generateLocations(selectedId!))}
-                      loading={actionLoading === "gen-locs"}
-                      loadingText="Generating..."
-                    >
-                      Generate locations
-                    </ActionButton>
-                  )}
-                </div>
-                {locations.length === 0 ? (
-                  <p className="text-xs text-stone-400">No locations yet. Generate them to define your world's geography.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {locations.map((loc: any) => (
-                      <SheetRow
-                        key={loc.id}
-                        name={loc.name}
-                        subtitle={loc.role}
-                        description={loc.description}
-                        detail={[
-                          loc.mood ? `Mood: ${loc.mood}` : "",
-                          loc.lighting ? `Lighting: ${loc.lighting}` : "",
-                          loc.landmarks ? `Landmarks: ${loc.landmarks}` : "",
-                        ].filter(Boolean).join("\n")}
-                        imageUrl={loc.referenceImageUrl}
-                        onPreview={() => setSheetPreview(loc.referenceImageUrl)}
-                        onGenerate={() =>
-                          doAction(`loc-sheet-${loc.id}`, () => generateLocationReferenceSheet(loc.id))
-                        }
-                        isGenerating={actionLoading === `loc-sheet-${loc.id}`}
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
 
             </>
