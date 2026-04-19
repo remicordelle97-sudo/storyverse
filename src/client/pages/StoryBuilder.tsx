@@ -160,10 +160,7 @@ export default function StoryBuilder() {
                     key={u.id}
                     label={u.isPublic ? `${u.name} ★` : u.name}
                     selected={universeId === u.id}
-                    onClick={() => {
-                      setUniverseId(u.id);
-                      setSelectedCharacters([]);
-                    }}
+                    onClick={() => setUniverseId(u.id)}
                   />
                 ))}
               </div>
