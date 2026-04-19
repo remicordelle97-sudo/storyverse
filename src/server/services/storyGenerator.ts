@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt } from "./promptBuilder.js";
-import { CLAUDE_MODEL, CLAUDE_MODEL_FAST, TEMPERATURE_STANDARD, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT, MAX_TOKENS_SMALL } from "../lib/config.js";
+import { CLAUDE_MODEL, CLAUDE_MODEL_FAST, CLAUDE_MODEL_PLANNER, TEMPERATURE_STANDARD, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT, MAX_TOKENS_SMALL } from "../lib/config.js";
 import { debug } from "../lib/debug.js";
 
 const anthropic = new Anthropic();
@@ -77,8 +77,11 @@ async function planStory(
 ): Promise<StoryPlan> {
   const pageCount = 10;
 
+  // Plan step uses Opus: more reliable at the stacked constraints in the
+  // planner prompt (archetype templates, early-clarity rule, per-page beats).
+  // Worth the extra cost/latency because a bad plan poisons the story.
   const message = await withRetry(() => anthropic.messages.create({
-    model: CLAUDE_MODEL,
+    model: CLAUDE_MODEL_PLANNER,
     max_tokens: MAX_TOKENS_SMALL,
     temperature: TEMPERATURE_CREATIVE,
     system: [{ type: "text" as const, text: PLANNER_SYSTEM_PROMPT, cache_control: { type: "ephemeral" as const } }],

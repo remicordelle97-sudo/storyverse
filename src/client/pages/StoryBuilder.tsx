@@ -4,15 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { getUniverses, generateStory, getStoryQuota, createCheckoutSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
+import StoryLoadingScreen, { STORY_TEXT_PHRASES } from "../components/StoryLoadingScreen";
 
 const AGE_GROUPS = ["2-3", "4-5", "6-8"];
-
-const STEP_LABELS: Record<string, string> = {
-  building: "Building your story world",
-  writing: "Writing the story",
-  saving: "Saving pages",
-  illustrating: "Illustrating your story",
-};
 
 export default function StoryBuilder() {
   const navigate = useNavigate();
@@ -43,9 +37,6 @@ export default function StoryBuilder() {
   const [generateImages, setGenerateImages] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [progressStep, setProgressStep] = useState("");
-  const [progressDetail, setProgressDetail] = useState("");
-  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
 
   // Active quota depends on which flavor of story the user is creating
   const activeQuota = generateImages ? quota?.illustrated : quota?.text;
@@ -55,40 +46,25 @@ export default function StoryBuilder() {
 
     setLoading(true);
     setError("");
-    setProgressStep("");
-    setProgressDetail("");
-    setCompletedSteps([]);
 
     try {
-      const result = await generateStory(
-        {
-          universeId,
-          language: "en",
-          ageGroup,
-          structure: isAdmin ? structure : undefined,
-          generateImages,
-        },
-        (step, detail) => {
-          setCompletedSteps((prev) => {
-            if (prev.includes(step)) return prev;
-            if (progressStep && !prev.includes(progressStep)) {
-              return [...prev, progressStep];
-            }
-            return prev;
-          });
-          setProgressStep(step);
-          setProgressDetail(detail || "");
-        }
-      );
+      const result = await generateStory({
+        universeId,
+        language: "en",
+        ageGroup,
+        structure: isAdmin ? structure : undefined,
+        generateImages,
+      });
       navigate(`/reading/${result.story.id}`);
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.");
       setLoading(false);
-      setProgressStep("");
     }
   };
 
-  const allSteps = ["building", "writing", "saving"];
+  if (loading) {
+    return <StoryLoadingScreen phrases={STORY_TEXT_PHRASES} />;
+  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -103,51 +79,7 @@ export default function StoryBuilder() {
         Create a new story
       </h1>
 
-      {/* Progress overlay */}
-      {loading && (
-        <div className="bg-white rounded-xl border border-stone-200 p-8 mb-8">
-          <div className="space-y-4">
-            {allSteps.map((step) => {
-              const isActive = progressStep === step;
-              const isComplete =
-                completedSteps.includes(step) ||
-                allSteps.indexOf(step) < allSteps.indexOf(progressStep);
-
-              return (
-                <div key={step} className="flex items-center gap-3">
-                  {isComplete ? (
-                    <div className="w-6 h-6 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
-                      <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  ) : isActive ? (
-                    <div className="w-6 h-6 flex items-center justify-center flex-shrink-0">
-                      <svg className="animate-spin h-5 w-5 text-primary" viewBox="0 0 24 24" fill="none">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                    </div>
-                  ) : (
-                    <div className="w-6 h-6 rounded-full border-2 border-stone-200 flex-shrink-0" />
-                  )}
-                  <div>
-                    <p className={`text-sm font-medium ${isActive ? "text-stone-800" : isComplete ? "text-secondary" : "text-stone-300"}`}>
-                      {STEP_LABELS[step]}
-                    </p>
-                    {isActive && progressDetail && (
-                      <p className="text-xs text-stone-400 mt-0.5">{progressDetail}</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {!loading && (
-        <>
+      <>
           {/* Universe selector (if multiple) */}
           {universes.length > 1 && (
             <section className="mb-8">
@@ -275,8 +207,7 @@ export default function StoryBuilder() {
               ? (generateImages ? "Illustrated limit reached" : "Text-only limit reached")
               : "Create story"}
           </button>
-        </>
-      )}
+      </>
     </div>
   );
 }

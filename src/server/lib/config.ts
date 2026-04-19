@@ -1,5 +1,11 @@
 // AI model configuration
+// Default (used for story writing): Sonnet balances quality and cost.
 export const CLAUDE_MODEL = "claude-sonnet-4-6";
+// Heavier model used for the story planner. The plan has many stacked
+// constraints (archetype templates, early-clarity rule, per-page beats)
+// and a bad plan poisons the whole story — Opus is worth the extra
+// latency and cost on this step.
+export const CLAUDE_MODEL_PLANNER = "claude-opus-4-7";
 // Fast model for mechanical / structural rewrites where creative quality
 // doesn't change much (e.g. image prompt refinement).
 export const CLAUDE_MODEL_FAST = "claude-haiku-4-5";

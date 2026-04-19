@@ -5,6 +5,7 @@ import { getStory, getStoryStatus, getStoryDebug, regenerateStoryImages } from "
 import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
 import HTMLFlipBook from "react-pageflip";
+import StoryLoadingScreen, { STORY_IMAGE_PHRASES } from "../components/StoryLoadingScreen";
 
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
   try {
@@ -439,25 +440,14 @@ export default function ReadingMode() {
   if (isIllustrating) {
     const imagesReady = storyStatus?.imagesReady || 0;
     const totalImages = storyStatus?.totalPages || 0;
+    const percent = totalImages > 0 ? (imagesReady / totalImages) * 100 : 0;
     return (
-      <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center gap-6">
-        <div className="text-center" style={{ fontFamily: "Lexend, sans-serif" }}>
-          <h2 className="text-white text-xl font-bold mb-2">{story.title}</h2>
-          <p className="text-stone-400 text-sm mb-4">
-            Creating illustrations...
-          </p>
-          <p className="text-stone-500 text-xs">
-            {imagesReady} of {totalImages} illustrations ready
-          </p>
-        </div>
-        {/* Progress bar */}
-        <div className="w-64 h-2 bg-stone-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-amber-500 rounded-full transition-all duration-500"
-            style={{ width: totalImages > 0 ? `${(imagesReady / totalImages) * 100}%` : "0%" }}
-          />
-        </div>
-      </div>
+      <StoryLoadingScreen
+        phrases={STORY_IMAGE_PHRASES}
+        title={story.title}
+        progressLabel={`${imagesReady} of ${totalImages} illustrations ready`}
+        progressPercent={percent}
+      />
     );
   }
 
