@@ -98,6 +98,32 @@ router.post("/generate", async (req, res) => {
   }
 });
 
+// Rename a character (name-only update users are allowed to make)
+router.patch("/:id/rename", async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ error: "name is required" });
+    }
+    const character = await prisma.character.findUnique({
+      where: { id: req.params.id as string },
+    });
+    if (!character) {
+      return res.status(404).json({ error: "Character not found" });
+    }
+    if (!await verifyUniverseOwnership(character.universeId, req.userId as string)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const updated = await prisma.character.update({
+      where: { id: character.id },
+      data: { name: name.trim() },
+    });
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: "Failed to rename character" });
+  }
+});
+
 // Regenerate a character's reference sheet
 router.post("/:id/regenerate-sheet", requireAdmin, async (req, res) => {
   try {

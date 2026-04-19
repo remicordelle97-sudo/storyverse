@@ -10,7 +10,9 @@ import {
   generateStyleReference,
   toggleUniversePublic,
   deleteUniverse,
+  renameCharacter,
 } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 function ActionButton({
   onClick,
@@ -54,6 +56,7 @@ function ActionButton({
 export default function UniverseManager() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isAdmin } = useAuth();
 
   const { data: universes = [], isLoading } = useQuery({
     queryKey: ["universes"],
@@ -146,32 +149,34 @@ export default function UniverseManager() {
               <div className="bg-white rounded-xl border border-stone-200 p-5">
                 <div className="flex items-center justify-between mb-1">
                   <h2 className="text-lg font-bold text-stone-800">{universe.name}</h2>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        await toggleUniversePublic(universe.id);
-                        invalidate();
-                      }}
-                      className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors ${
-                        universe.isPublic
-                          ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
-                          : "bg-stone-100 text-stone-400 hover:bg-stone-200"
-                      }`}
-                    >
-                      {universe.isPublic ? "Featured (public)" : "Publish to all users"}
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!confirm(`Delete "${universe.name}" and all its stories and characters? This cannot be undone.`)) return;
-                        await deleteUniverse(universe.id);
-                        queryClient.invalidateQueries({ queryKey: ["universes"] });
-                        setSelectedId(null);
-                      }}
-                      className="text-[10px] px-2.5 py-1 rounded-full font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                  {isAdmin && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          await toggleUniversePublic(universe.id);
+                          invalidate();
+                        }}
+                        className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors ${
+                          universe.isPublic
+                            ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
+                            : "bg-stone-100 text-stone-400 hover:bg-stone-200"
+                        }`}
+                      >
+                        {universe.isPublic ? "Featured (public)" : "Publish to all users"}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`Delete "${universe.name}" and all its stories and characters? This cannot be undone.`)) return;
+                          await deleteUniverse(universe.id);
+                          queryClient.invalidateQueries({ queryKey: ["universes"] });
+                          setSelectedId(null);
+                        }}
+                        className="text-[10px] px-2.5 py-1 rounded-full font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <p className="text-sm text-stone-500 mb-3">{universe.settingDescription}</p>
                 <div className="space-y-2 text-xs">
@@ -184,16 +189,18 @@ export default function UniverseManager() {
               <div className="bg-white rounded-xl border border-stone-200 p-5">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-stone-700 text-sm">Art Style Reference</h3>
-                  <ActionButton
-                    onClick={() => doAction("gen-style-ref", async () => {
-                      await generateStyleReference(selectedId!);
-                      invalidate();
-                    })}
-                    loading={actionLoading === "gen-style-ref"}
-                    loadingText="Generating..."
-                  >
-                    {universe.styleReferenceUrl ? "Regenerate" : "Generate"}
-                  </ActionButton>
+                  {isAdmin && (
+                    <ActionButton
+                      onClick={() => doAction("gen-style-ref", async () => {
+                        await generateStyleReference(selectedId!);
+                        invalidate();
+                      })}
+                      loading={actionLoading === "gen-style-ref"}
+                      loadingText="Generating..."
+                    >
+                      {universe.styleReferenceUrl ? "Regenerate" : "Generate"}
+                    </ActionButton>
+                  )}
                 </div>
                 {universe.styleReferenceUrl ? (
                   <img
@@ -212,39 +219,41 @@ export default function UniverseManager() {
                   <h3 className="font-semibold text-stone-700 text-sm">
                     Characters ({(universe.characters || []).length})
                   </h3>
-                  <div className="flex gap-2">
-                    {supporting.length === 0 && hero && (
-                      <ActionButton
-                        onClick={() => doAction("gen-chars", () => generateCharacters(selectedId!))}
-                        loading={actionLoading === "gen-chars"}
-                        loadingText="Generating..."
-                      >
-                        Generate supporting characters
-                      </ActionButton>
-                    )}
-                    {(universe.characters || []).length > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <select
-                          value={poseCount}
-                          onChange={(e) => setPoseCount(parseInt(e.target.value))}
-                          className="text-xs border border-stone-200 rounded px-1.5 py-1 text-stone-500 bg-white"
-                          title="Number of poses per character"
-                        >
-                          {[4, 6, 8, 10, 12].map((n) => (
-                            <option key={n} value={n}>{n} poses</option>
-                          ))}
-                        </select>
+                  {isAdmin && (
+                    <div className="flex gap-2">
+                      {supporting.length === 0 && hero && (
                         <ActionButton
-                          onClick={() => doAction("gen-all-sheets", () => generateAllCharacterSheets(selectedId!, poseCount))}
-                          loading={actionLoading === "gen-all-sheets"}
-                          loadingText="Generating all..."
-                          variant="primary"
+                          onClick={() => doAction("gen-chars", () => generateCharacters(selectedId!))}
+                          loading={actionLoading === "gen-chars"}
+                          loadingText="Generating..."
                         >
-                          Generate all sheets
+                          Generate supporting characters
                         </ActionButton>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                      {(universe.characters || []).length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={poseCount}
+                            onChange={(e) => setPoseCount(parseInt(e.target.value))}
+                            className="text-xs border border-stone-200 rounded px-1.5 py-1 text-stone-500 bg-white"
+                            title="Number of poses per character"
+                          >
+                            {[4, 6, 8, 10, 12].map((n) => (
+                              <option key={n} value={n}>{n} poses</option>
+                            ))}
+                          </select>
+                          <ActionButton
+                            onClick={() => doAction("gen-all-sheets", () => generateAllCharacterSheets(selectedId!, poseCount))}
+                            loading={actionLoading === "gen-all-sheets"}
+                            loadingText="Generating all..."
+                            variant="primary"
+                          >
+                            Generate all sheets
+                          </ActionButton>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {!hero && (universe.characters || []).length === 0 && (
                   <p className="text-xs text-red-500 mb-2">No hero found. Try creating the universe again.</p>
@@ -263,12 +272,18 @@ export default function UniverseManager() {
                       ].filter(Boolean).join("\n")}
                       imageUrl={char.referenceImageUrl}
                       onPreview={() => setSheetPreview(char.referenceImageUrl)}
-                      onGenerate={() =>
-                        doAction(`char-sheet-${char.id}`, () => regenerateCharacterSheet(char.id, poseCount))
+                      onGenerate={
+                        isAdmin
+                          ? () => doAction(`char-sheet-${char.id}`, () => regenerateCharacterSheet(char.id, poseCount))
+                          : undefined
                       }
                       isGenerating={actionLoading === `char-sheet-${char.id}`}
-                      poseCount={poseCount}
-                      onPoseCountChange={setPoseCount}
+                      poseCount={isAdmin ? poseCount : undefined}
+                      onPoseCountChange={isAdmin ? setPoseCount : undefined}
+                      onRename={async (newName) => {
+                        await renameCharacter(char.id, newName);
+                        invalidate();
+                      }}
                     />
                   ))}
                 </div>
@@ -305,6 +320,7 @@ function SheetRow({
   isGenerating,
   poseCount,
   onPoseCountChange,
+  onRename,
 }: {
   name: string;
   subtitle: string;
@@ -312,12 +328,35 @@ function SheetRow({
   detail?: string;
   imageUrl: string;
   onPreview: () => void;
-  onGenerate: () => void;
+  onGenerate?: () => void;
   isGenerating: boolean;
   poseCount?: number;
   onPoseCountChange?: (count: number) => void;
+  onRename?: (newName: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState(name);
+  const [saving, setSaving] = useState(false);
+
+  async function saveName() {
+    const trimmed = draftName.trim();
+    if (!trimmed || trimmed === name || !onRename) {
+      setEditing(false);
+      setDraftName(name);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onRename(trimmed);
+      setEditing(false);
+    } catch (e: any) {
+      alert(e.message || "Failed to rename");
+      setDraftName(name);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="flex items-start gap-3 p-3 rounded-lg border border-stone-100">
@@ -342,8 +381,35 @@ function SheetRow({
       {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-stone-800 truncate">{name}</p>
+          {editing ? (
+            <input
+              autoFocus
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={saveName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveName();
+                if (e.key === "Escape") {
+                  setEditing(false);
+                  setDraftName(name);
+                }
+              }}
+              disabled={saving}
+              className="text-sm font-medium text-stone-800 border border-primary rounded px-1.5 py-0.5 bg-white min-w-0 flex-1"
+            />
+          ) : (
+            <p className="text-sm font-medium text-stone-800 truncate">{name}</p>
+          )}
           <span className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-400">{subtitle}</span>
+          {onRename && !editing && (
+            <button
+              onClick={() => setEditing(true)}
+              className="text-[10px] text-stone-400 hover:text-primary transition-colors"
+              title="Rename"
+            >
+              Rename
+            </button>
+          )}
         </div>
         <button
           onClick={() => setExpanded(!expanded)}
@@ -359,28 +425,30 @@ function SheetRow({
         </button>
       </div>
 
-      {/* Generate button (with optional pose selector) */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        {poseCount !== undefined && onPoseCountChange && (
-          <select
-            value={poseCount}
-            onChange={(e) => onPoseCountChange(parseInt(e.target.value))}
-            className="text-[10px] border border-stone-200 rounded px-1 py-1 text-stone-500 bg-white"
-            title="Number of poses"
+      {/* Generate button (admin-only) */}
+      {onGenerate && (
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {poseCount !== undefined && onPoseCountChange && (
+            <select
+              value={poseCount}
+              onChange={(e) => onPoseCountChange(parseInt(e.target.value))}
+              className="text-[10px] border border-stone-200 rounded px-1 py-1 text-stone-500 bg-white"
+              title="Number of poses"
+            >
+              {[4, 6, 8, 10, 12].map((n) => (
+                <option key={n} value={n}>{n} poses</option>
+              ))}
+            </select>
+          )}
+          <ActionButton
+            onClick={onGenerate}
+            loading={isGenerating}
+            loadingText="Generating..."
           >
-            {[4, 6, 8, 10, 12].map((n) => (
-              <option key={n} value={n}>{n} poses</option>
-            ))}
-          </select>
-        )}
-        <ActionButton
-          onClick={onGenerate}
-          loading={isGenerating}
-          loadingText="Generating..."
-        >
-          {imageUrl ? "Regen" : "Generate"}
-        </ActionButton>
-      </div>
+            {imageUrl ? "Regen" : "Generate"}
+          </ActionButton>
+        </div>
+      )}
     </div>
   );
 }

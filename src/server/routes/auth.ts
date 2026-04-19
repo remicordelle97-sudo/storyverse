@@ -65,11 +65,76 @@ router.post("/google", async (req, res) => {
         picture: user.picture,
         role: user.role,
         plan: user.plan,
+        onboardedAt: user.onboardedAt,
       },
     });
   } catch (e) {
     console.error("Google auth failed:", e);
     res.status(401).json({ error: "Authentication failed" });
+  }
+});
+
+// Complete onboarding: clone a template universe into the user's account
+router.post("/onboard", authMiddleware, async (req, res) => {
+  try {
+    const { templateUniverseId } = req.body;
+    if (!templateUniverseId || typeof templateUniverseId !== "string") {
+      return res.status(400).json({ error: "templateUniverseId is required" });
+    }
+
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId as string } });
+    if (user.onboardedAt) {
+      return res.status(400).json({ error: "Already onboarded" });
+    }
+
+    const template = await prisma.universe.findUnique({
+      where: { id: templateUniverseId },
+      include: { characters: true },
+    });
+    if (!template || !template.isTemplate) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+
+    const cloned = await prisma.universe.create({
+      data: {
+        userId: user.id,
+        name: template.name,
+        settingDescription: template.settingDescription,
+        themes: template.themes,
+        avoidThemes: template.avoidThemes,
+        illustrationStyle: template.illustrationStyle,
+        illustrationsEnabled: template.illustrationsEnabled,
+        styleReferenceUrl: template.styleReferenceUrl,
+        isPublic: false,
+        isTemplate: false,
+      },
+    });
+
+    for (const c of template.characters) {
+      await prisma.character.create({
+        data: {
+          universeId: cloned.id,
+          name: c.name,
+          speciesOrType: c.speciesOrType,
+          personalityTraits: c.personalityTraits,
+          appearance: c.appearance,
+          outfit: c.outfit,
+          relationshipArchetype: c.relationshipArchetype,
+          referenceImageUrl: c.referenceImageUrl,
+          role: c.role,
+        },
+      });
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardedAt: new Date() },
+    });
+
+    res.json({ universeId: cloned.id });
+  } catch (e: any) {
+    console.error("Onboarding failed:", e);
+    res.status(500).json({ error: "Failed to complete onboarding" });
   }
 });
 
@@ -116,6 +181,7 @@ router.get("/me", authMiddleware, async (req, res) => {
       picture: user.picture,
       role: user.role,
       plan: user.plan,
+      onboardedAt: user.onboardedAt,
     });
   } catch {
     res.status(500).json({ error: "Failed to fetch user" });

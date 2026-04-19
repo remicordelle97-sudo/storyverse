@@ -14,6 +14,7 @@ interface User {
   picture: string;
   role: string;
   plan: string;
+  onboardedAt: string | null;
 }
 
 interface AuthState {

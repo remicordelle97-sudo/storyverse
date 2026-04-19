@@ -26,6 +26,24 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const getAdminUsers = () => request<any[]>("/admin/users");
 export const impersonateUser = (userId: string) =>
   request<{ accessToken: string; user: any }>(`/admin/impersonate/${userId}`, { method: "POST" });
+export const getAdminUniverses = () => request<any[]>("/admin/universes");
+export const toggleUniverseTemplate = (id: string) =>
+  request<{ isTemplate: boolean }>(`/admin/universes/${id}/toggle-template`, { method: "POST" });
+
+// Onboarding
+export const getTemplateUniverses = () => request<any[]>("/universes/templates");
+export const completeOnboarding = (templateUniverseId: string) =>
+  request<{ universeId: string }>("/auth/onboard", {
+    method: "POST",
+    body: JSON.stringify({ templateUniverseId }),
+  });
+
+// Character rename (user-allowed update)
+export const renameCharacter = (characterId: string, name: string) =>
+  request<any>(`/characters/${characterId}/rename`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  });
 
 // Universes
 // Billing

@@ -108,4 +108,46 @@ router.post("/impersonate/:userId", async (req, res) => {
   }
 });
 
+// GET /api/admin/universes — all universes (for template management)
+router.get("/universes", async (_req, res) => {
+  try {
+    const universes = await prisma.universe.findMany({
+      select: {
+        id: true,
+        name: true,
+        settingDescription: true,
+        isPublic: true,
+        isTemplate: true,
+        styleReferenceUrl: true,
+        createdAt: true,
+        user: { select: { email: true } },
+        _count: { select: { characters: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    res.json(universes);
+  } catch (e) {
+    debug.error("Failed to fetch admin universes", { error: String(e) });
+    res.status(500).json({ error: "Failed to fetch universes" });
+  }
+});
+
+// POST /api/admin/universes/:id/toggle-template — mark/unmark a universe as a default template
+router.post("/universes/:id/toggle-template", async (req, res) => {
+  try {
+    const universe = await prisma.universe.findUnique({ where: { id: req.params.id as string } });
+    if (!universe) {
+      return res.status(404).json({ error: "Universe not found" });
+    }
+    const updated = await prisma.universe.update({
+      where: { id: universe.id },
+      data: { isTemplate: !universe.isTemplate },
+    });
+    res.json({ isTemplate: updated.isTemplate });
+  } catch (e) {
+    debug.error("Failed to toggle template", { error: String(e) });
+    res.status(500).json({ error: "Failed to toggle template" });
+  }
+});
+
 export default router;

@@ -1,15 +1,18 @@
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import Login from "./pages/Login";
 import Library from "./pages/Library";
 import NewUniverse from "./pages/NewUniverse";
 import UniverseManager from "./pages/UniverseManager";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminTemplates from "./pages/AdminTemplates";
+import Onboarding from "./pages/Onboarding";
 import StoryBuilder from "./pages/StoryBuilder";
 import ReadingMode from "./pages/ReadingMode";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -21,6 +24,10 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!user.onboardedAt && location.pathname !== "/onboarding") {
+    return <Navigate to="/onboarding" replace />;
   }
 
   return <>{children}</>;
@@ -58,6 +65,16 @@ function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route
+        path="/onboarding"
+        element={
+          !user
+            ? <Navigate to="/login" replace />
+            : user.onboardedAt
+              ? <Navigate to="/library" replace />
+              : <Onboarding />
+        }
+      />
+      <Route
         path="/library"
         element={<ProtectedRoute><Library /></ProtectedRoute>}
       />
@@ -67,11 +84,15 @@ function AppRoutes() {
       />
       <Route
         path="/universe-manager"
-        element={<AdminRoute><UniverseManager /></AdminRoute>}
+        element={<ProtectedRoute><UniverseManager /></ProtectedRoute>}
       />
       <Route
         path="/admin"
         element={<AdminRoute><AdminDashboard /></AdminRoute>}
+      />
+      <Route
+        path="/admin/templates"
+        element={<AdminRoute><AdminTemplates /></AdminRoute>}
       />
       <Route
         path="/story-builder"

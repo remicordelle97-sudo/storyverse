@@ -16,6 +16,7 @@ model User {
   plan             String     @default("free")
   stripeCustomerId String?    @unique
   picture          String     @default("")
+  onboardedAt      DateTime?
   createdAt        DateTime   @default(now())
   universes        Universe[]
   stories          Story[]
@@ -39,6 +40,7 @@ model Universe {
   characters           Character[]
   stories              Story[]
   isPublic             Boolean         @default(false)
+  isTemplate           Boolean         @default(false)
 }
 
 model Character {
