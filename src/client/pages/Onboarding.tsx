@@ -24,10 +24,9 @@ export default function Onboarding() {
 
   function goToHero() {
     if (!selectedTemplate) return;
-    // Prefill with the template's main character name so users can tweak or keep
-    if (!heroName && templateMainCharacter?.name) {
-      setHeroName(templateMainCharacter.name);
-    }
+    // Always prefill with the current template's main character — picking a
+    // different universe after going back shouldn't keep the old default.
+    setHeroName(templateMainCharacter?.name || "");
     setStep("hero");
   }
 
@@ -197,8 +196,7 @@ export default function Onboarding() {
           <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
             <h2 className="text-lg font-semibold text-stone-800 mb-1">Name your hero</h2>
             <p className="text-sm text-stone-500 mb-6">
-              This is the star of every story in your universe. Choose carefully — you won't be
-              able to change it later.
+              This is the star of every story in your universe.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-5 items-start">
