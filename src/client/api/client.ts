@@ -27,6 +27,11 @@ export const getAdminUsers = () => request<any[]>("/admin/users");
 export const impersonateUser = (userId: string) =>
   request<{ accessToken: string; user: any }>(`/admin/impersonate/${userId}`, { method: "POST" });
 export const getAdminUniverses = () => request<any[]>("/admin/universes");
+export const resetUser = (userId: string) =>
+  request<{ ok: boolean; storiesDeleted: number; universesDeleted: number }>(
+    `/admin/users/${userId}/reset`,
+    { method: "POST" }
+  );
 export const toggleUniverseTemplate = (id: string) =>
   request<{ isTemplate: boolean }>(`/admin/universes/${id}/toggle-template`, { method: "POST" });
 

@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getAdminUsers, impersonateUser } from "../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getAdminUsers, impersonateUser, resetUser } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user: currentUser, startImpersonation } = useAuth();
+  const [resettingId, setResettingId] = useState<string | null>(null);
 
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin-users"],
@@ -19,6 +22,26 @@ export default function AdminDashboard() {
       navigate("/library");
     } catch (e: any) {
       alert(e.message || "Impersonation failed");
+    }
+  };
+
+  const handleReset = async (u: any) => {
+    const ok = confirm(
+      `Reset ${u.email}?\n\nThis will delete ${u.storyCount} ${u.storyCount === 1 ? "story" : "stories"} and ${u.universeCount} ${u.universeCount === 1 ? "universe" : "universes"}. ` +
+        `They'll be sent through onboarding on their next login. This cannot be undone.`
+    );
+    if (!ok) return;
+    setResettingId(u.id);
+    try {
+      const result = await resetUser(u.id);
+      queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      alert(
+        `Reset complete. Deleted ${result.storiesDeleted} stories and ${result.universesDeleted} universes.`
+      );
+    } catch (e: any) {
+      alert(e.message || "Reset failed");
+    } finally {
+      setResettingId(null);
     }
   };
 
@@ -145,12 +168,21 @@ export default function AdminDashboard() {
                     </td>
                     <td className="px-4 py-3">
                       {u.id !== currentUser?.id && (
-                        <button
-                          onClick={() => handleImpersonate(u.id)}
-                          className="text-xs px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors font-medium"
-                        >
-                          View
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleImpersonate(u.id)}
+                            className="text-xs px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors font-medium"
+                          >
+                            View
+                          </button>
+                          <button
+                            onClick={() => handleReset(u)}
+                            disabled={resettingId === u.id}
+                            className="text-xs px-3 py-1.5 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium disabled:opacity-50"
+                          >
+                            {resettingId === u.id ? "Resetting..." : "Reset"}
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>

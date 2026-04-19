@@ -132,6 +132,59 @@ router.get("/universes", async (_req, res) => {
   }
 });
 
+// POST /api/admin/users/:userId/reset — wipe a user's stories, characters,
+// and universes and re-arm the onboarding flow so they pick a template
+// again on their next login.
+router.post("/users/:userId/reset", async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const target = await prisma.user.findUnique({ where: { id: userId } });
+    if (!target) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const universes = await prisma.universe.findMany({
+      where: { userId },
+      select: { id: true },
+    });
+    const universeIds = universes.map((u) => u.id);
+
+    const stories = await prisma.story.findMany({
+      where: { universeId: { in: universeIds } },
+      select: { id: true },
+    });
+    const storyIds = stories.map((s) => s.id);
+
+    if (storyIds.length > 0) {
+      await prisma.storyCharacter.deleteMany({ where: { storyId: { in: storyIds } } });
+      await prisma.scene.deleteMany({ where: { storyId: { in: storyIds } } });
+      await prisma.story.deleteMany({ where: { id: { in: storyIds } } });
+    }
+
+    if (universeIds.length > 0) {
+      await prisma.character.deleteMany({ where: { universeId: { in: universeIds } } });
+      await prisma.universe.deleteMany({ where: { id: { in: universeIds } } });
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { onboardedAt: null },
+    });
+
+    debug.story("Admin reset user", {
+      adminId: req.userId || "unknown",
+      targetEmail: target.email,
+      storiesDeleted: storyIds.length,
+      universesDeleted: universeIds.length,
+    });
+
+    res.json({ ok: true, storiesDeleted: storyIds.length, universesDeleted: universeIds.length });
+  } catch (e) {
+    debug.error("User reset failed", { error: String(e) });
+    res.status(500).json({ error: "Failed to reset user" });
+  }
+});
+
 // POST /api/admin/universes/:id/toggle-template — mark/unmark a universe as a default template
 router.post("/universes/:id/toggle-template", async (req, res) => {
   try {
