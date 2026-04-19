@@ -445,7 +445,6 @@ export default function ReadingMode() {
       <StoryLoadingScreen
         phrases={STORY_IMAGE_PHRASES}
         title={story.title}
-        progressLabel={`${imagesReady} of ${totalImages} illustrations ready`}
         progressPercent={percent}
       />
     );
