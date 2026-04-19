@@ -15,7 +15,7 @@ router.get("/templates", async (_req, res) => {
   try {
     const templates = await prisma.universe.findMany({
       where: { isTemplate: true },
-      include: { characters: { select: { id: true, name: true, referenceImageUrl: true } } },
+      include: { characters: { select: { id: true, name: true, role: true, referenceImageUrl: true } } },
       orderBy: { createdAt: "asc" },
     });
     res.json(templates);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getStories, getUniverses, getUniverseQuota, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
@@ -161,8 +161,26 @@ export default function Library() {
     }
   };
 
-  // Group stories into shelves (items per shelf depends on view mode)
-  const perShelf = 5;
+  // Books per shelf — recomputed from viewport width so wider screens get
+  // more books per row instead of the previous hardcoded 5.
+  const BOOK_WIDTH = 160;
+  const BOOK_GAP = 16;
+  const HORIZONTAL_CHROME = 80; // container px-4 (32) + shelf px-8 (64) - first-book has no leading gap (16)
+  const [perShelf, setPerShelf] = useState(() => computePerShelf());
+
+  function computePerShelf() {
+    if (typeof window === "undefined") return 5;
+    const available = window.innerWidth * 0.95 - HORIZONTAL_CHROME;
+    const count = Math.floor((available + BOOK_GAP) / (BOOK_WIDTH + BOOK_GAP));
+    return Math.max(3, Math.min(12, count));
+  }
+
+  useEffect(() => {
+    const onResize = () => setPerShelf(computePerShelf());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const shelves: any[][] = [];
   for (let i = 0; i < stories.length; i += perShelf) {
     shelves.push(stories.slice(i, i + perShelf));
@@ -256,20 +274,22 @@ export default function Library() {
             >
               New Universe{universeQuota && !universeQuota.allowed ? " (limit reached)" : ""}
             </button>
-            <div className="border-t border-stone-100 my-1" />
-            <button
-              onClick={() => { setShowMenu(false); navigate("/universe-manager"); }}
-              className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
-            >
-              Manage Universes
-            </button>
             {isAdmin && (
-              <button
-                onClick={() => { setShowMenu(false); navigate("/admin"); }}
-                className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
-              >
-                Admin
-              </button>
+              <>
+                <div className="border-t border-stone-100 my-1" />
+                <button
+                  onClick={() => { setShowMenu(false); navigate("/universe-manager"); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
+                >
+                  Manage Universes
+                </button>
+                <button
+                  onClick={() => { setShowMenu(false); navigate("/admin"); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-stone-500 hover:bg-stone-50 transition-colors"
+                >
+                  Admin
+                </button>
+              </>
             )}
             {!isAdmin && (
               <>

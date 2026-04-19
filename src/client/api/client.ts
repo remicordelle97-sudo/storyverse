@@ -32,10 +32,10 @@ export const toggleUniverseTemplate = (id: string) =>
 
 // Onboarding
 export const getTemplateUniverses = () => request<any[]>("/universes/templates");
-export const completeOnboarding = (templateUniverseId: string) =>
+export const completeOnboarding = (templateUniverseId: string, mainCharacterName: string) =>
   request<{ universeId: string }>("/auth/onboard", {
     method: "POST",
-    body: JSON.stringify({ templateUniverseId }),
+    body: JSON.stringify({ templateUniverseId, mainCharacterName }),
   });
 
 // Character rename (user-allowed update)

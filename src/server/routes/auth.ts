@@ -41,7 +41,15 @@ router.post("/google", async (req, res) => {
           name: payload.name || payload.email,
           picture: payload.picture || "",
           role,
+          // Admins skip the onboarding flow
+          onboardedAt: role === "admin" ? new Date() : null,
         },
+      });
+    } else if (user.role === "admin" && !user.onboardedAt) {
+      // Grandfather existing admins who predate the onboarding flow
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { onboardedAt: new Date() },
       });
     }
 
@@ -77,7 +85,7 @@ router.post("/google", async (req, res) => {
 // Complete onboarding: clone a template universe into the user's account
 router.post("/onboard", authMiddleware, async (req, res) => {
   try {
-    const { templateUniverseId } = req.body;
+    const { templateUniverseId, mainCharacterName } = req.body;
     if (!templateUniverseId || typeof templateUniverseId !== "string") {
       return res.status(400).json({ error: "templateUniverseId is required" });
     }
@@ -110,11 +118,14 @@ router.post("/onboard", authMiddleware, async (req, res) => {
       },
     });
 
+    const trimmedName = typeof mainCharacterName === "string" ? mainCharacterName.trim() : "";
+
     for (const c of template.characters) {
+      const name = c.role === "main" && trimmedName ? trimmedName : c.name;
       await prisma.character.create({
         data: {
           universeId: cloned.id,
-          name: c.name,
+          name,
           speciesOrType: c.speciesOrType,
           personalityTraits: c.personalityTraits,
           appearance: c.appearance,

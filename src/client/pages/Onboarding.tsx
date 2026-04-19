@@ -7,23 +7,41 @@ import { useAuth } from "../auth/AuthContext";
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth();
-  const [step, setStep] = useState<"plan" | "universe">("plan");
+  const [step, setStep] = useState<"plan" | "universe" | "hero">("plan");
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [heroName, setHeroName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["templates"],
     queryFn: getTemplateUniverses,
-    enabled: step === "universe",
+    enabled: step === "universe" || step === "hero",
   });
+
+  const selectedTemplateData = templates.find((t: any) => t.id === selectedTemplate);
+  const templateMainCharacter = selectedTemplateData?.characters?.find((c: any) => c.role === "main");
+
+  function goToHero() {
+    if (!selectedTemplate) return;
+    // Prefill with the template's main character name so users can tweak or keep
+    if (!heroName && templateMainCharacter?.name) {
+      setHeroName(templateMainCharacter.name);
+    }
+    setStep("hero");
+  }
 
   async function handleFinish() {
     if (!selectedTemplate) return;
+    const trimmed = heroName.trim();
+    if (!trimmed) {
+      setError("Please give your hero a name");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      await completeOnboarding(selectedTemplate);
+      await completeOnboarding(selectedTemplate, trimmed);
       await refreshUser();
       navigate("/library");
     } catch (e: any) {
@@ -49,9 +67,11 @@ export default function Onboarding() {
 
         {/* Step indicator */}
         <div className="flex items-center justify-center gap-2 mb-10">
-          <StepDot active={step === "plan"} done={step === "universe"} label="Plan" />
+          <StepDot active={step === "plan"} done={step === "universe" || step === "hero"} label="Plan" />
           <div className="w-8 h-px bg-stone-300" />
-          <StepDot active={step === "universe"} done={false} label="Universe" />
+          <StepDot active={step === "universe"} done={step === "hero"} label="Universe" />
+          <div className="w-8 h-px bg-stone-300" />
+          <StepDot active={step === "hero"} done={false} label="Hero" />
         </div>
 
         {step === "plan" && (
@@ -163,11 +183,66 @@ export default function Onboarding() {
               </div>
             )}
 
+            <div className="mt-6 flex justify-between items-center">
+              <button
+                onClick={() => setStep("plan")}
+                className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+              >
+                &larr; Back
+              </button>
+              <button
+                onClick={goToHero}
+                disabled={!selectedTemplate}
+                className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "hero" && (
+          <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
+            <h2 className="text-lg font-semibold text-stone-800 mb-1">Name your hero</h2>
+            <p className="text-sm text-stone-500 mb-6">
+              This is the star of every story in your universe. Choose carefully — you won't be
+              able to change it later.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-5 items-start">
+              {templateMainCharacter?.referenceImageUrl && (
+                <img
+                  src={templateMainCharacter.referenceImageUrl}
+                  alt="Main character"
+                  className="w-32 h-32 object-cover rounded-xl border border-stone-200 flex-shrink-0"
+                />
+              )}
+              <div className="flex-1 w-full">
+                <label className="block text-xs font-medium text-stone-600 mb-2">
+                  Hero's name
+                </label>
+                <input
+                  autoFocus
+                  value={heroName}
+                  onChange={(e) => setHeroName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && heroName.trim() && !submitting) handleFinish();
+                  }}
+                  maxLength={40}
+                  placeholder={templateMainCharacter?.name || "Pick a name"}
+                  className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+                <p className="text-[11px] text-stone-400 mt-2">
+                  The default name is <span className="font-medium text-stone-500">{templateMainCharacter?.name || "—"}</span>. You can keep it or pick your own.
+                </p>
+              </div>
+            </div>
+
             {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
 
             <div className="mt-6 flex justify-between items-center">
               <button
-                onClick={() => setStep("plan")}
+                onClick={() => setStep("universe")}
                 className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
                 disabled={submitting}
               >
@@ -175,7 +250,7 @@ export default function Onboarding() {
               </button>
               <button
                 onClick={handleFinish}
-                disabled={!selectedTemplate || submitting}
+                disabled={!heroName.trim() || submitting}
                 className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 {submitting ? "Setting up..." : "Finish setup"}

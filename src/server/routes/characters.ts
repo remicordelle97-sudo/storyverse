@@ -98,8 +98,9 @@ router.post("/generate", async (req, res) => {
   }
 });
 
-// Rename a character (name-only update users are allowed to make)
-router.patch("/:id/rename", async (req, res) => {
+// Rename a character (admin-only; regular users only get to name the main
+// character during onboarding via /api/auth/onboard)
+router.patch("/:id/rename", requireAdmin, async (req, res) => {
   try {
     const { name } = req.body;
     if (!name || typeof name !== "string" || !name.trim()) {

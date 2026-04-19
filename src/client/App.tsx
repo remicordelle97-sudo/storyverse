@@ -26,7 +26,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (!user.onboardedAt && location.pathname !== "/onboarding") {
+  if (user.role !== "admin" && !user.onboardedAt && location.pathname !== "/onboarding") {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -69,7 +69,7 @@ function AppRoutes() {
         element={
           !user
             ? <Navigate to="/login" replace />
-            : user.onboardedAt
+            : user.onboardedAt || user.role === "admin"
               ? <Navigate to="/library" replace />
               : <Onboarding />
         }
@@ -84,7 +84,7 @@ function AppRoutes() {
       />
       <Route
         path="/universe-manager"
-        element={<ProtectedRoute><UniverseManager /></ProtectedRoute>}
+        element={<AdminRoute><UniverseManager /></AdminRoute>}
       />
       <Route
         path="/admin"
