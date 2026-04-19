@@ -199,33 +199,24 @@ export default function Onboarding() {
               This is the star of every story in your universe.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-5 items-start">
-              {templateMainCharacter?.referenceImageUrl && (
-                <img
-                  src={templateMainCharacter.referenceImageUrl}
-                  alt="Main character"
-                  className="w-32 h-32 object-cover rounded-xl border border-stone-200 flex-shrink-0"
-                />
-              )}
-              <div className="flex-1 w-full">
-                <label className="block text-xs font-medium text-stone-600 mb-2">
-                  Hero's name
-                </label>
-                <input
-                  autoFocus
-                  value={heroName}
-                  onChange={(e) => setHeroName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && heroName.trim() && !submitting) handleFinish();
-                  }}
-                  maxLength={40}
-                  placeholder={templateMainCharacter?.name || "Pick a name"}
-                  className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                />
-                <p className="text-[11px] text-stone-400 mt-2">
-                  The default name is <span className="font-medium text-stone-500">{templateMainCharacter?.name || "—"}</span>. You can keep it or pick your own.
-                </p>
-              </div>
+            <div>
+              <label className="block text-xs font-medium text-stone-600 mb-2">
+                Hero's name
+              </label>
+              <input
+                autoFocus
+                value={heroName}
+                onChange={(e) => setHeroName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && heroName.trim() && !submitting) handleFinish();
+                }}
+                maxLength={40}
+                placeholder={templateMainCharacter?.name || "Pick a name"}
+                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+              <p className="text-[11px] text-stone-400 mt-2">
+                The default name is <span className="font-medium text-stone-500">{templateMainCharacter?.name || "—"}</span>. You can keep it or pick your own.
+              </p>
             </div>
 
             {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
