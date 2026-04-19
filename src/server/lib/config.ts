@@ -15,9 +15,15 @@ export const STORY_PAGES = 10;
 // Moods (randomly picked per story)
 export const MOODS = ["gentle", "funny", "exciting", "mysterious"];
 
-// Plan limits
-export const PLAN_LIMITS: Record<string, { storiesPerMonth: number; maxUniverses: number }> = {
-  free: { storiesPerMonth: 5, maxUniverses: 1 },
-  premium: { storiesPerMonth: Infinity, maxUniverses: Infinity },
-  admin: { storiesPerMonth: Infinity, maxUniverses: Infinity },
+// Plan limits. Illustrated and text-only stories count against separate
+// monthly buckets so users can keep making plain text stories after they
+// burn through the more expensive illustrated quota.
+export const PLAN_LIMITS: Record<string, {
+  illustratedStoriesPerMonth: number;
+  textStoriesPerMonth: number;
+  maxUniverses: number;
+}> = {
+  free: { illustratedStoriesPerMonth: 2, textStoriesPerMonth: 10, maxUniverses: 1 },
+  premium: { illustratedStoriesPerMonth: 5, textStoriesPerMonth: 20, maxUniverses: Infinity },
+  admin: { illustratedStoriesPerMonth: Infinity, textStoriesPerMonth: Infinity, maxUniverses: Infinity },
 };

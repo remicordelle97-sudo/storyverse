@@ -88,8 +88,14 @@ export const generateCharacters = (universeId: string) =>
   });
 
 // Stories
+export interface QuotaStatus {
+  allowed: boolean;
+  used: number;
+  limit: number;
+  remaining: number;
+}
 export const getStoryQuota = () =>
-  request<{ allowed: boolean; used: number; limit: number; remaining: number }>("/stories/quota");
+  request<{ illustrated: QuotaStatus; text: QuotaStatus }>("/stories/quota");
 export const getStories = (universeId?: string) =>
   request<any[]>(universeId ? `/stories?universeId=${universeId}` : "/stories");
 export const getStory = (id: string) => request<any>(`/stories/${id}`);

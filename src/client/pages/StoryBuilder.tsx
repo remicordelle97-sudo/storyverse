@@ -48,7 +48,7 @@ export default function StoryBuilder() {
   const [ageGroup, setAgeGroup] = useState("4-5");
   const [structure, setStructure] = useState("problem-solution");
   const [parentPrompt, setParentPrompt] = useState("");
-  const [generateImages, setGenerateImages] = useState(!isAdmin);
+  const [generateImages, setGenerateImages] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progressStep, setProgressStep] = useState("");
@@ -68,6 +68,9 @@ export default function StoryBuilder() {
   const secondaryCharacters = (universe?.characters || []).filter(
     (c: any) => c.role !== "main"
   );
+
+  // Active quota depends on which flavor of story the user is creating
+  const activeQuota = generateImages ? quota?.illustrated : quota?.text;
 
   const handleGenerate = async () => {
     const heroId = hero?.id;
@@ -274,21 +277,23 @@ export default function StoryBuilder() {
           )}
 
 
-          {/* Illustrations toggle (admin only — non-admin always generates images) */}
-          {isAdmin && (
-            <section className="mb-8">
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div
-                  onClick={() => setGenerateImages(!generateImages)}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${generateImages ? "bg-primary" : "bg-stone-300"}`}
-                >
-                  <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${generateImages ? "translate-x-5" : ""}`} />
-                </div>
-                <span className="text-sm font-medium text-stone-700">Generate illustrations</span>
-              </label>
-              <p className="text-xs text-stone-400 mt-1 ml-14">Uses Gemini. Leave off to save credits.</p>
-            </section>
-          )}
+          {/* Illustrations toggle */}
+          <section className="mb-8">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div
+                onClick={() => setGenerateImages(!generateImages)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${generateImages ? "bg-primary" : "bg-stone-300"}`}
+              >
+                <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${generateImages ? "translate-x-5" : ""}`} />
+              </div>
+              <span className="text-sm font-medium text-stone-700">Illustrate the story</span>
+            </label>
+            <p className="text-xs text-stone-400 mt-1 ml-14">
+              {generateImages
+                ? "A picture for every page."
+                : "Text only. Both pages of each spread show story text."}
+            </p>
+          </section>
 
           {/* Parent prompt */}
           <section className="mb-8">
@@ -312,14 +317,19 @@ export default function StoryBuilder() {
           )}
 
           {/* Quota info */}
-          {quota && !isAdmin && quota.limit !== Infinity && (
-            <div className="text-center">
-              <p className={`text-xs ${quota.remaining === 0 ? "text-red-500" : "text-stone-400"}`}>
-                {quota.remaining === 0
-                  ? `You've used all ${quota.limit} stories this month`
-                  : `${quota.remaining} of ${quota.limit} stories remaining this month`}
-              </p>
-              {quota.remaining === 0 && (
+          {quota && !isAdmin && (
+            <div className="text-center space-y-1">
+              {quota.illustrated.limit !== Infinity && (
+                <p className={`text-xs ${quota.illustrated.remaining === 0 ? "text-red-500" : "text-stone-400"}`}>
+                  Illustrated: {quota.illustrated.remaining} of {quota.illustrated.limit} remaining this month
+                </p>
+              )}
+              {quota.text.limit !== Infinity && (
+                <p className={`text-xs ${quota.text.remaining === 0 ? "text-red-500" : "text-stone-400"}`}>
+                  Text only: {quota.text.remaining} of {quota.text.limit} remaining this month
+                </p>
+              )}
+              {activeQuota && !activeQuota.allowed && (
                 <button
                   onClick={async () => {
                     const { url } = await createCheckoutSession();
@@ -327,7 +337,7 @@ export default function StoryBuilder() {
                   }}
                   className="mt-2 text-xs text-primary hover:text-primary/80 font-medium underline"
                 >
-                  Upgrade to Premium for unlimited stories
+                  Upgrade to Premium for more stories
                 </button>
               )}
             </div>
@@ -336,10 +346,12 @@ export default function StoryBuilder() {
           {/* Generate */}
           <button
             onClick={handleGenerate}
-            disabled={!hero || !universeId || (quota && !quota.allowed)}
+            disabled={!hero || !universeId || (activeQuota && !activeQuota.allowed)}
             className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {quota && !quota.allowed ? "Monthly limit reached" : "Create story"}
+            {activeQuota && !activeQuota.allowed
+              ? (generateImages ? "Illustrated limit reached" : "Text-only limit reached")
+              : "Create story"}
           </button>
         </>
       )}

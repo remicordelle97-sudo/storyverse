@@ -25,12 +25,17 @@ export async function checkUniverseQuota(userId: string): Promise<QuotaStatus> {
   return { allowed: used < limit, used, limit, remaining };
 }
 
-export async function checkStoryQuota(userId: string): Promise<QuotaStatus> {
+export async function checkStoryQuota(
+  userId: string,
+  illustrated: boolean
+): Promise<QuotaStatus> {
   const user = await prisma.user.findUniqueOrThrow({ where: { id: userId } });
 
   const plan = user.role === "admin" ? "admin" : (user.plan || "free");
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
-  const limit = limits.storiesPerMonth;
+  const limit = illustrated
+    ? limits.illustratedStoriesPerMonth
+    : limits.textStoriesPerMonth;
 
   if (limit === Infinity) {
     return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
@@ -51,6 +56,7 @@ export async function checkStoryQuota(userId: string): Promise<QuotaStatus> {
     where: {
       universeId: { in: universeIds },
       createdAt: { gte: monthStart },
+      hasIllustrations: illustrated,
     },
   });
 

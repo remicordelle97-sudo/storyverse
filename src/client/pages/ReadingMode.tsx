@@ -356,9 +356,12 @@ export default function ReadingMode() {
 
   const scenes = story?.scenes || [];
   const totalScenes = scenes.length;
+  // Text-only stories render one page per scene; illustrated stories render
+  // two (one illustration page + one text page).
+  const pagesPerScene = story?.hasIllustrations ? 2 : 1;
 
-  // Total book pages: front cover + (2 per scene) + end + buttons + back cover
-  const totalBookPages = 1 + totalScenes * 2 + 3;
+  // Total book pages: front cover + (pagesPerScene per scene) + end + buttons + back cover
+  const totalBookPages = 1 + totalScenes * pagesPerScene + 3;
 
   // Map book page index to scene index for the progress dots
   // Page 0 is title cover (alone), then scene pages start at page 1
@@ -366,10 +369,10 @@ export default function ReadingMode() {
     (bookPage: number) => {
       if (bookPage < 1) return -1;
       const sceneRelative = bookPage - 1;
-      if (sceneRelative >= totalScenes * 2) return -1;
-      return Math.floor(sceneRelative / 2);
+      if (sceneRelative >= totalScenes * pagesPerScene) return -1;
+      return Math.floor(sceneRelative / pagesPerScene);
     },
-    [totalScenes]
+    [totalScenes, pagesPerScene]
   );
 
   const currentSceneIndex = sceneIndexFromPage(currentPage);
@@ -668,32 +671,44 @@ export default function ReadingMode() {
           {/* Title page (front cover — shown alone) */}
           <CoverPage title={story.title} color={storyColor(story.id)} subtitle="A Storyverse tale" />
 
-          {/* Scene pages: alternate on desktop spreads, text-first on mobile */}
-          {scenes.flatMap((scene: any, i: number) => {
-            const firstNum = pageCounter++;
-            const secondNum = pageCounter++;
-            // Portrait mode (mobile): always text then illustration
-            // Landscape mode (desktop): alternate image left/right per scene
-            const isPortrait = window.innerWidth < 400;
-            const imageFirst = !isPortrait && i % 2 === 0;
-            const illust = (
-              <IllustrationPage
-                key={`illust-${i}`}
-                imageUrl={scene.imageUrl}
-                pageNum={imageFirst ? firstNum : secondNum}
-              />
-            );
-            const text = (
-              <TextPage
-                key={`text-${i}`}
-                content={scene.content}
-                pageNum={imageFirst ? secondNum : firstNum}
-                sceneIndex={i}
-                totalScenes={totalScenes}
-              />
-            );
-            return imageFirst ? [illust, text] : [text, illust];
-          })}
+          {/* Scene pages */}
+          {story?.hasIllustrations
+            ? scenes.flatMap((scene: any, i: number) => {
+                // Illustrated: 2 pages per scene — alternate on desktop,
+                // text-first on mobile.
+                const firstNum = pageCounter++;
+                const secondNum = pageCounter++;
+                const isPortrait = window.innerWidth < 400;
+                const imageFirst = !isPortrait && i % 2 === 0;
+                const illust = (
+                  <IllustrationPage
+                    key={`illust-${i}`}
+                    imageUrl={scene.imageUrl}
+                    pageNum={imageFirst ? firstNum : secondNum}
+                  />
+                );
+                const text = (
+                  <TextPage
+                    key={`text-${i}`}
+                    content={scene.content}
+                    pageNum={imageFirst ? secondNum : firstNum}
+                    sceneIndex={i}
+                    totalScenes={totalScenes}
+                  />
+                );
+                return imageFirst ? [illust, text] : [text, illust];
+              })
+            : scenes.map((scene: any, i: number) => (
+                // Text-only: one text page per scene, so each spread shows
+                // two scenes of text side by side.
+                <TextPage
+                  key={`text-${i}`}
+                  content={scene.content}
+                  pageNum={pageCounter++}
+                  sceneIndex={i}
+                  totalScenes={totalScenes}
+                />
+              ))}
 
           {/* End spread: "The End" on left, buttons on right */}
           <EndPage title={story.title} />

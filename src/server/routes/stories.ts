@@ -13,11 +13,14 @@ import { verifyUniverseOwnership, verifyUniverseAccess } from "../lib/ownership.
 const router = Router();
 
 // List stories — optionally filtered by universeId, otherwise all for user
-// Get story quota for current user
+// Get story quota for current user (both illustrated and text-only buckets)
 router.get("/quota", async (req, res) => {
   try {
-    const quota = await checkStoryQuota(req.userId as string);
-    res.json(quota);
+    const [illustrated, text] = await Promise.all([
+      checkStoryQuota(req.userId as string, true),
+      checkStoryQuota(req.userId as string, false),
+    ]);
+    res.json({ illustrated, text });
   } catch {
     res.status(500).json({ error: "Failed to check quota" });
   }
@@ -178,10 +181,11 @@ router.post("/generate", async (req, res) => {
       return sendError("universeId, characterIds, and ageGroup are required");
     }
 
-    // Check story quota
-    const quota = await checkStoryQuota(req.userId as string);
+    // Check story quota for the right bucket (illustrated vs text-only)
+    const quota = await checkStoryQuota(req.userId as string, !!generateImages);
     if (!quota.allowed) {
-      return sendError(`You've reached your limit of ${quota.limit} stories this month. Upgrade to premium for unlimited stories.`);
+      const kind = generateImages ? "illustrated stories" : "text-only stories";
+      return sendError(`You've reached your limit of ${quota.limit} ${kind} this month. Upgrade to premium for more.`);
     }
 
     if (!await verifyUniverseAccess(universeId, req.userId as string)) {
@@ -253,7 +257,10 @@ router.post("/generate", async (req, res) => {
         language: language || "en",
         ageGroup,
         status: generateImages ? "illustrating" : "published",
-        hasIllustrations: false,
+        // Record intent at creation so quota counts stay stable while a
+        // story is mid-illustration. imageQueue still flips this to true
+        // on success (idempotent).
+        hasIllustrations: !!generateImages,
         debugPlanPrompt: planMessage,
         debugWritePrompt: writeMessage,
         debugPlan: JSON.stringify(generated.plan || {}),
