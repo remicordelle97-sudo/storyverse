@@ -6,6 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface User {
   id: string;
@@ -46,6 +47,7 @@ export function getAccessToken() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +70,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Switch to impersonated user
     updateToken(token);
     setUser(targetUser);
+    // Drop every react-query entry so the impersonated session doesn't
+    // render the admin's cached stories/universes while the new ones load.
+    queryClient.clear();
     // Persist impersonation so it survives page navigation
     sessionStorage.setItem("impersonation", JSON.stringify({
       adminToken: accessToken,
@@ -85,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAdminToken(null);
     setAdminUser(null);
     sessionStorage.removeItem("impersonation");
+    queryClient.clear();
   };
 
   const refreshUser = useCallback(async () => {
@@ -157,6 +163,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const data = await res.json();
+    // Clear any cache from a previous session before we swap in the new user,
+    // so we never briefly render the prior user's library/quotas.
+    queryClient.clear();
     updateToken(data.accessToken);
     setUser(data.user);
   };
@@ -166,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updateToken(null);
     setUser(null);
     localStorage.removeItem("universeId");
+    queryClient.clear();
   };
 
   // Admin retains full powers during impersonation
