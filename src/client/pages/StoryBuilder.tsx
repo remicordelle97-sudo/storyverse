@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getUniverse, getUniverses, generateStory, getStoryQuota, createCheckoutSession } from "../api/client";
+import { getUniverses, generateStory, getStoryQuota, createCheckoutSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
 
@@ -38,16 +38,8 @@ export default function StoryBuilder() {
     }
   }, [universes, universeId]);
 
-  const { data: universe } = useQuery({
-    queryKey: ["universe", universeId],
-    queryFn: () => getUniverse(universeId),
-    enabled: !!universeId,
-  });
-
-  const [selectedCharacters, setSelectedCharacters] = useState<string[]>([]);
   const [ageGroup, setAgeGroup] = useState("4-5");
   const [structure, setStructure] = useState("problem-solution");
-  const [parentPrompt, setParentPrompt] = useState("");
   const [generateImages, setGenerateImages] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -55,27 +47,11 @@ export default function StoryBuilder() {
   const [progressDetail, setProgressDetail] = useState("");
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
 
-  const MAX_SUPPORTING = 2; // hero + 2 supporting = 3 max
-
-  const toggleCharacter = (id: string) =>
-    setSelectedCharacters((prev) => {
-      if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= MAX_SUPPORTING) return prev; // already at max
-      return [...prev, id];
-    });
-
-  const hero = universe?.characters?.find((c: any) => c.role === "main");
-  const secondaryCharacters = (universe?.characters || []).filter(
-    (c: any) => c.role !== "main"
-  );
-
   // Active quota depends on which flavor of story the user is creating
   const activeQuota = generateImages ? quota?.illustrated : quota?.text;
 
   const handleGenerate = async () => {
-    const heroId = hero?.id;
-    if (!heroId || !universeId) return;
-    const allCharacterIds = [heroId, ...selectedCharacters];
+    if (!universeId) return;
 
     setLoading(true);
     setError("");
@@ -87,12 +63,9 @@ export default function StoryBuilder() {
       const result = await generateStory(
         {
           universeId,
-          characterIds: allCharacterIds,
           language: "en",
           ageGroup,
           structure: isAdmin ? structure : undefined,
-          length,
-          parentPrompt,
           generateImages,
         },
         (step, detail) => {
@@ -197,40 +170,6 @@ export default function StoryBuilder() {
             </section>
           )}
 
-          {universe && (
-            <>
-              {/* Hero (always included) */}
-              {hero && (
-                <section className="mb-6">
-                  <label className="block text-sm font-medium text-stone-700 mb-3">
-                    Hero
-                  </label>
-                  <Chip label={hero.name} selected={true} onClick={() => {}} />
-                  <p className="text-xs text-stone-400 mt-1">Always included in the story</p>
-                </section>
-              )}
-
-              {/* Secondary Characters */}
-              {secondaryCharacters.length > 0 && (
-                <section className="mb-8">
-                  <label className="block text-sm font-medium text-stone-700 mb-3">
-                    Supporting characters (optional, max {MAX_SUPPORTING})
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {secondaryCharacters.map((c: any) => (
-                      <Chip
-                        key={c.id}
-                        label={c.name}
-                        selected={selectedCharacters.includes(c.id)}
-                        onClick={() => toggleCharacter(c.id)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-            </>
-          )}
-
           {/* Age group */}
           <section className="mb-8">
             <label className="block text-sm font-medium text-stone-700 mb-3">
@@ -295,20 +234,6 @@ export default function StoryBuilder() {
             </p>
           </section>
 
-          {/* Parent prompt */}
-          <section className="mb-8">
-            <label className="block text-sm font-medium text-stone-700 mb-2">
-              Story idea (optional)
-            </label>
-            <textarea
-              value={parentPrompt}
-              onChange={(e) => setParentPrompt(e.target.value)}
-              rows={3}
-              className="w-full border border-stone-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-              placeholder="e.g. Leo finds a treasure map"
-            />
-          </section>
-
           {/* Error */}
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 mb-6 text-sm">
@@ -346,7 +271,7 @@ export default function StoryBuilder() {
           {/* Generate */}
           <button
             onClick={handleGenerate}
-            disabled={!hero || !universeId || (activeQuota && !activeQuota.allowed)}
+            disabled={!universeId || (activeQuota && !activeQuota.allowed)}
             className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {activeQuota && !activeQuota.allowed

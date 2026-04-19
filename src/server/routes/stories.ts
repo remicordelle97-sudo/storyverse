@@ -160,7 +160,7 @@ router.post("/generate", async (req, res) => {
   try {
     const {
       universeId,
-      characterIds,
+      characterIds: requestedCharacterIds,
       language,
       ageGroup,
       structure: requestedStructure,
@@ -177,8 +177,8 @@ router.post("/generate", async (req, res) => {
     // Pick mood randomly for each story
     const mood = MOODS[Math.floor(Math.random() * MOODS.length)];
 
-    if (!universeId || !characterIds?.length || !ageGroup) {
-      return sendError("universeId, characterIds, and ageGroup are required");
+    if (!universeId || !ageGroup) {
+      return sendError("universeId and ageGroup are required");
     }
 
     // Check story quota for the right bucket (illustrated vs text-only)
@@ -190,6 +190,36 @@ router.post("/generate", async (req, res) => {
 
     if (!await verifyUniverseAccess(universeId, req.userId as string)) {
       return sendError("Access denied");
+    }
+
+    // Resolve character cast. If the client provides an explicit list (admin
+    // workflow), honor it. Otherwise pick randomly: hero is always included,
+    // then a uniformly-random number of supporting characters (0, 1, or 2)
+    // is added so each story has 1-3 characters total.
+    let characterIds: string[];
+    if (Array.isArray(requestedCharacterIds) && requestedCharacterIds.length > 0) {
+      characterIds = requestedCharacterIds;
+    } else {
+      const universeCharacters = await prisma.character.findMany({
+        where: { universeId },
+      });
+      const hero = universeCharacters.find((c) => c.role === "main");
+      if (!hero) {
+        return sendError("Universe has no main character");
+      }
+      const supporting = universeCharacters.filter((c) => c.role !== "main");
+      // Pick total character count uniformly from {1, 2, 3} then derive how
+      // many supporting characters that means. Cap by what's actually
+      // available in the universe.
+      const totalTarget = Math.floor(Math.random() * 3) + 1;
+      const supportingTarget = Math.min(totalTarget - 1, supporting.length);
+      // Fisher-Yates shuffle on a copy so each story gets a fresh random pick.
+      const shuffled = [...supporting];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      characterIds = [hero.id, ...shuffled.slice(0, supportingTarget).map((c) => c.id)];
     }
 
     debug.story("=== STORY GENERATION START ===");
