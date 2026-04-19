@@ -51,7 +51,7 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen bg-stone-50 flex items-start justify-center py-12 px-4">
-      <div className="max-w-3xl w-full">
+      <div className={`w-full ${step === "universe" ? "max-w-6xl" : "max-w-3xl"}`}>
         <div className="text-center mb-8">
           <h1
             className="text-3xl font-bold text-stone-800 mb-2"
@@ -140,9 +140,18 @@ export default function Onboarding() {
                 No universes available yet. Please check back soon.
               </p>
             ) : (
-              <div className="grid sm:grid-cols-2 gap-4">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {templates.map((t: any) => {
                   const selected = selectedTemplate === t.id;
+                  let themes: string[] = [];
+                  try {
+                    const parsed = JSON.parse(t.themes);
+                    if (Array.isArray(parsed)) themes = parsed.filter(Boolean);
+                  } catch {
+                    themes = typeof t.themes === "string" && t.themes
+                      ? t.themes.split(",").map((s: string) => s.trim()).filter(Boolean)
+                      : [];
+                  }
                   return (
                     <button
                       key={t.id}
@@ -164,6 +173,18 @@ export default function Onboarding() {
                       )}
                       <div className="p-4">
                         <h3 className="font-semibold text-stone-800 mb-1">{t.name}</h3>
+                        {themes.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {themes.map((theme) => (
+                              <span
+                                key={theme}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500"
+                              >
+                                {theme}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         <p className="text-xs text-stone-500 whitespace-pre-wrap">
                           {t.settingDescription}
                         </p>
