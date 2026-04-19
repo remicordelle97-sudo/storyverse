@@ -80,10 +80,11 @@ async function planStory(
   // Plan step uses Opus: more reliable at the stacked constraints in the
   // planner prompt (archetype templates, early-clarity rule, per-page beats).
   // Worth the extra cost/latency because a bad plan poisons the story.
+  // NOTE: Opus 4.7 does not accept the `temperature` parameter, so it's
+  // omitted here (unlike the writer and refiner calls below).
   const message = await withRetry(() => anthropic.messages.create({
     model: CLAUDE_MODEL_PLANNER,
     max_tokens: MAX_TOKENS_SMALL,
-    temperature: TEMPERATURE_CREATIVE,
     system: [{ type: "text" as const, text: PLANNER_SYSTEM_PROMPT, cache_control: { type: "ephemeral" as const } }],
     messages: [
       {
