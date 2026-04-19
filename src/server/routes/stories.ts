@@ -267,7 +267,10 @@ router.post("/generate", async (req, res) => {
       planMessage,
       writeMessage,
       resolvedAgeGroup,
-      (step, detail) => sendProgress(step, detail),
+      {
+        generateImages: !!generateImages,
+        onProgress: (step, detail) => sendProgress(step, detail),
+      },
     );
 
     debug.story(`Story generated in ${Date.now() - storyStart}ms`, {

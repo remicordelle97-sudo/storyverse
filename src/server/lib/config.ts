@@ -1,5 +1,8 @@
 // AI model configuration
 export const CLAUDE_MODEL = "claude-sonnet-4-6";
+// Fast model for mechanical / structural rewrites where creative quality
+// doesn't change much (e.g. image prompt refinement).
+export const CLAUDE_MODEL_FAST = "claude-haiku-4-5";
 
 // Temperature settings
 export const TEMPERATURE_STANDARD = 0.75;

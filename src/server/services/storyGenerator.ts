@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt } from "./promptBuilder.js";
-import { CLAUDE_MODEL, TEMPERATURE_STANDARD, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT, MAX_TOKENS_SMALL } from "../lib/config.js";
+import { CLAUDE_MODEL, CLAUDE_MODEL_FAST, TEMPERATURE_STANDARD, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT, MAX_TOKENS_SMALL } from "../lib/config.js";
 import { debug } from "../lib/debug.js";
 
 const anthropic = new Anthropic();
@@ -227,8 +227,10 @@ RULES:
 
 Return ONLY valid JSON. No markdown fences.`;
 
+  // Refinement is a mechanical rewrite (structure + style consistency),
+  // not a creative task — Haiku does it well and is noticeably faster.
   const message = await withRetry(() => anthropic.messages.create({
-    model: CLAUDE_MODEL,
+    model: CLAUDE_MODEL_FAST,
     max_tokens: MAX_TOKENS_SHORT,
     temperature: TEMPERATURE_STANDARD,
     system: [{ type: "text" as const, text: refinerSystemPrompt, cache_control: { type: "ephemeral" as const } }],
@@ -288,14 +290,18 @@ Return exactly this JSON:
 }
 
 /**
- * Generate a complete story: plan → write → refine image prompts.
+ * Generate a complete story: plan → write → (refine image prompts).
+ * The refine pass is skipped for text-only stories since the image
+ * prompts it polishes are never rendered.
  */
 export async function generateStory(
   planPrompt: string,
   writePrompt: string,
   ageGroup: string,
-  onProgress?: (step: string, detail?: string) => void,
+  options: { generateImages?: boolean; onProgress?: (step: string, detail?: string) => void } = {},
 ): Promise<GeneratedStory> {
+  const { generateImages = true, onProgress } = options;
+
   // Step 1: Plan
   onProgress?.("planning", "Planning the story...");
   debug.story("Planning story...");
@@ -317,13 +323,17 @@ export async function generateStory(
     pages: story.pages.length,
   });
 
-  // Step 3: Refine image prompts as a set
-  onProgress?.("refining", "Refining illustrations...");
-  debug.story("Refining image prompts...");
-  const refineStart = Date.now();
-  const refined = await refineImagePrompts(story);
-  debug.story(`Image prompts refined in ${Date.now() - refineStart}ms`);
+  // Step 3: Refine image prompts — only relevant when images will be drawn.
+  if (generateImages) {
+    onProgress?.("refining", "Refining illustrations...");
+    debug.story("Refining image prompts...");
+    const refineStart = Date.now();
+    await refineImagePrompts(story);
+    debug.story(`Image prompts refined in ${Date.now() - refineStart}ms`);
+  } else {
+    debug.story("Skipping image prompt refinement (text-only story)");
+  }
 
-  refined.plan = plan;
-  return refined;
+  story.plan = plan;
+  return story;
 }
