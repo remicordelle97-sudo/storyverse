@@ -132,10 +132,7 @@ export default function Onboarding() {
 
         {step === "universe" && (
           <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
-            <h2 className="text-lg font-semibold text-stone-800 mb-1">Pick your first universe</h2>
-            <p className="text-sm text-stone-500 mb-6">
-              This becomes your free universe. You can rename the characters later.
-            </p>
+            <h2 className="text-lg font-semibold text-stone-800 mb-6">Pick your first universe</h2>
 
             {isLoading ? (
               <p className="text-sm text-stone-400 py-8 text-center">Loading universes...</p>
@@ -168,14 +165,9 @@ export default function Onboarding() {
                       )}
                       <div className="p-4">
                         <h3 className="font-semibold text-stone-800 mb-1">{t.name}</h3>
-                        <p className="text-xs text-stone-500 line-clamp-3">
+                        <p className="text-xs text-stone-500 whitespace-pre-wrap">
                           {t.settingDescription}
                         </p>
-                        {t.characters?.length > 0 && (
-                          <p className="text-[11px] text-stone-400 mt-2">
-                            {t.characters.length} character{t.characters.length === 1 ? "" : "s"}
-                          </p>
-                        )}
                       </div>
                     </button>
                   );
