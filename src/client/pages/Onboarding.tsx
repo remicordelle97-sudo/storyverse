@@ -95,8 +95,8 @@ export default function Onboarding() {
                 <p className="text-2xl font-bold text-stone-800 mb-3">$0</p>
                 <ul className="text-xs text-stone-600 space-y-1.5">
                   <li>1 universe</li>
-                  <li>5 stories per month</li>
-                  <li>Full illustrations</li>
+                  <li>2 illustrated stories per month</li>
+                  <li>10 text-only stories per month</li>
                 </ul>
               </button>
 
@@ -113,8 +113,8 @@ export default function Onboarding() {
                 <p className="text-2xl font-bold text-stone-800 mb-3">—</p>
                 <ul className="text-xs text-stone-600 space-y-1.5">
                   <li>Unlimited universes</li>
-                  <li>Unlimited stories</li>
-                  <li>Early access to new features</li>
+                  <li>5 illustrated stories per month</li>
+                  <li>20 text-only stories per month</li>
                 </ul>
               </div>
             </div>
