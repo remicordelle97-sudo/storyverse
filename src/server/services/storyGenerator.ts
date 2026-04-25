@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt } from "./promptBuilder.js";
-import { CLAUDE_MODEL, CLAUDE_MODEL_FAST, CLAUDE_MODEL_PLANNER, TEMPERATURE_STANDARD, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT, MAX_TOKENS_SMALL } from "../lib/config.js";
+import { CLAUDE_MODEL, CLAUDE_MODEL_FAST, CLAUDE_MODEL_PLANNER, TEMPERATURE_STANDARD, MAX_TOKENS_SHORT, MAX_TOKENS_SMALL, STORY_PAGES } from "../lib/config.js";
 import { debug } from "../lib/debug.js";
 
 const anthropic = new Anthropic();
@@ -71,11 +71,8 @@ Return ONLY valid JSON. No markdown fences.`;
  * to concrete plot beats before any prose is written. This prevents
  * vague hooks, logical gaps, and orphaned setups.
  */
-async function planStory(
-  userPrompt: string,
-  ageGroup: string
-): Promise<StoryPlan> {
-  const pageCount = 10;
+async function planStory(userPrompt: string): Promise<StoryPlan> {
+  const pageCount = STORY_PAGES;
 
   // Plan step uses Opus: more reliable at the stacked constraints in the
   // planner prompt (archetype templates, early-clarity rule, per-page beats).
@@ -310,7 +307,7 @@ export async function generateStory(
   onProgress?.("planning", "Planning the story...");
   debug.story("Planning story...");
   const planStart = Date.now();
-  const plan = await planStory(planPrompt, ageGroup);
+  const plan = await planStory(planPrompt);
   debug.story(`Plan created in ${Date.now() - planStart}ms`, {
     title: plan.title,
     premise: plan.premise,

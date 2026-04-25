@@ -17,7 +17,6 @@ interface ImageJobData {
   storyId: string;
   universeId: string;
   characterIds: string[];
-  mood: string;
   pages: { page_number: number; image_prompt: string; characters_in_scene?: string[] }[];
   sceneMap: Record<number, string>; // sceneNumber → sceneId
 }
@@ -42,13 +41,12 @@ export async function enqueueImageGeneration(data: ImageJobData): Promise<void> 
 
 /** Process a single image generation job */
 async function runImageGeneration(data: ImageJobData): Promise<void> {
-  const { storyId, universeId, characterIds, mood, pages, sceneMap } = data;
+  const { storyId, universeId, characterIds, pages, sceneMap } = data;
 
   try {
     await generateStoryImages(
       universeId,
       characterIds,
-      mood,
       pages,
       async (pageNum, total, imageUrl) => {
         const sceneId = sceneMap[pageNum];

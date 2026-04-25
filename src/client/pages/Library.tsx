@@ -1,26 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getStories, getUniverses, getUniverseQuota, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
+import { getStories, getUniverses, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-
-// Generate a deterministic color from a string
-function stringToColor(str: string): string {
-  const colors = [
-    "bg-red-700", "bg-blue-800", "bg-emerald-700", "bg-purple-800",
-    "bg-amber-700", "bg-rose-700", "bg-indigo-800", "bg-teal-700",
-    "bg-orange-700", "bg-cyan-800", "bg-violet-800", "bg-sky-700",
-  ];
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-}
+import { storyTailwindColor } from "../lib/storyColor";
 
 
 function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { story: any; onClick: () => void; isAdmin?: boolean; onTogglePublic?: () => void; onDelete?: () => void }) {
-  const color = stringToColor(story.id);
+  const color = storyTailwindColor(story.id);
   const universeName = story.universe?.name || "";
 
   return (
@@ -132,7 +119,6 @@ export default function Library() {
   const queryClient = useQueryClient();
   const [showMenu, setShowMenu] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
-  const viewMode = "covers";
 
   const { data: stories = [], isLoading } = useQuery({
     queryKey: ["stories-all"],
@@ -182,11 +168,6 @@ export default function Library() {
       return () => clearTimeout(timer);
     }
   }, [universes]);
-
-  const { data: universeQuota } = useQuery({
-    queryKey: ["universe-quota"],
-    queryFn: getUniverseQuota,
-  });
 
   const handleNewStory = () => {
     setShowMenu(false);

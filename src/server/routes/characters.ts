@@ -8,66 +8,6 @@ import { verifyUniverseOwnership } from "../lib/ownership.js";
 
 const router = Router();
 
-// List characters for a universe
-router.get("/", async (req, res) => {
-  try {
-    const { universeId } = req.query;
-    if (!universeId || typeof universeId !== "string") {
-      return res.status(400).json({ error: "universeId query param required" });
-    }
-    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-    const characters = await prisma.character.findMany({
-      where: { universeId },
-      orderBy: { createdAt: "asc" },
-    });
-    res.json(characters);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to fetch characters" });
-  }
-});
-
-// Create a character
-router.post("/", async (req, res) => {
-  try {
-    const {
-      universeId,
-      name,
-      speciesOrType,
-      personalityTraits,
-      appearance,
-      outfit,
-      role,
-    } = req.body;
-
-    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    debug.character("Creating character", { name, speciesOrType: speciesOrType, role, hasOutfit: !!outfit, hasAppearance: !!appearance });
-
-    const character = await prisma.character.create({
-      data: {
-        universeId,
-        name,
-        speciesOrType,
-        personalityTraits:
-          typeof personalityTraits === "string"
-            ? personalityTraits
-            : JSON.stringify(personalityTraits),
-        appearance,
-        outfit: outfit || "",
-        role: role || "main",
-      },
-    });
-
-    res.status(201).json(character);
-  } catch (e) {
-    res.status(500).json({ error: "Failed to create character" });
-  }
-});
-
 // Auto-generate secondary characters for a universe
 router.post("/generate", async (req, res) => {
   try {

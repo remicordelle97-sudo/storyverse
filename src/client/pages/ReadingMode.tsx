@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
 import HTMLFlipBook from "react-pageflip";
 import StoryLoadingScreen, { STORY_IMAGE_PHRASES } from "../components/StoryLoadingScreen";
+import { storyHexColor } from "../lib/storyColor";
 
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
   try {
@@ -176,20 +177,6 @@ async function exportStoryAsPdf(story: any) {
   pdf.save(`${safeName}.pdf`);
 }
 
-// Deterministic color from story ID — must match Library.tsx stringToColor
-function storyColor(id: string): string {
-  const colors = [
-    "#b91c1c", "#1e40af", "#047857", "#6b21a8",
-    "#b45309", "#be123c", "#3730a3", "#0f766e",
-    "#c2410c", "#0e7490", "#5b21b6", "#0369a1",
-  ];
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = id.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length];
-}
-
 // --- Book pages as forwardRef components ---
 
 // The library adds .stf__item to the ref'd div and overwrites ALL inline styles
@@ -255,8 +242,8 @@ const IllustrationPage = forwardRef<HTMLDivElement, { imageUrl?: string; pageNum
 
 const TextPage = forwardRef<
   HTMLDivElement,
-  { content: string; pageNum: number; sceneIndex: number; totalScenes: number }
->(({ content, pageNum, sceneIndex, totalScenes }, ref) => (
+  { content: string; pageNum: number }
+>(({ content, pageNum }, ref) => (
   <div ref={ref}>
     <div className={`${pageInner} flex flex-col justify-between`}>
       <div className="flex-1 flex items-center px-8 md:px-12 py-8 md:py-10">
@@ -360,9 +347,6 @@ export default function ReadingMode() {
   // Text-only stories render one page per scene; illustrated stories render
   // two (one illustration page + one text page).
   const pagesPerScene = story?.hasIllustrations ? 2 : 1;
-
-  // Total book pages: front cover + (pagesPerScene per scene) + end + buttons + back cover
-  const totalBookPages = 1 + totalScenes * pagesPerScene + 3;
 
   // Map book page index to scene index for the progress dots
   // Page 0 is title cover (alone), then scene pages start at page 1
@@ -658,7 +642,7 @@ export default function ReadingMode() {
           }}
         >
           {/* Title page (front cover — shown alone) */}
-          <CoverPage title={story.title} color={storyColor(story.id)} subtitle="A Storyverse tale" />
+          <CoverPage title={story.title} color={storyHexColor(story.id)} subtitle="A Storyverse tale" />
 
           {/* Scene pages */}
           {story?.hasIllustrations
@@ -681,8 +665,6 @@ export default function ReadingMode() {
                     key={`text-${i}`}
                     content={scene.content}
                     pageNum={imageFirst ? secondNum : firstNum}
-                    sceneIndex={i}
-                    totalScenes={totalScenes}
                   />
                 );
                 return imageFirst ? [illust, text] : [text, illust];
@@ -694,8 +676,6 @@ export default function ReadingMode() {
                   key={`text-${i}`}
                   content={scene.content}
                   pageNum={pageCounter++}
-                  sceneIndex={i}
-                  totalScenes={totalScenes}
                 />
               ))}
 
@@ -707,7 +687,7 @@ export default function ReadingMode() {
           />
 
           {/* Back cover (shown alone, no title) */}
-          <CoverPage color={storyColor(story.id)} />
+          <CoverPage color={storyHexColor(story.id)} />
         </HTMLFlipBook>
       </div>
     </div>

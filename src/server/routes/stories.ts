@@ -9,6 +9,7 @@ import { MOODS } from "../lib/config.js";
 import { generateStoryImages } from "../services/geminiGenerator.js";
 import { enqueueImageGeneration } from "../lib/imageQueue.js";
 import { verifyUniverseOwnership, verifyUniverseAccess } from "../lib/ownership.js";
+import { deleteStoriesCascade } from "../lib/cascade.js";
 
 const router = Router();
 
@@ -363,7 +364,6 @@ router.post("/generate", async (req, res) => {
         storyId: story.id,
         universeId,
         characterIds,
-        mood,
         pages: generated.pages.map((p) => ({
           page_number: p.page_number,
           image_prompt: p.image_prompt,
@@ -467,14 +467,11 @@ router.post("/:id/regenerate-images", requireAdmin, async (req, res) => {
       image_prompt: s.imagePrompt,
     }));
 
-    const mood = MOODS[Math.floor(Math.random() * MOODS.length)];
-
     sendProgress("illustrating", `Regenerating ${pages.length} illustrations...`);
 
     const imageMap = await generateStoryImages(
       story.universeId,
       characterIds,
-      mood,
       pages,
       (pageNum, total, _imageUrl) => {
         sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);
@@ -540,9 +537,7 @@ router.delete("/:id", requireAdmin, async (req, res) => {
       return res.status(404).json({ error: "Story not found" });
     }
 
-    await prisma.storyCharacter.deleteMany({ where: { storyId } });
-    await prisma.scene.deleteMany({ where: { storyId } });
-    await prisma.story.delete({ where: { id: storyId } });
+    await deleteStoriesCascade([storyId]);
 
     debug.story(`Deleted story "${story.title}"`);
     res.json({ ok: true });

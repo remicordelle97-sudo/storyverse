@@ -52,7 +52,6 @@ export async function resumeIncompleteStories(): Promise<void> {
       generateStoryImages(
         story.universeId,
         characterIds,
-        story.mood,
         allPages,
         async (pageNum, _total, imageUrl) => {
           // Only save images for scenes that don't already have one

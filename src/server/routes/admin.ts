@@ -3,6 +3,7 @@ import prisma from "../lib/prisma.js";
 import { signAccessToken } from "../lib/jwt.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { debug } from "../lib/debug.js";
+import { deleteUniversesCascade } from "../lib/cascade.js";
 
 const router = Router();
 
@@ -131,16 +132,7 @@ router.post("/users/:userId/reset", async (req, res) => {
     });
     const storyIds = stories.map((s) => s.id);
 
-    if (storyIds.length > 0) {
-      await prisma.storyCharacter.deleteMany({ where: { storyId: { in: storyIds } } });
-      await prisma.scene.deleteMany({ where: { storyId: { in: storyIds } } });
-      await prisma.story.deleteMany({ where: { id: { in: storyIds } } });
-    }
-
-    if (universeIds.length > 0) {
-      await prisma.character.deleteMany({ where: { universeId: { in: universeIds } } });
-      await prisma.universe.deleteMany({ where: { id: { in: universeIds } } });
-    }
+    await deleteUniversesCascade(universeIds);
 
     await prisma.user.update({
       where: { id: userId },

@@ -276,11 +276,10 @@ Keep the character recognizable across all studies — same colors, same proport
 export async function generateStoryImages(
   universeId: string,
   characterIds: string[],
-  mood: string,
   pages: { page_number: number; image_prompt: string; characters_in_scene?: string[] }[],
   onProgress?: (pageNum: number, total: number, imageUrl: string) => void,
 ): Promise<Map<number, string>> {
-  const styleGuide = buildImageStyleGuide(mood);
+  const styleGuide = buildImageStyleGuide();
   const results = new Map<number, string>();
 
   // Build character name list (visual details come from reference sheets only)

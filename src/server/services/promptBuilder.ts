@@ -1,5 +1,6 @@
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+import { STORY_PAGES } from "../lib/config.js";
 
 interface PromptInput {
   universeId: string;
@@ -261,7 +262,7 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
     where: { id: { in: input.characterIds } },
   });
 
-  const pageCount = 10;
+  const pageCount = STORY_PAGES;
 
   // Story structure
   const structureGuide =
