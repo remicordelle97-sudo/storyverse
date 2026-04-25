@@ -327,11 +327,10 @@ export default function Library() {
               New Story
             </button>
             <button
-              onClick={() => { setShowMenu(false); navigate("/new-universe"); }}
-              disabled={universeQuota && !universeQuota.allowed}
-              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors disabled:text-stone-300 disabled:cursor-not-allowed"
+              onClick={() => { setShowMenu(false); navigate("/my-universes"); }}
+              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
             >
-              New Universe{universeQuota && !universeQuota.allowed ? " (limit reached)" : ""}
+              My universes
             </button>
             {isAdmin && (
               <>

@@ -5,6 +5,7 @@ import Library from "./pages/Library";
 import NewUniverse from "./pages/NewUniverse";
 import UniverseManager from "./pages/UniverseManager";
 import AdminDashboard from "./pages/AdminDashboard";
+import MyUniverses from "./pages/MyUniverses";
 import Onboarding from "./pages/Onboarding";
 import StoryBuilder from "./pages/StoryBuilder";
 import ReadingMode from "./pages/ReadingMode";
@@ -88,6 +89,10 @@ function AppRoutes() {
       <Route
         path="/new-universe"
         element={<ProtectedRoute><NewUniverse /></ProtectedRoute>}
+      />
+      <Route
+        path="/my-universes"
+        element={<ProtectedRoute><MyUniverses /></ProtectedRoute>}
       />
       <Route
         path="/universe-manager"

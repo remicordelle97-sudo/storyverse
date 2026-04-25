@@ -84,7 +84,7 @@ export default function NewUniverse() {
 
       queryClient.invalidateQueries({ queryKey: ["universes"] });
       localStorage.setItem("universeId", universe.id);
-      navigate("/universe-manager");
+      navigate("/my-universes");
     } catch (e: any) {
       console.error(e);
       alert(e.message || "Failed to create universe. Please try again.");
