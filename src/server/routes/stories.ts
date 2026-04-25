@@ -30,38 +30,56 @@ router.get("/", async (req, res) => {
   try {
     const { universeId } = req.query;
 
-    if (universeId && typeof universeId === "string") {
-      if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
-        return res.status(403).json({ error: "Access denied" });
-      }
-      const stories = await prisma.story.findMany({
-        where: { universeId },
-        include: {
-          characters: { include: { character: true } },
-          scenes: { orderBy: { sceneNumber: "asc" } },
-          universe: true,
-        },
-        orderBy: { createdAt: "desc" },
-      });
-      return res.json(stories);
+    // Slim shape for the library/story-list views: just the metadata
+    // needed to render covers and badges. Full story data (scenes,
+    // characters, universe) is served by GET /:id. Avoids shipping
+    // every page's prose and image URLs on the home shelf.
+    const slimSelect = {
+      id: true,
+      title: true,
+      isPublic: true,
+      hasIllustrations: true,
+      status: true,
+      createdAt: true,
+      universe: { select: { id: true, name: true } },
+      _count: { select: { scenes: true } },
+    } as const;
+
+    const where = universeId && typeof universeId === "string"
+      ? (await verifyUniverseOwnership(universeId, req.userId as string)
+          ? { universeId }
+          : null)
+      : {
+          OR: [
+            { createdById: req.userId as string },
+            { createdById: null, universe: { userId: req.userId as string } },
+            { isPublic: true },
+          ],
+        };
+
+    if (where === null) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
-    // User's own stories (created by them) + public/featured stories
-    const stories = await prisma.story.findMany({
-      where: {
-        OR: [
-          { createdById: req.userId as string },
-          { createdById: null, universe: { userId: req.userId as string } },
-          { isPublic: true },
-        ],
-      },
-      include: {
-        characters: { include: { character: true } },
-        scenes: { orderBy: { sceneNumber: "asc" } },
-        universe: true,
-      },
+    const rows = await prisma.story.findMany({
+      where,
+      select: slimSelect,
       orderBy: { createdAt: "desc" },
     });
+
+    // Flatten the _count.scenes into a top-level scenesCount field so
+    // clients don't have to know about the Prisma _count shape.
+    const stories = rows.map((s) => ({
+      id: s.id,
+      title: s.title,
+      isPublic: s.isPublic,
+      hasIllustrations: s.hasIllustrations,
+      status: s.status,
+      createdAt: s.createdAt,
+      universe: s.universe,
+      scenesCount: s._count.scenes,
+    }));
+
     res.json(stories);
   } catch (e) {
     res.status(500).json({ error: "Failed to fetch stories" });

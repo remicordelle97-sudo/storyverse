@@ -50,7 +50,7 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { stor
           )}
 
           {/* Empty story indicator */}
-          {(!story.scenes || story.scenes.length === 0) && (
+          {!story.scenesCount && (
             <p className="text-white/30 text-[8px] uppercase tracking-wider">
               Story unavailable
             </p>

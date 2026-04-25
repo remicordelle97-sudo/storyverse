@@ -113,8 +113,18 @@ export interface QuotaStatus {
 }
 export const getStoryQuota = () =>
   request<{ illustrated: QuotaStatus; text: QuotaStatus }>("/stories/quota");
+export interface StorySummary {
+  id: string;
+  title: string;
+  isPublic: boolean;
+  hasIllustrations: boolean;
+  status: string;
+  createdAt: string;
+  universe: { id: string; name: string };
+  scenesCount: number;
+}
 export const getStories = (universeId?: string) =>
-  request<any[]>(universeId ? `/stories?universeId=${universeId}` : "/stories");
+  request<StorySummary[]>(universeId ? `/stories?universeId=${universeId}` : "/stories");
 export const getStory = (id: string) => request<any>(`/stories/${id}`);
 export const getStoryDebug = (id: string) => request<any>(`/stories/${id}/debug`);
 export const getStoryStatus = (id: string) =>
