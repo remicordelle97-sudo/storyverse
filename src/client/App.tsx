@@ -11,7 +11,7 @@ import StoryBuilder from "./pages/StoryBuilder";
 import ReadingMode from "./pages/ReadingMode";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, isImpersonating } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -26,7 +26,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role !== "admin" && !user.onboardedAt && location.pathname !== "/onboarding") {
+  // Admins (and admins viewing a not-yet-onboarded user via impersonation)
+  // skip the onboarding redirect — clicking "View" should land in their
+  // library, even if it's empty.
+  if (
+    user.role !== "admin" &&
+    !isImpersonating &&
+    !user.onboardedAt &&
+    location.pathname !== "/onboarding"
+  ) {
     return <Navigate to="/onboarding" replace />;
   }
 
@@ -51,7 +59,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
+  const { user, loading, isImpersonating } = useAuth();
 
   if (loading) {
     return (
@@ -69,7 +77,7 @@ function AppRoutes() {
         element={
           !user
             ? <Navigate to="/login" replace />
-            : user.onboardedAt || user.role === "admin"
+            : user.onboardedAt || user.role === "admin" || isImpersonating
               ? <Navigate to="/library" replace />
               : <Onboarding />
         }
