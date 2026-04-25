@@ -4,6 +4,7 @@ import { signAccessToken } from "../lib/jwt.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { debug } from "../lib/debug.js";
 import { deleteUniversesCascade } from "../lib/cascade.js";
+import { serializeUser } from "../lib/serializeUser.js";
 
 const router = Router();
 
@@ -94,14 +95,7 @@ router.post("/impersonate/:userId", async (req, res) => {
 
     res.json({
       accessToken,
-      user: {
-        id: targetUser.id,
-        email: targetUser.email,
-        name: targetUser.name,
-        picture: targetUser.picture,
-        role: targetUser.role,
-        plan: targetUser.plan,
-      },
+      user: serializeUser(targetUser),
     });
   } catch (e) {
     debug.error("Impersonation failed", { error: String(e) });

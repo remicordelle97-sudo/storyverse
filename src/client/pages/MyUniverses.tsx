@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getUniverses, getUniverseQuota } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { parseStringList } from "../lib/parseStringList";
 
 export default function MyUniverses() {
   const navigate = useNavigate();
@@ -31,17 +32,7 @@ export default function MyUniverses() {
   const canCreate = quota ? quota.allowed : false;
   const atLimit = quota && !quota.allowed;
 
-  let themes: string[] = [];
-  if (selected) {
-    try {
-      const parsed = JSON.parse(selected.themes);
-      if (Array.isArray(parsed)) themes = parsed.filter(Boolean);
-    } catch {
-      themes = typeof selected.themes === "string" && selected.themes
-        ? selected.themes.split(",").map((s: string) => s.trim()).filter(Boolean)
-        : [];
-    }
-  }
+  const themes = selected ? parseStringList(selected.themes) : [];
 
   const characters = selected?.characters || [];
   const hero = characters.find((c: any) => c.role === "main");
@@ -188,15 +179,7 @@ function CharacterCard({
   character: any;
   showAppearance: boolean;
 }) {
-  let traits: string[] = [];
-  try {
-    const parsed = JSON.parse(character.personalityTraits);
-    if (Array.isArray(parsed)) traits = parsed.filter(Boolean);
-  } catch {
-    traits = typeof character.personalityTraits === "string" && character.personalityTraits
-      ? character.personalityTraits.split(",").map((s: string) => s.trim()).filter(Boolean)
-      : [];
-  }
+  const traits = parseStringList(character.personalityTraits);
 
   const [expanded, setExpanded] = useState(false);
 

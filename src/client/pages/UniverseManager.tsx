@@ -14,6 +14,7 @@ import {
   renameCharacter,
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { parseStringList } from "../lib/parseStringList";
 
 function ActionButton({
   onClick,
@@ -96,8 +97,7 @@ export default function UniverseManager() {
   const hero = universe?.characters?.find((c: any) => c.role === "main");
   const supporting = (universe?.characters || []).filter((c: any) => c.role !== "main");
 
-  let themes: string[] = [];
-  try { themes = universe ? JSON.parse(universe.themes) : []; } catch { themes = []; }
+  const themes = parseStringList(universe?.themes);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">

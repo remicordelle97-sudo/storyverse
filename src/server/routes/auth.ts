@@ -4,6 +4,7 @@ import prisma from "../lib/prisma.js";
 import { signAccessToken, signRefreshToken, verifyToken } from "../lib/jwt.js";
 import { authMiddleware } from "../middleware/auth.js";
 import { buildCustomUniverse, clonePresetUniverse, startUniverseImageGeneration } from "../services/universeBuilder.js";
+import { serializeUser } from "../lib/serializeUser.js";
 
 const router = Router();
 
@@ -72,18 +73,7 @@ router.post("/google", async (req, res) => {
       path: "/api/auth/refresh",
     });
 
-    res.json({
-      accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-        role: user.role,
-        plan: user.plan,
-        onboardedAt: user.onboardedAt,
-      },
-    });
+    res.json({ accessToken, user: serializeUser(user) });
   } catch (e) {
     console.error("Google auth failed:", e);
     res.status(401).json({ error: "Authentication failed" });
@@ -193,15 +183,7 @@ router.get("/me", authMiddleware, async (req, res) => {
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
-    res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      picture: user.picture,
-      role: user.role,
-      plan: user.plan,
-      onboardedAt: user.onboardedAt,
-    });
+    res.json(serializeUser(user));
   } catch {
     res.status(500).json({ error: "Failed to fetch user" });
   }

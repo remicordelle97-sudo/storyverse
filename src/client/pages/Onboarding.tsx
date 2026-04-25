@@ -9,6 +9,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import StoryLoadingScreen from "../components/StoryLoadingScreen";
 import UniverseBuilderForm, { UniverseBuilderPayload } from "../components/UniverseBuilderForm";
+import { parseStringList } from "../lib/parseStringList";
 
 const ONBOARDING_PHRASES = [
   "Building your universe",
@@ -244,15 +245,7 @@ function PresetPicker({
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {templates.map((t) => {
             const selected = selectedId === t.id;
-            let themes: string[] = [];
-            try {
-              const parsed = JSON.parse(t.themes);
-              if (Array.isArray(parsed)) themes = parsed.filter(Boolean);
-            } catch {
-              themes = typeof t.themes === "string" && t.themes
-                ? t.themes.split(",").map((s) => s.trim()).filter(Boolean)
-                : [];
-            }
+            const themes = parseStringList(t.themes);
             return (
               <button
                 key={t.id}
