@@ -50,22 +50,12 @@ const CONTINUITY_RULES = `CONTINUITY:
  */
 export const ART_STYLE_REMINDER = `Watercolor style — soft transparent washes, NO outlines, NO linework, visible paper texture. Soft irregular edges that fade into the white paper, NO sharp rectangular borders.`;
 
-export function buildImageStyleGuide(
-  mood: string,
-  illustrationStyle?: string
-): string {
+export function buildImageStyleGuide(_mood: string): string {
   let guide = `=== ILLUSTRATION STYLE GUIDE ===\n\n`;
-
-  if (illustrationStyle && illustrationStyle !== "storybook") {
-    guide += `ART STYLE OVERRIDE: Use a ${illustrationStyle} illustration style instead of the default.\n\n`;
-  } else {
-    guide += `${ART_STYLE}\n\n`;
-  }
-
+  guide += `${ART_STYLE}\n\n`;
   guide += `${COLOR_RULES}\n\n`;
   guide += `${COMPOSITION_RULES}\n\n`;
   guide += `${SIMPLICITY_RULES}\n\n`;
   guide += `${CONTINUITY_RULES}\n\n`;
-
   return guide;
 }

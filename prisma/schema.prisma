@@ -23,41 +23,34 @@ model User {
 }
 
 model Universe {
-  id                   String          @id @default(uuid())
-  userId               String
-  name                 String
-  settingDescription   String
-  sensoryDetails       String          @default("")
-  worldRules           String          @default("")
-  scaleAndGeography    String          @default("")
-  themes               String
-  illustrationStyle    String          @default("storybook")
-  illustrationsEnabled Boolean         @default(true)
-  avoidThemes          String          @default("")
-  styleReferenceUrl    String          @default("")
-  createdAt            DateTime        @default(now())
-  user                 User            @relation(fields: [userId], references: [id])
-  characters           Character[]
-  stories              Story[]
-  isPublic             Boolean         @default(false)
-  isTemplate           Boolean         @default(false)
+  id                 String      @id @default(uuid())
+  userId             String
+  name               String
+  settingDescription String
+  themes             String
+  avoidThemes        String      @default("")
+  styleReferenceUrl  String      @default("")
+  isPublic           Boolean     @default(false)
+  createdAt          DateTime    @default(now())
+  user               User        @relation(fields: [userId], references: [id])
+  characters         Character[]
+  stories            Story[]
 }
 
 model Character {
-  id                String           @id @default(uuid())
-  universeId        String
-  name              String
-  speciesOrType     String
-  personalityTraits    String
-  appearance           String
-  outfit               String           @default("")
-  specialDetail        String           @default("")
-  relationshipArchetype String          @default("")
-  referenceImageUrl    String           @default("")
-  role                 String           @default("main")
-  createdAt         DateTime         @default(now())
-  universe          Universe         @relation(fields: [universeId], references: [id])
-  storyAppearances  StoryCharacter[]
+  id                    String           @id @default(uuid())
+  universeId            String
+  name                  String
+  speciesOrType         String
+  personalityTraits     String
+  appearance            String
+  outfit                String           @default("")
+  relationshipArchetype String           @default("")
+  referenceImageUrl     String           @default("")
+  role                  String           @default("main")
+  createdAt             DateTime         @default(now())
+  universe              Universe         @relation(fields: [universeId], references: [id])
+  storyAppearances      StoryCharacter[]
 }
 
 model Story {
@@ -89,8 +82,6 @@ model Scene {
   content     String
   imageUrl    String @default("")
   imagePrompt String @default("")
-  imageSeed   Int    @default(0)
-  imageEngine String @default("")
   story       Story  @relation(fields: [storyId], references: [id])
 }
 

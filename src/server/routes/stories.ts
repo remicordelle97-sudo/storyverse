@@ -315,8 +315,6 @@ router.post("/generate", async (req, res) => {
             content: page.content,
             imagePrompt: page.image_prompt || "",
             imageUrl: "",
-            imageSeed: 0,
-            imageEngine: "",
           })),
         },
         characters: {
@@ -473,7 +471,6 @@ router.post("/:id/regenerate-images", requireAdmin, async (req, res) => {
           where: { id: scene.id },
           data: {
             imageUrl: newUrl,
-            imageEngine: "gemini",
           },
         });
       }

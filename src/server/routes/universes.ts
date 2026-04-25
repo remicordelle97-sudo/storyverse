@@ -152,7 +152,6 @@ router.post("/", async (req, res) => {
       settingDescription,
       themes,
       avoidThemes,
-      illustrationStyle,
     } = req.body;
 
     debug.universe("Creating universe", { name, themes: typeof themes === "string" ? themes : JSON.stringify(themes) });
@@ -164,7 +163,6 @@ router.post("/", async (req, res) => {
         settingDescription,
         themes: typeof themes === "string" ? themes : JSON.stringify(themes),
         avoidThemes: avoidThemes || "",
-        illustrationStyle: illustrationStyle || "storybook",
       },
       include: { characters: true },
     });

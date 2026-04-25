@@ -55,7 +55,7 @@ async function runImageGeneration(data: ImageJobData): Promise<void> {
         if (sceneId) {
           await prisma.scene.update({
             where: { id: sceneId },
-            data: { imageUrl, imageEngine: "gemini" },
+            data: { imageUrl },
           });
         }
         debug.image(`Image ${pageNum}/${total} saved for story ${storyId}`);

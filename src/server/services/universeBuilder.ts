@@ -221,9 +221,7 @@ Return EXACTLY this JSON:
       settingDescription: parsed.setting_description,
       themes: JSON.stringify(themes),
       avoidThemes: "",
-      illustrationStyle: "storybook",
       isPublic: false,
-      isTemplate: false,
     },
   });
 

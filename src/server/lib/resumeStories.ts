@@ -61,7 +61,7 @@ export async function resumeIncompleteStories(): Promise<void> {
           if (scene) {
             await prisma.scene.update({
               where: { id: scene.id },
-              data: { imageUrl, imageEngine: "gemini" },
+              data: { imageUrl },
             });
           }
           debug.image(`Resumed image ${pageNum} saved for "${story.title}"`);
