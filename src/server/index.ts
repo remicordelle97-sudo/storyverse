@@ -7,6 +7,7 @@ import universesRouter from "./routes/universes.js";
 import charactersRouter from "./routes/characters.js";
 import storiesRouter from "./routes/stories.js";
 import adminRouter from "./routes/admin.js";
+import printRouter from "./routes/print.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { startImageWorker } from "./lib/imageQueue.js";
 import { resumeIncompleteStories } from "./lib/resumeStories.js";
@@ -40,6 +41,7 @@ app.use("/api/universes", authMiddleware, universesRouter);
 app.use("/api/characters", authMiddleware, charactersRouter);
 app.use("/api/stories", authMiddleware, storiesRouter);
 app.use("/api/admin", authMiddleware, adminRouter);
+app.use("/api/print", authMiddleware, printRouter);
 
 // In production, serve the built React app
 const clientDist = path.resolve("dist/client");

@@ -126,6 +126,11 @@ router.post("/users/:userId/reset", async (req, res) => {
     });
     const storyIds = stories.map((s) => s.id);
 
+    // CLAUDE.md note (development-only): print orders are wiped here
+    // so the same admin email can reset and re-test the order flow.
+    // Final version should preserve PrintOrder rows for accounting.
+    await prisma.printOrder.deleteMany({ where: { userId } });
+
     await deleteUniversesCascade(universeIds);
 
     await prisma.user.update({

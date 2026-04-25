@@ -131,6 +131,30 @@ Story generation uses **Server-Sent Events (SSE)**. The server sends `data: {typ
 - FAQ modal centered on screen (not dropdown)
 - Spine shadow hidden on mobile (no spine in single-page mode)
 
+### Print on Demand (Lulu) — Phase 1, sandbox-only
+
+Wired against Lulu's sandbox API. Single admin endpoint
+`POST /api/print/test-order` builds a minimal cover + interior PDF
+for a story (text-only, 8.5×8.5 paperback), uploads them to
+storage, gets a Lulu cost quote, and submits a sandbox print job.
+`POST /api/print/test-order` accepts `dryRun: true` to skip the
+Lulu submission and just return the quote. `GET /api/print/orders/:id`
+fetches an order plus its current Lulu status.
+
+Pricing: print cost × 1.5 + shipping pass-through (no separate tax
+charge to customer).
+
+Phase 2 will add user-facing UI (print button + address form +
+Stripe Checkout), the real Puppeteer-based illustration layout,
+and a Lulu webhook handler. Phase 3 flips Lulu + Stripe to live mode.
+
+**TEMPORARY (development-only):** the admin "reset user" endpoint
+(`POST /api/admin/users/:userId/reset`) currently deletes the user's
+`PrintOrder` rows along with stories/universes so the same admin can
+re-test onboarding+ordering. **Before final release, remove that
+`prisma.printOrder.deleteMany` line in `src/server/routes/admin.ts`** —
+print orders should survive a reset for accounting and refund records.
+
 ## Environment Variables
 
-Requires `.env` with: `ANTHROPIC_API_KEY`, `GOOGLE_AI_KEY`, `GOOGLE_CLIENT_ID`, `JWT_SECRET`, `VITE_GOOGLE_CLIENT_ID`, `DATABASE_URL`. See `.env.example`.
+Requires `.env` with: `ANTHROPIC_API_KEY`, `GOOGLE_AI_KEY`, `GOOGLE_CLIENT_ID`, `JWT_SECRET`, `VITE_GOOGLE_CLIENT_ID`, `DATABASE_URL`. Lulu integration also needs `LULU_CLIENT_KEY`, `LULU_CLIENT_SECRET`, and optionally `LULU_API_BASE_URL` / `LULU_DEFAULT_POD_PACKAGE_ID`. See `.env.example`.

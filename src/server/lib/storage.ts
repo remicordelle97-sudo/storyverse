@@ -36,7 +36,13 @@ if (!useCloud && !fs.existsSync(IMAGES_DIR)) {
  * Save a base64-encoded image and return its public URL.
  */
 export async function saveImage(base64Data: string, mimeType: string = "image/png"): Promise<string> {
-  const ext = mimeType.includes("webp") ? "webp" : mimeType.includes("jpeg") ? "jpg" : "png";
+  const ext = mimeType.includes("pdf")
+    ? "pdf"
+    : mimeType.includes("webp")
+      ? "webp"
+      : mimeType.includes("jpeg")
+        ? "jpg"
+        : "png";
   const filename = `${randomUUID()}.${ext}`;
   const buffer = Buffer.from(base64Data, "base64");
 

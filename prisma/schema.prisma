@@ -20,6 +20,7 @@ model User {
   createdAt        DateTime   @default(now())
   universes        Universe[]
   stories          Story[]
+  printOrders      PrintOrder[]
 }
 
 model Universe {
@@ -74,6 +75,7 @@ model Story {
   createdBy        User?            @relation(fields: [createdById], references: [id])
   scenes           Scene[]
   characters       StoryCharacter[]
+  printOrders      PrintOrder[]
 
   // Speeds up the monthly quota count: WHERE createdById=? AND createdAt >= ? AND hasIllustrations=?.
   @@index([createdById, createdAt, hasIllustrations])
@@ -87,6 +89,40 @@ model Scene {
   imageUrl    String @default("")
   imagePrompt String @default("")
   story       Story  @relation(fields: [storyId], references: [id])
+}
+
+// Print-on-demand orders fulfilled via Lulu. Phase 1 lifecycle is
+// abbreviated (sandbox testing only): "draft" → "submitted" → terminal.
+// Production lifecycle adds payment + Lulu webhook states.
+model PrintOrder {
+  id                  String   @id @default(uuid())
+  userId              String
+  storyId             String
+  status              String   @default("draft")
+  // Lulu API state
+  luluPrintJobId      String?
+  luluTrackingUrl     String?
+  // Pricing snapshot (cents) — frozen at quote time so a later Lulu
+  // price change doesn't retroactively rewrite what the user paid.
+  luluPrintCostCents  Int?
+  luluShippingCostCents Int?
+  customerPriceCents  Int?
+  // Stripe wiring (Phase 2). Nullable now.
+  stripeSessionId     String?
+  stripePaymentId     String?
+  // Shipping
+  shippingAddress     String   @default("")  // JSON-encoded address blob
+  // Source PDFs (R2 URLs) snapshotted for re-submission and audit.
+  coverPdfUrl         String   @default("")
+  interiorPdfUrl      String   @default("")
+  // Failure / cancellation reason for support
+  rejectionReason     String   @default("")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id])
+  story               Story    @relation(fields: [storyId], references: [id])
+
+  @@index([userId, createdAt])
 }
 
 model StoryCharacter {

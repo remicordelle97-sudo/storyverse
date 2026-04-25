@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
 import HTMLFlipBook from "react-pageflip";
 import StoryLoadingScreen, { STORY_IMAGE_PHRASES } from "../components/StoryLoadingScreen";
-import { storyHexColor } from "../lib/storyColor";
+import { storyHexColor } from "../../shared/storyColor";
 
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
   try {
