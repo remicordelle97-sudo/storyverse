@@ -11,7 +11,17 @@ export interface CharacterPhoto {
   data: string;     // raw base64, no "data:..." prefix
 }
 
-const ALLOWED_PHOTO_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+// The Anthropic SDK requires media_type to be one of these literals.
+type AnthropicImageMimeType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+const ALLOWED_PHOTO_MIME: AnthropicImageMimeType[] = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+];
+function isAllowedMime(m: string): m is AnthropicImageMimeType {
+  return (ALLOWED_PHOTO_MIME as string[]).includes(m);
+}
 // Anthropic vision caps individual images around 5MB after decoding.
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
@@ -31,7 +41,7 @@ export interface BuiltUniverse {
 
 interface ClaudeImageBlock {
   type: "image";
-  source: { type: "base64"; media_type: string; data: string };
+  source: { type: "base64"; media_type: AnthropicImageMimeType; data: string };
 }
 interface ClaudeTextBlock {
   type: "text";
@@ -46,7 +56,7 @@ type ClaudeContentBlock = ClaudeImageBlock | ClaudeTextBlock;
  */
 function photoToImageBlock(photo?: CharacterPhoto): ClaudeImageBlock | null {
   if (!photo || !photo.data || !photo.mimeType) return null;
-  if (!ALLOWED_PHOTO_MIME.has(photo.mimeType)) return null;
+  if (!isAllowedMime(photo.mimeType)) return null;
   // base64 length × 3/4 ≈ decoded bytes
   const approxBytes = Math.floor((photo.data.length * 3) / 4);
   if (approxBytes > MAX_PHOTO_BYTES) return null;
