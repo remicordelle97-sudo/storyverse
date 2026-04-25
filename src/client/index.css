@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* App-shell beige background. The Library page set the visual baseline,
+   so every other page reuses this gradient for consistency. The reading
+   view (the open book) keeps its own dark theatrical background. */
+.app-bg {
+  background: linear-gradient(to bottom, #FAF6EE 0%, #F3ECE0 50%, #EDE4D3 100%);
+}
+
 /* react-pageflip: the library overwrites inline styles on .stf__item via
    style.cssText, so background must come from a class-based rule. */
 .stf__item {

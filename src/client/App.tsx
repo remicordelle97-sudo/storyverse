@@ -63,7 +63,7 @@ function AppRoutes() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="min-h-screen flex items-center justify-center app-bg">
         <p className="text-stone-400">Loading...</p>
       </div>
     );
@@ -143,7 +143,7 @@ function ImpersonationBanner() {
 export default function App() {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-stone-50">
+      <div className="min-h-screen app-bg">
         <ImpersonationBanner />
         <AppRoutes />
       </div>

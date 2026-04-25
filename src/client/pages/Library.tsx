@@ -226,12 +226,7 @@ export default function Library() {
   }
 
   return (
-    <div
-      className="min-h-screen"
-      style={{
-        background: "linear-gradient(to bottom, #FAF6EE 0%, #F3ECE0 50%, #EDE4D3 100%)",
-      }}
-    >
+    <div className="min-h-screen app-bg">
       {/* Universe-ready toast */}
       {readyNotice && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-emerald-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 animate-[fadeInDown_400ms_ease-out]">

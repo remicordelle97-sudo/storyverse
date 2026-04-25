@@ -36,7 +36,7 @@ export default function NewUniverse() {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex items-start justify-center py-12 px-4">
+    <div className="min-h-screen app-bg flex items-start justify-center py-12 px-4">
       <div className="w-full max-w-3xl">
         <button
           onClick={() => navigate("/my-universes")}

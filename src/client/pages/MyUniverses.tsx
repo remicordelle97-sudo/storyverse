@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getUniverses, getUniverseQuota } from "../api/client";
+import { useAuth } from "../auth/AuthContext";
 
 export default function MyUniverses() {
   const navigate = useNavigate();
+  const { isAdmin } = useAuth();
 
   const { data: universes = [], isLoading } = useQuery({
     queryKey: ["universes"],
@@ -153,7 +155,7 @@ export default function MyUniverses() {
                     <p className="text-xs font-medium text-stone-400 uppercase tracking-wider mb-3">
                       Hero
                     </p>
-                    <CharacterCard character={hero} />
+                    <CharacterCard character={hero} showAppearance={isAdmin} />
                   </div>
                 )}
 
@@ -165,7 +167,7 @@ export default function MyUniverses() {
                     </p>
                     <div className="space-y-3">
                       {supporting.map((c: any) => (
-                        <CharacterCard key={c.id} character={c} />
+                        <CharacterCard key={c.id} character={c} showAppearance={isAdmin} />
                       ))}
                     </div>
                   </div>
@@ -179,7 +181,13 @@ export default function MyUniverses() {
   );
 }
 
-function CharacterCard({ character }: { character: any }) {
+function CharacterCard({
+  character,
+  showAppearance,
+}: {
+  character: any;
+  showAppearance: boolean;
+}) {
   let traits: string[] = [];
   try {
     const parsed = JSON.parse(character.personalityTraits);
@@ -231,7 +239,7 @@ function CharacterCard({ character }: { character: any }) {
         {character.relationshipArchetype && (
           <p className="text-xs text-stone-500 mb-2">{character.relationshipArchetype}</p>
         )}
-        {character.appearance && (
+        {showAppearance && character.appearance && (
           <button
             onClick={() => setExpanded(!expanded)}
             className="text-left w-full"
