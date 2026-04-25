@@ -8,6 +8,32 @@ import { deleteUniversesCascade } from "../lib/cascade.js";
 
 const router = Router();
 
+// List preset (template) universes available during onboarding. Any
+// authed user can read them — they're meant as ready-made starting
+// points. Returns slim shape: name, themes, settingDescription, plus
+// hero name + style reference URL for the picker UI.
+router.get("/templates", async (_req, res) => {
+  try {
+    const templates = await prisma.universe.findMany({
+      where: { isTemplate: true },
+      select: {
+        id: true,
+        name: true,
+        settingDescription: true,
+        themes: true,
+        styleReferenceUrl: true,
+        characters: {
+          select: { id: true, name: true, role: true, referenceImageUrl: true },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    res.json(templates);
+  } catch (e) {
+    res.status(500).json({ error: "Failed to fetch templates" });
+  }
+});
+
 // Get universe quota for current user
 router.get("/quota", async (req, res) => {
   try {
@@ -116,6 +142,27 @@ router.post("/:id/toggle-public", requireAdmin, async (req, res) => {
     res.json({ isPublic: updated.isPublic });
   } catch (e) {
     res.status(500).json({ error: "Failed to toggle public status" });
+  }
+});
+
+// Toggle preset/template status (admin only). Templates appear in the
+// onboarding "use a preset" picker.
+router.post("/:id/toggle-template", requireAdmin, async (req, res) => {
+  try {
+    const universe = await prisma.universe.findUnique({
+      where: { id: req.params.id as string },
+    });
+    if (!universe) {
+      return res.status(404).json({ error: "Universe not found" });
+    }
+    const updated = await prisma.universe.update({
+      where: { id: universe.id },
+      data: { isTemplate: !universe.isTemplate },
+    });
+    debug.universe(`Universe "${updated.name}" template flag is now ${updated.isTemplate}`);
+    res.json({ isTemplate: updated.isTemplate });
+  } catch {
+    res.status(500).json({ error: "Failed to toggle template status" });
   }
 });
 

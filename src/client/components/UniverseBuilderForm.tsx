@@ -149,19 +149,26 @@ export default function UniverseBuilderForm({
   const finalThemes = combineWithCustom(themes, customTheme);
   const finalHeroTraits = combineWithCustom(heroTraits, heroCustomTrait);
 
-  const canSubmit =
-    universeName.trim().length > 0 &&
-    finalThemes.length > 0 &&
+  // Per-step validity. The user can only advance past a step once it
+  // passes. The final "Confirm" button on step 3 also re-checks every
+  // step in case state somehow drifted (e.g. removing the only theme).
+  const universeStepValid =
+    universeName.trim().length > 0 && finalThemes.length > 0;
+  const heroStepValid =
     heroName.trim().length > 0 &&
     heroSpecies.trim().length > 0 &&
-    finalHeroTraits.length > 0 &&
-    (supportingMode === "auto" ||
-      manualSupporting.every(
-        (s) =>
-          s.name.trim() &&
-          s.species.trim() &&
-          combineWithCustom(s.traits, s.customTrait).length > 0
-      ));
+    finalHeroTraits.length > 0;
+  const supportingStepValid =
+    supportingMode === "auto" ||
+    manualSupporting.every(
+      (s) =>
+        s.name.trim() &&
+        s.species.trim() &&
+        combineWithCustom(s.traits, s.customTrait).length > 0
+    );
+  const canSubmit = universeStepValid && heroStepValid && supportingStepValid;
+
+  const [step, setStep] = useState<"universe" | "hero" | "supporting">("universe");
 
   // Strip the previewUrl before sending — server only needs mimeType + raw base64.
   function stripPreview(p: CharacterPhoto | null) {
@@ -228,6 +235,33 @@ export default function UniverseBuilderForm({
     }
   }
 
+  const STEP_ORDER: Array<"universe" | "hero" | "supporting"> = [
+    "universe",
+    "hero",
+    "supporting",
+  ];
+  const stepIndex = STEP_ORDER.indexOf(step);
+  const isFirstStep = stepIndex === 0;
+  const isLastStep = stepIndex === STEP_ORDER.length - 1;
+  const stepValid =
+    step === "universe" ? universeStepValid : step === "hero" ? heroStepValid : supportingStepValid;
+
+  function goBack() {
+    if (isFirstStep) {
+      onCancel?.();
+      return;
+    }
+    setStep(STEP_ORDER[stepIndex - 1]);
+  }
+  function goNext() {
+    if (!stepValid) return;
+    if (isLastStep) {
+      handleSubmit();
+      return;
+    }
+    setStep(STEP_ORDER[stepIndex + 1]);
+  }
+
   return (
     <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm space-y-8">
       <div>
@@ -235,55 +269,67 @@ export default function UniverseBuilderForm({
         {subtitle && <p className="text-sm text-stone-500">{subtitle}</p>}
       </div>
 
-      <Field label="Universe name">
-        <input
-          value={universeName}
-          onChange={(e) => setUniverseName(e.target.value)}
-          maxLength={60}
-          placeholder="e.g. The Whispering Woods"
-          className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-        />
-      </Field>
+      {/* Step indicator */}
+      <div className="flex items-center justify-center gap-2">
+        <BuilderStepDot label="Universe" active={step === "universe"} done={stepIndex > 0} />
+        <div className="w-6 h-px bg-stone-300" />
+        <BuilderStepDot label="Hero" active={step === "hero"} done={stepIndex > 1} />
+        <div className="w-6 h-px bg-stone-300" />
+        <BuilderStepDot label="Friends" active={step === "supporting"} done={false} />
+      </div>
 
-      <Field label="Themes" hint="Pick one or more.">
-        <ChipPicker
-          options={[...THEME_OPTIONS, "Other"]}
-          selected={themes}
-          onToggle={toggleTheme}
-        />
-        {themes.includes("Other") && (
-          <input
-            value={customTheme}
-            onChange={(e) => setCustomTheme(e.target.value)}
-            placeholder="Tell us more..."
-            className="mt-3 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-          />
-        )}
-      </Field>
-
-      <div>
-        <h3 className="text-sm font-medium text-stone-700 mb-3">Hero</h3>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <Field label="Name">
+      {step === "universe" && (
+        <div className="space-y-6">
+          <Field label="Universe name">
             <input
-              value={heroName}
-              onChange={(e) => setHeroName(e.target.value)}
-              maxLength={40}
-              placeholder="e.g. Mia"
+              value={universeName}
+              onChange={(e) => setUniverseName(e.target.value)}
+              maxLength={60}
+              placeholder="e.g. The Whispering Woods"
               className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             />
           </Field>
-          <Field label="Species or type">
-            <input
-              value={heroSpecies}
-              onChange={(e) => setHeroSpecies(e.target.value)}
-              maxLength={40}
-              placeholder="e.g. Rabbit, Robot, Dragon"
-              className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+
+          <Field label="Themes" hint="Pick one or more.">
+            <ChipPicker
+              options={[...THEME_OPTIONS, "Other"]}
+              selected={themes}
+              onToggle={toggleTheme}
             />
+            {themes.includes("Other") && (
+              <input
+                value={customTheme}
+                onChange={(e) => setCustomTheme(e.target.value)}
+                placeholder="Tell us more..."
+                className="mt-3 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            )}
           </Field>
         </div>
-        <div className="mt-4">
+      )}
+
+      {step === "hero" && (
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4">
+            <Field label="Name">
+              <input
+                value={heroName}
+                onChange={(e) => setHeroName(e.target.value)}
+                maxLength={40}
+                placeholder="e.g. Mia"
+                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </Field>
+            <Field label="Species or type">
+              <input
+                value={heroSpecies}
+                onChange={(e) => setHeroSpecies(e.target.value)}
+                maxLength={40}
+                placeholder="e.g. Rabbit, Robot, Dragon"
+                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </Field>
+          </div>
           <Field label="Traits" hint="Pick one or more.">
             <ChipPicker
               options={[...TRAIT_OPTIONS, "Other"]}
@@ -299,117 +345,145 @@ export default function UniverseBuilderForm({
               />
             )}
           </Field>
-        </div>
-        <div className="mt-4">
           <Field
             label="Photo (optional)"
-            hint="If your hero is a real toy, upload a photo. We'll use it to design the character. Plain background, well-lit works best."
+            hint="If your hero is a real toy, upload a photo. Plain background, well-lit works best."
           >
-            <PhotoUpload
-              photo={heroPhoto}
-              onChange={handleHeroPhoto}
-            />
+            <PhotoUpload photo={heroPhoto} onChange={handleHeroPhoto} />
           </Field>
         </div>
-      </div>
+      )}
 
-      <div>
-        <h3 className="text-sm font-medium text-stone-700 mb-3">Supporting characters</h3>
-        <div className="flex gap-2 mb-4">
-          <ToggleButton
-            active={supportingMode === "auto"}
-            onClick={() => setSupportingMode("auto")}
-          >
-            Auto-create
-          </ToggleButton>
-          <ToggleButton
-            active={supportingMode === "manual"}
-            onClick={() => setSupportingMode("manual")}
-          >
-            I'll add my own
-          </ToggleButton>
-        </div>
-        {supportingMode === "auto" ? (
-          <p className="text-xs text-stone-400">
-            We'll invent three friends that fit your world.
+      {step === "supporting" && (
+        <div className="space-y-4">
+          <p className="text-sm text-stone-500">
+            Three friends round out your universe. Up to two appear in any given story.
           </p>
-        ) : (
-          <div className="space-y-5">
-            {manualSupporting.map((s, i) => (
-              <div key={i} className="border border-stone-200 rounded-lg p-4 space-y-3">
-                <p className="text-xs font-medium text-stone-500 uppercase tracking-wider">
-                  Friend {i + 1}
-                </p>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <Field label="Name">
-                    <input
-                      value={s.name}
-                      onChange={(e) => updateSupporting(i, { name: e.target.value })}
-                      maxLength={40}
-                      placeholder="e.g. Pip"
-                      className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          <div className="flex gap-2">
+            <ToggleButton
+              active={supportingMode === "auto"}
+              onClick={() => setSupportingMode("auto")}
+            >
+              Auto-create
+            </ToggleButton>
+            <ToggleButton
+              active={supportingMode === "manual"}
+              onClick={() => setSupportingMode("manual")}
+            >
+              I'll add my own
+            </ToggleButton>
+          </div>
+          {supportingMode === "auto" ? (
+            <p className="text-xs text-stone-400">
+              We'll invent three friends that fit your world.
+            </p>
+          ) : (
+            <div className="space-y-5">
+              {manualSupporting.map((s, i) => (
+                <div key={i} className="border border-stone-200 rounded-lg p-4 space-y-3">
+                  <p className="text-xs font-medium text-stone-500 uppercase tracking-wider">
+                    Friend {i + 1}
+                  </p>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <Field label="Name">
+                      <input
+                        value={s.name}
+                        onChange={(e) => updateSupporting(i, { name: e.target.value })}
+                        maxLength={40}
+                        placeholder="e.g. Pip"
+                        className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      />
+                    </Field>
+                    <Field label="Species or type">
+                      <input
+                        value={s.species}
+                        onChange={(e) => updateSupporting(i, { species: e.target.value })}
+                        maxLength={40}
+                        placeholder="e.g. Owl"
+                        className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Traits">
+                    <ChipPicker
+                      options={[...TRAIT_OPTIONS, "Other"]}
+                      selected={s.traits}
+                      onToggle={(t) => toggleSupportingTrait(i, t)}
                     />
+                    {s.traits.includes("Other") && (
+                      <input
+                        value={s.customTrait}
+                        onChange={(e) => updateSupporting(i, { customTrait: e.target.value })}
+                        placeholder="Tell us more..."
+                        className="mt-3 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                      />
+                    )}
                   </Field>
-                  <Field label="Species or type">
-                    <input
-                      value={s.species}
-                      onChange={(e) => updateSupporting(i, { species: e.target.value })}
-                      maxLength={40}
-                      placeholder="e.g. Owl"
-                      className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  <Field label="Photo (optional)">
+                    <PhotoUpload
+                      photo={s.photo}
+                      onChange={(file) => handleSupportingPhoto(i, file)}
                     />
                   </Field>
                 </div>
-                <Field label="Traits">
-                  <ChipPicker
-                    options={[...TRAIT_OPTIONS, "Other"]}
-                    selected={s.traits}
-                    onToggle={(t) => toggleSupportingTrait(i, t)}
-                  />
-                  {s.traits.includes("Other") && (
-                    <input
-                      value={s.customTrait}
-                      onChange={(e) => updateSupporting(i, { customTrait: e.target.value })}
-                      placeholder="Tell us more..."
-                      className="mt-3 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                    />
-                  )}
-                </Field>
-                <Field label="Photo (optional)">
-                  <PhotoUpload
-                    photo={s.photo}
-                    onChange={(file) => handleSupportingPhoto(i, file)}
-                  />
-                </Field>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {photoError && <p className="text-xs text-red-500">{photoError}</p>}
       {error && <p className="text-xs text-red-500">{error}</p>}
 
       <div className="flex justify-between items-center pt-2">
-        {onCancel ? (
+        {onCancel || !isFirstStep ? (
           <button
-            onClick={onCancel}
+            onClick={goBack}
             className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
             disabled={submitting}
           >
-            &larr; {cancelLabel}
+            &larr; {isFirstStep ? cancelLabel : "Back"}
           </button>
         ) : (
           <span />
         )}
         <button
-          onClick={handleSubmit}
-          disabled={!canSubmit || submitting}
+          onClick={goNext}
+          disabled={!stepValid || submitting || (isLastStep && !canSubmit)}
           className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
-          {submitting ? "Working..." : submitLabel}
+          {submitting ? "Working..." : isLastStep ? submitLabel : "Next"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function BuilderStepDot({
+  label,
+  active,
+  done,
+}: {
+  label: string;
+  active: boolean;
+  done: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div
+        className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-semibold transition-colors ${
+          active
+            ? "bg-primary text-white"
+            : done
+              ? "bg-primary/30 text-primary"
+              : "bg-stone-200 text-stone-500"
+        }`}
+      >
+        {done ? "✓" : label[0]}
+      </div>
+      <span className={`text-[11px] ${active ? "text-stone-800 font-medium" : "text-stone-400"}`}>
+        {label}
+      </span>
     </div>
   );
 }

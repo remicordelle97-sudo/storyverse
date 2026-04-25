@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { completeOnboarding } from "../api/client";
+import { useQuery } from "@tanstack/react-query";
+import {
+  completeOnboarding,
+  completeOnboardingPreset,
+  getTemplateUniverses,
+} from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import StoryLoadingScreen from "../components/StoryLoadingScreen";
 import UniverseBuilderForm, { UniverseBuilderPayload } from "../components/UniverseBuilderForm";
@@ -12,11 +17,17 @@ const ONBOARDING_PHRASES = [
   "Painting first impressions",
 ];
 
+const PRESET_PHRASES = ["Setting up your shelf", "Almost ready"];
+
+type Step = "plan" | "choice" | "preset" | "world";
+
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth();
-  const [step, setStep] = useState<"plan" | "world">("plan");
+  const [step, setStep] = useState<Step>("plan");
   const [submitting, setSubmitting] = useState(false);
+  const [submittingPreset, setSubmittingPreset] = useState(false);
+  const [presetError, setPresetError] = useState<string | null>(null);
 
   async function handleSubmit(payload: UniverseBuilderPayload) {
     setSubmitting(true);
@@ -25,20 +36,30 @@ export default function Onboarding() {
       await refreshUser();
       navigate("/library");
     } catch (e) {
-      // The form surfaces errors itself; rethrow so the form re-enables
-      // its submit state.
       setSubmitting(false);
       throw e;
     }
   }
 
-  if (submitting) {
-    return <StoryLoadingScreen phrases={ONBOARDING_PHRASES} />;
+  async function handlePreset(templateUniverseId: string) {
+    setSubmittingPreset(true);
+    setPresetError(null);
+    try {
+      await completeOnboardingPreset(templateUniverseId);
+      await refreshUser();
+      navigate("/library");
+    } catch (e: any) {
+      setPresetError(e?.message || "Could not load that preset");
+      setSubmittingPreset(false);
+    }
   }
+
+  if (submitting) return <StoryLoadingScreen phrases={ONBOARDING_PHRASES} />;
+  if (submittingPreset) return <StoryLoadingScreen phrases={PRESET_PHRASES} />;
 
   return (
     <div className="min-h-screen app-bg flex items-start justify-center py-12 px-4">
-      <div className="w-full max-w-3xl">
+      <div className={`w-full ${step === "preset" ? "max-w-6xl" : "max-w-3xl"}`}>
         <div className="text-center mb-8">
           <h1
             className="text-3xl font-bold text-stone-800 mb-2"
@@ -52,9 +73,19 @@ export default function Onboarding() {
         </div>
 
         <div className="flex items-center justify-center gap-2 mb-10">
-          <StepDot active={step === "plan"} done={step === "world"} label="Plan" />
+          <StepDot active={step === "plan"} done={step !== "plan"} label="Plan" />
           <div className="w-8 h-px bg-stone-300" />
-          <StepDot active={step === "world"} done={false} label="Your world" />
+          <StepDot
+            active={step === "choice"}
+            done={step === "preset" || step === "world"}
+            label="Start"
+          />
+          <div className="w-8 h-px bg-stone-300" />
+          <StepDot
+            active={step === "preset" || step === "world"}
+            done={false}
+            label="Your world"
+          />
         </div>
 
         {step === "plan" && (
@@ -64,7 +95,7 @@ export default function Onboarding() {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <button
-                onClick={() => setStep("world")}
+                onClick={() => setStep("choice")}
                 className="text-left border-2 border-primary bg-primary/5 rounded-xl p-5 hover:bg-primary/10 transition-colors"
               >
                 <div className="flex items-center justify-between mb-2">
@@ -102,7 +133,7 @@ export default function Onboarding() {
 
             <div className="mt-6 flex justify-end">
               <button
-                onClick={() => setStep("world")}
+                onClick={() => setStep("choice")}
                 className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 Continue
@@ -111,14 +142,176 @@ export default function Onboarding() {
           </div>
         )}
 
+        {step === "choice" && (
+          <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
+            <h2 className="text-lg font-semibold text-stone-800 mb-1">How do you want to start?</h2>
+            <p className="text-sm text-stone-500 mb-6">
+              Build your own universe from scratch, or pick a ready-made one to start reading
+              right away. You can always create your own later.
+            </p>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              <button
+                onClick={() => setStep("world")}
+                className="text-left border-2 border-stone-200 rounded-xl p-5 hover:border-primary hover:bg-primary/5 transition-colors"
+              >
+                <h3 className="font-semibold text-stone-800 mb-2">Create my own universe</h3>
+                <p className="text-xs text-stone-500">
+                  Pick a name, themes, a hero, and friends. Takes a couple minutes — your hero
+                  can even be a real toy.
+                </p>
+              </button>
+              <button
+                onClick={() => setStep("preset")}
+                className="text-left border-2 border-stone-200 rounded-xl p-5 hover:border-primary hover:bg-primary/5 transition-colors"
+              >
+                <h3 className="font-semibold text-stone-800 mb-2">Use a preset for now</h3>
+                <p className="text-xs text-stone-500">
+                  Start with a ready-made universe so you can read your first story
+                  immediately. Build a custom one whenever you're ready.
+                </p>
+              </button>
+            </div>
+
+            <div className="mt-6 flex justify-between items-center">
+              <button
+                onClick={() => setStep("plan")}
+                className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+              >
+                &larr; Back
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "preset" && (
+          <PresetPicker
+            onBack={() => setStep("choice")}
+            onPick={handlePreset}
+            error={presetError}
+          />
+        )}
+
         {step === "world" && (
           <UniverseBuilderForm
             onSubmit={handleSubmit}
-            onCancel={() => setStep("plan")}
+            onCancel={() => setStep("choice")}
             cancelLabel="Back"
-            submitLabel="Confirm"
+            submitLabel="Create universe"
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+function PresetPicker({
+  onBack,
+  onPick,
+  error,
+}: {
+  onBack: () => void;
+  onPick: (id: string) => void;
+  error: string | null;
+}) {
+  const { data: templates = [], isLoading } = useQuery({
+    queryKey: ["templates"],
+    queryFn: getTemplateUniverses,
+  });
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  return (
+    <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
+      <h2 className="text-lg font-semibold text-stone-800 mb-1">Pick a preset universe</h2>
+      <p className="text-sm text-stone-500 mb-6">
+        We'll set this up instantly so you can start reading.
+      </p>
+
+      {isLoading ? (
+        <p className="text-sm text-stone-400">Loading presets...</p>
+      ) : templates.length === 0 ? (
+        <div className="text-sm text-stone-400 py-8 text-center space-y-3">
+          <p>No presets are available right now.</p>
+          <button
+            onClick={onBack}
+            className="text-primary hover:text-primary/80 transition-colors text-sm font-medium"
+          >
+            Build your own instead
+          </button>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {templates.map((t) => {
+            const selected = selectedId === t.id;
+            let themes: string[] = [];
+            try {
+              const parsed = JSON.parse(t.themes);
+              if (Array.isArray(parsed)) themes = parsed.filter(Boolean);
+            } catch {
+              themes = typeof t.themes === "string" && t.themes
+                ? t.themes.split(",").map((s) => s.trim()).filter(Boolean)
+                : [];
+            }
+            return (
+              <button
+                key={t.id}
+                onClick={() => setSelectedId(t.id)}
+                className={`text-left rounded-xl overflow-hidden border-2 transition-colors ${
+                  selected
+                    ? "border-primary bg-primary/5"
+                    : "border-stone-200 bg-white hover:border-stone-300"
+                }`}
+              >
+                {t.styleReferenceUrl && (
+                  <div className="aspect-[4/3] bg-stone-100">
+                    <img
+                      src={t.styleReferenceUrl}
+                      alt={t.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <div className="p-4">
+                  <h3 className="font-semibold text-stone-800 mb-1">{t.name}</h3>
+                  {themes.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {themes.map((theme) => (
+                        <span
+                          key={theme}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500"
+                        >
+                          {theme}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-stone-500 whitespace-pre-wrap">
+                    {t.settingDescription}
+                  </p>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
+
+      <div className="mt-6 flex justify-between items-center">
+        <button
+          onClick={onBack}
+          className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+        >
+          &larr; Back
+        </button>
+        <button
+          onClick={() => selectedId && onPick(selectedId)}
+          disabled={!selectedId}
+          className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+        >
+          Use this preset
+        </button>
       </div>
     </div>
   );

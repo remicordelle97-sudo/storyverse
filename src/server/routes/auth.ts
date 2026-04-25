@@ -3,7 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import prisma from "../lib/prisma.js";
 import { signAccessToken, signRefreshToken, verifyToken } from "../lib/jwt.js";
 import { authMiddleware } from "../middleware/auth.js";
-import { buildCustomUniverse, startUniverseImageGeneration } from "../services/universeBuilder.js";
+import { buildCustomUniverse, clonePresetUniverse, startUniverseImageGeneration } from "../services/universeBuilder.js";
 
 const router = Router();
 
@@ -122,6 +122,38 @@ router.post("/onboard", authMiddleware, async (req, res) => {
     const isValidation =
       typeof msg === "string" && /required/i.test(msg);
     res.status(isValidation ? 400 : 500).json({ error: msg });
+  }
+});
+
+// Alternate onboarding path: clone a preset (admin-curated) universe
+// instead of building a custom one. Same outcome — user lands in the
+// library with a usable universe and onboardedAt set — but skips the
+// 3-step wizard and reuses the preset's existing style reference + sheet
+// images, so there's no background image generation to wait on.
+router.post("/onboard-preset", authMiddleware, async (req, res) => {
+  try {
+    const { templateUniverseId } = req.body || {};
+    if (!templateUniverseId || typeof templateUniverseId !== "string") {
+      return res.status(400).json({ error: "templateUniverseId is required" });
+    }
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId as string } });
+    if (user.onboardedAt) {
+      return res.status(400).json({ error: "Already onboarded" });
+    }
+
+    const built = await clonePresetUniverse(user.id, templateUniverseId);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardedAt: new Date() },
+    });
+
+    res.json({ universeId: built.id });
+  } catch (e: any) {
+    const msg = e?.message || "Failed to complete onboarding";
+    console.error("Preset onboarding failed:", e);
+    const status = /not found/i.test(msg) ? 404 : 500;
+    res.status(status).json({ error: msg });
   }
 });
 

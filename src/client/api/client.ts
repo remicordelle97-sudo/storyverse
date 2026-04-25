@@ -49,6 +49,24 @@ export const completeOnboarding = (payload: OnboardingPayload) =>
     method: "POST",
     body: JSON.stringify(payload),
   });
+export const completeOnboardingPreset = (templateUniverseId: string) =>
+  request<{ universeId: string }>("/auth/onboard-preset", {
+    method: "POST",
+    body: JSON.stringify({ templateUniverseId }),
+  });
+export const getTemplateUniverses = () =>
+  request<
+    Array<{
+      id: string;
+      name: string;
+      settingDescription: string;
+      themes: string;
+      styleReferenceUrl: string;
+      characters: { id: string; name: string; role: string; referenceImageUrl: string }[];
+    }>
+  >("/universes/templates");
+export const toggleUniverseTemplate = (id: string) =>
+  request<{ isTemplate: boolean }>(`/universes/${id}/toggle-template`, { method: "POST" });
 export const createCustomUniverse = (payload: OnboardingPayload) =>
   request<{ universeId: string }>("/universes/custom", {
     method: "POST",

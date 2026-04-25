@@ -9,6 +9,7 @@ import {
   generateCharacters,
   generateStyleReference,
   toggleUniversePublic,
+  toggleUniverseTemplate,
   deleteUniverse,
   renameCharacter,
 } from "../api/client";
@@ -163,6 +164,19 @@ export default function UniverseManager() {
                         }`}
                       >
                         {universe.isPublic ? "Featured (public)" : "Publish to all users"}
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await toggleUniverseTemplate(universe.id);
+                          invalidate();
+                        }}
+                        className={`text-[10px] px-2.5 py-1 rounded-full font-medium transition-colors ${
+                          universe.isTemplate
+                            ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                            : "bg-stone-100 text-stone-400 hover:bg-stone-200"
+                        }`}
+                      >
+                        {universe.isTemplate ? "Onboarding preset ✓" : "Mark as preset"}
                       </button>
                       <button
                         onClick={async () => {
