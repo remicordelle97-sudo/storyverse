@@ -74,6 +74,7 @@ export default function UniverseBuilderForm({
   const [manualSupporting, setManualSupporting] = useState<ManualSupporting[]>([
     { name: "", species: "", traits: [], customTrait: "" },
     { name: "", species: "", traits: [], customTrait: "" },
+    { name: "", species: "", traits: [], customTrait: "" },
   ]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -240,7 +241,7 @@ export default function UniverseBuilderForm({
         </div>
         {supportingMode === "auto" ? (
           <p className="text-xs text-stone-400">
-            We'll invent two friends that fit your world.
+            We'll invent three friends that fit your world.
           </p>
         ) : (
           <div className="space-y-5">

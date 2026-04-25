@@ -57,7 +57,7 @@ export async function buildCustomUniverse(
   }
 
   const supportingInstruction = supportingMode === "auto"
-    ? `Invent 2 supporting characters that fit this universe and complement the hero. Each should be a different species from the hero and from each other. Give each one: name, species, 2-4 personality traits, a relationship_archetype (their role in the hero's life), appearance, and outfit.`
+    ? `Invent 3 supporting characters that fit this universe and complement the hero. Each should be a different species from the hero and from each other. Give each one: name, species, 2-4 personality traits, a relationship_archetype (their role in the hero's life), appearance, and outfit.`
     : `Generate appearance and outfit fields for these supporting characters supplied by the user. Use their given name, species, and traits exactly. Add a relationship_archetype that fits.\n\n${manualSupporting.map((s, i) => `Supporting ${i + 1}: name="${s.name}", species="${s.species}", traits=${JSON.stringify(s.traits)}`).join("\n")}`;
 
   const userMessage = `Create a children's story universe and its character ensemble.
