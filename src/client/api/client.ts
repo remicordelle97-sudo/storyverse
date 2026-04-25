@@ -31,7 +31,7 @@ export const resetUser = (userId: string) =>
     `/admin/users/${userId}/reset`,
     { method: "POST" }
   );
-// Onboarding
+// Onboarding / custom universe builder share the same payload shape.
 export interface OnboardingPayload {
   universeName: string;
   themes: string[];
@@ -40,6 +40,11 @@ export interface OnboardingPayload {
 }
 export const completeOnboarding = (payload: OnboardingPayload) =>
   request<{ universeId: string }>("/auth/onboard", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+export const createCustomUniverse = (payload: OnboardingPayload) =>
+  request<{ universeId: string }>("/universes/custom", {
     method: "POST",
     body: JSON.stringify(payload),
   });

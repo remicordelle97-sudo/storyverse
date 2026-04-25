@@ -5,6 +5,7 @@ import { debug } from "../lib/debug.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { checkUniverseQuota } from "../lib/quota.js";
 import { CLAUDE_MODEL, TEMPERATURE_STANDARD, MAX_TOKENS_SMALL } from "../lib/config.js";
+import { buildCustomUniverse, startUniverseImageGeneration } from "../services/universeBuilder.js";
 
 const anthropic = new Anthropic();
 
@@ -111,6 +112,29 @@ Return exactly this JSON:
   } catch (e: any) {
     debug.error(`Universe concept generation failed: ${e.message}`);
     res.status(500).json({ error: "Failed to generate universe concept" });
+  }
+});
+
+// Create a custom universe from the same builder used during onboarding.
+// Quota-checked. Returns immediately with the new universe id; image
+// generation runs in the background.
+router.post("/custom", async (req, res) => {
+  try {
+    const quota = await checkUniverseQuota(req.userId as string);
+    if (!quota.allowed) {
+      return res.status(403).json({
+        error: `You've reached your limit of ${quota.limit} universe${quota.limit === 1 ? "" : "s"}. Upgrade to premium for unlimited universes.`,
+      });
+    }
+
+    const built = await buildCustomUniverse(req.userId as string, req.body || {});
+    res.status(201).json({ universeId: built.id });
+    startUniverseImageGeneration(built.id, built.name);
+  } catch (e: any) {
+    const msg = e?.message || "Failed to create universe";
+    debug.error(`Custom universe creation failed: ${msg}`);
+    const isValidation = typeof msg === "string" && /required/i.test(msg);
+    res.status(isValidation ? 400 : 500).json({ error: msg });
   }
 });
 
