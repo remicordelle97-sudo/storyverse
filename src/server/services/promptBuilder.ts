@@ -1,6 +1,7 @@
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { STORY_PAGES } from "../lib/config.js";
+import type { StructureId } from "../../shared/structures.js";
 
 interface PromptInput {
   universeId: string;
@@ -8,7 +9,7 @@ interface PromptInput {
   mood: string;
   language: string;
   ageGroup: string;
-  structure: string;
+  structure: StructureId;
   length: "short";
   parentPrompt: string;
 }
@@ -82,7 +83,9 @@ VOCABULARY — Ages 6-8:
 - VOCABULARY CHECK: Read each sentence as if you are hearing it for the first time at age 6. Is every word either already known or immediately clear from context? If you have to think about a word, replace it.`,
 };
 
-const STRUCTURE_GUIDELINES: Record<string, string> = {
+// Typed by StructureId so adding a new archetype to the shared list
+// without a prompt body here becomes a TypeScript error.
+const STRUCTURE_GUIDELINES: Record<StructureId, string> = {
   "rule-of-three": `STORY STRUCTURE — Rule of Three:
 The protagonist must attempt to solve the central problem THREE times. This is one of the oldest and most satisfying patterns in children's storytelling. Think: "The Three Little Pigs" (straw, sticks, bricks), "Goldilocks and the Three Bears" (too hot, too cold, just right), "The Three Billy Goats Gruff" (small, medium, big).
 
@@ -264,10 +267,9 @@ export async function buildPrompt(input: PromptInput): Promise<BuiltPrompt> {
 
   const pageCount = STORY_PAGES;
 
-  // Story structure
-  const structureGuide =
-    STRUCTURE_GUIDELINES[input.structure] ||
-    STRUCTURE_GUIDELINES["problem-solution"];
+  // Story structure — input.structure is typed StructureId so the
+  // lookup is total; the fallback is defensive only.
+  const structureGuide = STRUCTURE_GUIDELINES[input.structure];
 
   // === PLAN PROMPT: universe + characters + structure + request ===
   let planPrompt = `=== UNIVERSE ===

@@ -5,6 +5,7 @@ import { getUniverses, generateStory, getStoryQuota, createCheckoutSession } fro
 import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
 import StoryLoadingScreen, { STORY_TEXT_PHRASES } from "../components/StoryLoadingScreen";
+import { STRUCTURE_LIST } from "../../shared/structures";
 
 const AGE_GROUPS = ["2-3", "4-5", "6-8"];
 
@@ -33,7 +34,7 @@ export default function StoryBuilder() {
   }, [universes, universeId]);
 
   const [ageGroup, setAgeGroup] = useState("4-5");
-  const [structure, setStructure] = useState("problem-solution");
+  const [structure, setStructure] = useState<(typeof STRUCTURE_LIST)[number]["id"]>("problem-solution");
   const [generateImages, setGenerateImages] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -119,25 +120,18 @@ export default function StoryBuilder() {
             </label>
             <p className="text-xs text-stone-400 mb-3">For testing</p>
             <div className="space-y-2">
-              {[
-                { value: "problem-solution", label: "Problem & Solution", desc: "A clear problem the hero works to solve" },
-                { value: "rule-of-three", label: "Rule of Three", desc: "Three attempts, fail, fail, succeed" },
-                { value: "cumulative", label: "Cumulative", desc: "Each event builds on the last, snowball style" },
-                { value: "circular", label: "Circular", desc: "Ends where it began, but the hero has changed" },
-                { value: "journey", label: "Journey & Return", desc: "Leave home, adventure, return transformed" },
-                { value: "unlikely-friendship", label: "Unlikely Friendship", desc: "Two different characters discover an unexpected bond" },
-              ].map((s) => (
+              {STRUCTURE_LIST.map((s) => (
                 <button
-                  key={s.value}
-                  onClick={() => setStructure(s.value)}
+                  key={s.id}
+                  onClick={() => setStructure(s.id)}
                   className={`w-full text-left px-4 py-3 rounded-xl border transition-colors ${
-                    structure === s.value
+                    structure === s.id
                       ? "border-primary bg-primary/5 text-stone-800"
                       : "border-stone-200 bg-white text-stone-600 hover:border-primary/30"
                   }`}
                 >
                   <span className="font-medium text-sm">{s.label}</span>
-                  <p className="text-xs text-stone-400 mt-0.5">{s.desc}</p>
+                  <p className="text-xs text-stone-400 mt-0.5">{s.description}</p>
                 </button>
               ))}
             </div>

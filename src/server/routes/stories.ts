@@ -10,6 +10,7 @@ import { generateStoryImages } from "../services/geminiGenerator.js";
 import { enqueueImageGeneration } from "../lib/imageQueue.js";
 import { verifyUniverseOwnership, verifyUniverseAccess } from "../lib/ownership.js";
 import { deleteStoriesCascade } from "../lib/cascade.js";
+import { STRUCTURE_IDS, isStructureId } from "../../shared/structures.js";
 
 const router = Router();
 
@@ -198,11 +199,13 @@ router.post("/generate", async (req, res) => {
       generateImages,
     } = req.body;
 
-    // Use requested structure, or pick randomly if not provided
-    const structures = ["problem-solution", "rule-of-three", "cumulative", "circular", "journey", "unlikely-friendship"];
-    const structure = requestedStructure && structures.includes(requestedStructure)
+    // Use requested structure, or pick randomly if not provided. The
+    // allowlist comes from the shared STRUCTURE_IDS constant so the
+    // client picker, the server validator, and the prompt-body table
+    // never drift apart.
+    const structure = isStructureId(requestedStructure)
       ? requestedStructure
-      : structures[Math.floor(Math.random() * structures.length)];
+      : STRUCTURE_IDS[Math.floor(Math.random() * STRUCTURE_IDS.length)];
 
     // Pick mood randomly for each story
     const mood = MOODS[Math.floor(Math.random() * MOODS.length)];
