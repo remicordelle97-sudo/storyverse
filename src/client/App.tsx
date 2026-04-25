@@ -5,7 +5,6 @@ import Library from "./pages/Library";
 import NewUniverse from "./pages/NewUniverse";
 import UniverseManager from "./pages/UniverseManager";
 import AdminDashboard from "./pages/AdminDashboard";
-import AdminTemplates from "./pages/AdminTemplates";
 import Onboarding from "./pages/Onboarding";
 import StoryBuilder from "./pages/StoryBuilder";
 import ReadingMode from "./pages/ReadingMode";
@@ -97,10 +96,6 @@ function AppRoutes() {
       <Route
         path="/admin"
         element={<AdminRoute><AdminDashboard /></AdminRoute>}
-      />
-      <Route
-        path="/admin/templates"
-        element={<AdminRoute><AdminTemplates /></AdminRoute>}
       />
       <Route
         path="/story-builder"

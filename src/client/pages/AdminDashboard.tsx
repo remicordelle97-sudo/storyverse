@@ -56,20 +56,12 @@ export default function AdminDashboard() {
           >
             Admin Dashboard
           </h1>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate("/admin/templates")}
-              className="text-sm text-amber-800 hover:text-amber-900 transition-colors font-medium"
-            >
-              Manage default universes
-            </button>
-            <button
-              onClick={() => navigate("/library")}
-              className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
-            >
-              Back to Library
-            </button>
-          </div>
+          <button
+            onClick={() => navigate("/library")}
+            className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
+          >
+            Back to Library
+          </button>
         </div>
       </div>
 

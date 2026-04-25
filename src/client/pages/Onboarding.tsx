@@ -1,46 +1,139 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getTemplateUniverses, completeOnboarding } from "../api/client";
+import { completeOnboarding } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import StoryLoadingScreen, { STORY_TEXT_PHRASES } from "../components/StoryLoadingScreen";
+
+const THEME_OPTIONS = [
+  "Space",
+  "Ocean",
+  "Forest",
+  "Fairy tale",
+  "Magic",
+  "Dinosaurs",
+  "Robots",
+  "Farm",
+  "Sports",
+  "Everyday adventures",
+];
+
+const TRAIT_OPTIONS = [
+  "Brave",
+  "Curious",
+  "Shy",
+  "Funny",
+  "Kind",
+  "Clever",
+  "Caring",
+  "Mischievous",
+  "Determined",
+  "Gentle",
+];
+
+interface ManualSupporting {
+  name: string;
+  species: string;
+  traits: string[];
+  customTrait: string;
+}
+
+const ONBOARDING_PHRASES = [
+  "Building your universe",
+  "Bringing characters to life",
+  "Sketching the world",
+  "Painting first impressions",
+];
 
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user, refreshUser } = useAuth();
-  const [step, setStep] = useState<"plan" | "universe" | "hero">("plan");
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [step, setStep] = useState<"plan" | "world">("plan");
+
+  const [universeName, setUniverseName] = useState("");
+  const [themes, setThemes] = useState<string[]>([]);
+  const [customTheme, setCustomTheme] = useState("");
+
   const [heroName, setHeroName] = useState("");
+  const [heroSpecies, setHeroSpecies] = useState("");
+  const [heroTraits, setHeroTraits] = useState<string[]>([]);
+  const [heroCustomTrait, setHeroCustomTrait] = useState("");
+
+  const [supportingMode, setSupportingMode] = useState<"auto" | "manual">("auto");
+  const [manualSupporting, setManualSupporting] = useState<ManualSupporting[]>([
+    { name: "", species: "", traits: [], customTrait: "" },
+    { name: "", species: "", traits: [], customTrait: "" },
+  ]);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: templates = [], isLoading } = useQuery({
-    queryKey: ["templates"],
-    queryFn: getTemplateUniverses,
-    enabled: step === "universe" || step === "hero",
-  });
-
-  const selectedTemplateData = templates.find((t: any) => t.id === selectedTemplate);
-  const templateMainCharacter = selectedTemplateData?.characters?.find((c: any) => c.role === "main");
-
-  function goToHero() {
-    if (!selectedTemplate) return;
-    // Always prefill with the current template's main character — picking a
-    // different universe after going back shouldn't keep the old default.
-    setHeroName(templateMainCharacter?.name || "");
-    setStep("hero");
+  function toggleTheme(t: string) {
+    setThemes((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  }
+  function toggleHeroTrait(t: string) {
+    setHeroTraits((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   }
 
+  function updateSupporting(i: number, patch: Partial<ManualSupporting>) {
+    setManualSupporting((prev) => prev.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  }
+
+  function toggleSupportingTrait(i: number, t: string) {
+    updateSupporting(i, {
+      traits: manualSupporting[i].traits.includes(t)
+        ? manualSupporting[i].traits.filter((x) => x !== t)
+        : [...manualSupporting[i].traits, t],
+    });
+  }
+
+  // Combine the chip selection with the optional "Other" free-text input.
+  function combineWithCustom(list: string[], custom: string) {
+    const trimmed = custom.trim();
+    const filtered = list.filter((x) => x !== "Other");
+    return list.includes("Other") && trimmed ? [...filtered, trimmed] : filtered;
+  }
+
+  const finalThemes = combineWithCustom(themes, customTheme);
+  const finalHeroTraits = combineWithCustom(heroTraits, heroCustomTrait);
+
+  const canSubmit =
+    universeName.trim().length > 0 &&
+    finalThemes.length > 0 &&
+    heroName.trim().length > 0 &&
+    heroSpecies.trim().length > 0 &&
+    finalHeroTraits.length > 0 &&
+    (supportingMode === "auto" ||
+      manualSupporting.every(
+        (s) =>
+          s.name.trim() &&
+          s.species.trim() &&
+          combineWithCustom(s.traits, s.customTrait).length > 0
+      ));
+
   async function handleFinish() {
-    if (!selectedTemplate) return;
-    const trimmed = heroName.trim();
-    if (!trimmed) {
-      setError("Please give your hero a name");
-      return;
-    }
+    if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
     try {
-      await completeOnboarding(selectedTemplate, trimmed);
+      const supporting =
+        supportingMode === "auto"
+          ? "auto"
+          : manualSupporting.map((s) => ({
+              name: s.name.trim(),
+              species: s.species.trim(),
+              traits: combineWithCustom(s.traits, s.customTrait),
+            }));
+
+      await completeOnboarding({
+        universeName: universeName.trim(),
+        themes: finalThemes,
+        hero: {
+          name: heroName.trim(),
+          species: heroSpecies.trim(),
+          traits: finalHeroTraits,
+        },
+        supporting,
+      });
       await refreshUser();
       navigate("/library");
     } catch (e: any) {
@@ -49,9 +142,13 @@ export default function Onboarding() {
     }
   }
 
+  if (submitting) {
+    return <StoryLoadingScreen phrases={ONBOARDING_PHRASES} />;
+  }
+
   return (
     <div className="min-h-screen bg-stone-50 flex items-start justify-center py-12 px-4">
-      <div className={`w-full ${step === "universe" ? "max-w-6xl" : "max-w-3xl"}`}>
+      <div className={`w-full ${step === "world" ? "max-w-3xl" : "max-w-3xl"}`}>
         <div className="text-center mb-8">
           <h1
             className="text-3xl font-bold text-stone-800 mb-2"
@@ -66,23 +163,19 @@ export default function Onboarding() {
 
         {/* Step indicator */}
         <div className="flex items-center justify-center gap-2 mb-10">
-          <StepDot active={step === "plan"} done={step === "universe" || step === "hero"} label="Plan" />
+          <StepDot active={step === "plan"} done={step === "world"} label="Plan" />
           <div className="w-8 h-px bg-stone-300" />
-          <StepDot active={step === "universe"} done={step === "hero"} label="Universe" />
-          <div className="w-8 h-px bg-stone-300" />
-          <StepDot active={step === "hero"} done={false} label="Hero" />
+          <StepDot active={step === "world"} done={false} label="Your world" />
         </div>
 
         {step === "plan" && (
           <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
             <h2 className="text-lg font-semibold text-stone-800 mb-1">Choose your plan</h2>
-            <p className="text-sm text-stone-500 mb-6">
-              You can upgrade anytime later.
-            </p>
+            <p className="text-sm text-stone-500 mb-6">You can upgrade anytime later.</p>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <button
-                onClick={() => setStep("universe")}
+                onClick={() => setStep("world")}
                 className="text-left border-2 border-primary bg-primary/5 rounded-xl p-5 hover:bg-primary/10 transition-colors"
               >
                 <div className="flex items-center justify-between mb-2">
@@ -120,7 +213,7 @@ export default function Onboarding() {
 
             <div className="mt-6 flex justify-end">
               <button
-                onClick={() => setStep("universe")}
+                onClick={() => setStep("world")}
                 className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 Continue
@@ -129,73 +222,157 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step === "universe" && (
-          <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
-            <h2 className="text-lg font-semibold text-stone-800 mb-6">Pick your first universe</h2>
-
-            {isLoading ? (
-              <p className="text-sm text-stone-400 py-8 text-center">Loading universes...</p>
-            ) : templates.length === 0 ? (
-              <p className="text-sm text-stone-400 py-8 text-center">
-                No universes available yet. Please check back soon.
+        {step === "world" && (
+          <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm space-y-8">
+            <div>
+              <h2 className="text-lg font-semibold text-stone-800 mb-1">Build your world</h2>
+              <p className="text-sm text-stone-500">
+                Choose a name, themes, and a hero. We'll handle the rest.
               </p>
-            ) : (
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {templates.map((t: any) => {
-                  const selected = selectedTemplate === t.id;
-                  let themes: string[] = [];
-                  try {
-                    const parsed = JSON.parse(t.themes);
-                    if (Array.isArray(parsed)) themes = parsed.filter(Boolean);
-                  } catch {
-                    themes = typeof t.themes === "string" && t.themes
-                      ? t.themes.split(",").map((s: string) => s.trim()).filter(Boolean)
-                      : [];
-                  }
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setSelectedTemplate(t.id)}
-                      className={`text-left rounded-xl overflow-hidden border-2 transition-colors ${
-                        selected
-                          ? "border-primary bg-primary/5"
-                          : "border-stone-200 bg-white hover:border-stone-300"
-                      }`}
-                    >
-                      {t.styleReferenceUrl && (
-                        <div className="aspect-[4/3] bg-stone-100">
-                          <img
-                            src={t.styleReferenceUrl}
-                            alt={t.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      )}
-                      <div className="p-4">
-                        <h3 className="font-semibold text-stone-800 mb-1">{t.name}</h3>
-                        {themes.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-2">
-                            {themes.map((theme) => (
-                              <span
-                                key={theme}
-                                className="text-[10px] px-1.5 py-0.5 rounded bg-stone-100 text-stone-500"
-                              >
-                                {theme}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        <p className="text-xs text-stone-500 whitespace-pre-wrap">
-                          {t.settingDescription}
-                        </p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+            </div>
 
-            <div className="mt-6 flex justify-between items-center">
+            {/* Universe name */}
+            <Field label="Universe name">
+              <input
+                value={universeName}
+                onChange={(e) => setUniverseName(e.target.value)}
+                maxLength={60}
+                placeholder="e.g. The Whispering Woods"
+                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </Field>
+
+            {/* Themes */}
+            <Field label="Themes" hint="Pick one or more.">
+              <ChipPicker
+                options={[...THEME_OPTIONS, "Other"]}
+                selected={themes}
+                onToggle={toggleTheme}
+              />
+              {themes.includes("Other") && (
+                <input
+                  value={customTheme}
+                  onChange={(e) => setCustomTheme(e.target.value)}
+                  placeholder="Tell us more..."
+                  className="mt-3 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              )}
+            </Field>
+
+            {/* Hero */}
+            <div>
+              <h3 className="text-sm font-medium text-stone-700 mb-3">Hero</h3>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <Field label="Name">
+                  <input
+                    value={heroName}
+                    onChange={(e) => setHeroName(e.target.value)}
+                    maxLength={40}
+                    placeholder="e.g. Mia"
+                    className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </Field>
+                <Field label="Species or type">
+                  <input
+                    value={heroSpecies}
+                    onChange={(e) => setHeroSpecies(e.target.value)}
+                    maxLength={40}
+                    placeholder="e.g. Rabbit, Robot, Dragon"
+                    className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                </Field>
+              </div>
+              <div className="mt-4">
+                <Field label="Traits" hint="Pick one or more.">
+                  <ChipPicker
+                    options={[...TRAIT_OPTIONS, "Other"]}
+                    selected={heroTraits}
+                    onToggle={toggleHeroTrait}
+                  />
+                  {heroTraits.includes("Other") && (
+                    <input
+                      value={heroCustomTrait}
+                      onChange={(e) => setHeroCustomTrait(e.target.value)}
+                      placeholder="Tell us more..."
+                      className="mt-3 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                    />
+                  )}
+                </Field>
+              </div>
+            </div>
+
+            {/* Supporting characters */}
+            <div>
+              <h3 className="text-sm font-medium text-stone-700 mb-3">Supporting characters</h3>
+              <div className="flex gap-2 mb-4">
+                <ToggleButton
+                  active={supportingMode === "auto"}
+                  onClick={() => setSupportingMode("auto")}
+                >
+                  Auto-create
+                </ToggleButton>
+                <ToggleButton
+                  active={supportingMode === "manual"}
+                  onClick={() => setSupportingMode("manual")}
+                >
+                  I'll add my own
+                </ToggleButton>
+              </div>
+              {supportingMode === "auto" ? (
+                <p className="text-xs text-stone-400">
+                  We'll invent two friends that fit your world.
+                </p>
+              ) : (
+                <div className="space-y-5">
+                  {manualSupporting.map((s, i) => (
+                    <div key={i} className="border border-stone-200 rounded-lg p-4 space-y-3">
+                      <p className="text-xs font-medium text-stone-500 uppercase tracking-wider">
+                        Friend {i + 1}
+                      </p>
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <Field label="Name">
+                          <input
+                            value={s.name}
+                            onChange={(e) => updateSupporting(i, { name: e.target.value })}
+                            maxLength={40}
+                            placeholder="e.g. Pip"
+                            className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                          />
+                        </Field>
+                        <Field label="Species or type">
+                          <input
+                            value={s.species}
+                            onChange={(e) => updateSupporting(i, { species: e.target.value })}
+                            maxLength={40}
+                            placeholder="e.g. Owl"
+                            className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                          />
+                        </Field>
+                      </div>
+                      <Field label="Traits">
+                        <ChipPicker
+                          options={[...TRAIT_OPTIONS, "Other"]}
+                          selected={s.traits}
+                          onToggle={(t) => toggleSupportingTrait(i, t)}
+                        />
+                        {s.traits.includes("Other") && (
+                          <input
+                            value={s.customTrait}
+                            onChange={(e) => updateSupporting(i, { customTrait: e.target.value })}
+                            placeholder="Tell us more..."
+                            className="mt-3 w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                          />
+                        )}
+                      </Field>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {error && <p className="text-xs text-red-500">{error}</p>}
+
+            <div className="flex justify-between items-center pt-2">
               <button
                 onClick={() => setStep("plan")}
                 className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
@@ -203,65 +380,91 @@ export default function Onboarding() {
                 &larr; Back
               </button>
               <button
-                onClick={goToHero}
-                disabled={!selectedTemplate}
-                className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === "hero" && (
-          <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
-            <h2 className="text-lg font-semibold text-stone-800 mb-1">Name your hero</h2>
-            <p className="text-sm text-stone-500 mb-6">
-              This is the star of every story in your universe.
-            </p>
-
-            <div>
-              <label className="block text-xs font-medium text-stone-600 mb-2">
-                Hero's name
-              </label>
-              <input
-                autoFocus
-                value={heroName}
-                onChange={(e) => setHeroName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && heroName.trim() && !submitting) handleFinish();
-                }}
-                maxLength={40}
-                placeholder={templateMainCharacter?.name || "Pick a name"}
-                className="w-full border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              />
-              <p className="text-[11px] text-stone-400 mt-2">
-                The default name is <span className="font-medium text-stone-500">{templateMainCharacter?.name || "—"}</span>. You can keep it or pick your own.
-              </p>
-            </div>
-
-            {error && <p className="text-xs text-red-500 mt-4">{error}</p>}
-
-            <div className="mt-6 flex justify-between items-center">
-              <button
-                onClick={() => setStep("universe")}
-                className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
-                disabled={submitting}
-              >
-                &larr; Back
-              </button>
-              <button
                 onClick={handleFinish}
-                disabled={!heroName.trim() || submitting}
+                disabled={!canSubmit}
                 className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                {submitting ? "Setting up..." : "Finish setup"}
+                Confirm
               </button>
             </div>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-stone-600 mb-2">
+        {label}
+        {hint && <span className="ml-1 text-stone-400 font-normal">— {hint}</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function ChipPicker({
+  options,
+  selected,
+  onToggle,
+}: {
+  options: string[];
+  selected: string[];
+  onToggle: (option: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((o) => {
+        const isSelected = selected.includes(o);
+        return (
+          <button
+            key={o}
+            onClick={() => onToggle(o)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              isSelected
+                ? "border-primary bg-primary text-white"
+                : "border-stone-200 bg-white text-stone-600 hover:border-primary/40"
+            }`}
+          >
+            {o}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ToggleButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+        active
+          ? "border-primary bg-primary/5 text-stone-800"
+          : "border-stone-200 bg-white text-stone-500 hover:border-primary/30"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getStories, getUniverses, getUniverseQuota, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
@@ -139,10 +139,49 @@ export default function Library() {
     queryFn: () => getStories(),
   });
 
+  // Detect universes that haven't finished generating their style reference
+  // and character sheets so we can poll until they're ready and notify
+  // the user.
+  const isUniverseReady = (u: any) => {
+    if (!u.styleReferenceUrl) return false;
+    const chars = u.characters || [];
+    if (chars.length === 0) return false;
+    return chars.every((c: any) => !!c.referenceImageUrl);
+  };
+
   const { data: universes = [] } = useQuery({
     queryKey: ["universes"],
     queryFn: getUniverses,
+    // Poll every 5s while any universe is still generating images.
+    refetchInterval: (query) => {
+      const data = (query.state.data as any[]) || [];
+      const anyPending = data.some((u: any) => !isUniverseReady(u));
+      return anyPending ? 5000 : false;
+    },
   });
+
+  // Track "newly-ready" transitions so we can show a toast when background
+  // image generation completes.
+  const pendingRef = useRef<Set<string>>(new Set());
+  const [readyNotice, setReadyNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const justReady: string[] = [];
+    for (const u of universes as any[]) {
+      const ready = isUniverseReady(u);
+      if (!ready) {
+        pendingRef.current.add(u.id);
+      } else if (pendingRef.current.has(u.id)) {
+        pendingRef.current.delete(u.id);
+        justReady.push(u.name);
+      }
+    }
+    if (justReady.length > 0) {
+      setReadyNotice(`${justReady.join(" and ")} ${justReady.length === 1 ? "is" : "are"} ready!`);
+      const timer = setTimeout(() => setReadyNotice(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [universes]);
 
   const { data: universeQuota } = useQuery({
     queryKey: ["universe-quota"],
@@ -193,6 +232,26 @@ export default function Library() {
         background: "linear-gradient(to bottom, #FAF6EE 0%, #F3ECE0 50%, #EDE4D3 100%)",
       }}
     >
+      {/* Universe-ready toast */}
+      {readyNotice && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] bg-emerald-600 text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 animate-[fadeInDown_400ms_ease-out]">
+          <span>✓</span>
+          <span>{readyNotice}</span>
+          <button
+            onClick={() => setReadyNotice(null)}
+            className="ml-2 text-white/70 hover:text-white text-xs"
+          >
+            ✕
+          </button>
+          <style>{`
+            @keyframes fadeInDown {
+              from { opacity: 0; transform: translate(-50%, -8px); }
+              to   { opacity: 1; transform: translate(-50%, 0); }
+            }
+          `}</style>
+        </div>
+      )}
+
       {/* Header */}
       <div className="max-w-[95vw] mx-auto px-4 pt-6 pb-4">
         <div className="flex items-center justify-between">

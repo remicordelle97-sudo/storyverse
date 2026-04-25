@@ -26,21 +26,22 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export const getAdminUsers = () => request<any[]>("/admin/users");
 export const impersonateUser = (userId: string) =>
   request<{ accessToken: string; user: any }>(`/admin/impersonate/${userId}`, { method: "POST" });
-export const getAdminUniverses = () => request<any[]>("/admin/universes");
 export const resetUser = (userId: string) =>
   request<{ ok: boolean; storiesDeleted: number; universesDeleted: number }>(
     `/admin/users/${userId}/reset`,
     { method: "POST" }
   );
-export const toggleUniverseTemplate = (id: string) =>
-  request<{ isTemplate: boolean }>(`/admin/universes/${id}/toggle-template`, { method: "POST" });
-
 // Onboarding
-export const getTemplateUniverses = () => request<any[]>("/universes/templates");
-export const completeOnboarding = (templateUniverseId: string, mainCharacterName: string) =>
+export interface OnboardingPayload {
+  universeName: string;
+  themes: string[];
+  hero: { name: string; species: string; traits: string[] };
+  supporting: "auto" | { name: string; species: string; traits: string[] }[];
+}
+export const completeOnboarding = (payload: OnboardingPayload) =>
   request<{ universeId: string }>("/auth/onboard", {
     method: "POST",
-    body: JSON.stringify({ templateUniverseId, mainCharacterName }),
+    body: JSON.stringify(payload),
   });
 
 // Character rename (user-allowed update)
