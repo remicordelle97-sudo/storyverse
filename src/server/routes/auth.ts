@@ -9,7 +9,14 @@ const router = Router();
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const ADMIN_EMAILS = ["remi.cordelle97@gmail.com"];
+// Admin identity is configured via the ADMIN_EMAILS env var (comma-
+// separated, case-insensitive). Empty/unset means no new accounts will
+// be auto-promoted; existing admins keep their role from the DB.
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
+const isAdminEmail = (email: string) => ADMIN_EMAILS.includes(email.toLowerCase());
 
 // Google login
 router.post("/google", async (req, res) => {
@@ -34,7 +41,7 @@ router.post("/google", async (req, res) => {
     });
 
     if (!user) {
-      const role = ADMIN_EMAILS.includes(payload.email) ? "admin" : "user";
+      const role = isAdminEmail(payload.email) ? "admin" : "user";
       user = await prisma.user.create({
         data: {
           googleId: payload.sub,

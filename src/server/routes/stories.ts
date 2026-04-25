@@ -68,7 +68,9 @@ router.get("/", async (req, res) => {
   }
 });
 
-// Check story status (for polling during image generation)
+// Check story status (for polling during image generation). Same access
+// rules as GET /:id — must be public, or the requester must own the
+// universe, or have authored the story.
 router.get("/:id/status", async (req, res) => {
   try {
     const story = await prisma.story.findUnique({
@@ -77,10 +79,19 @@ router.get("/:id/status", async (req, res) => {
         id: true,
         status: true,
         hasIllustrations: true,
+        isPublic: true,
+        universeId: true,
+        createdById: true,
         scenes: { select: { sceneNumber: true, imageUrl: true }, orderBy: { sceneNumber: "asc" } },
       },
     });
     if (!story) return res.status(404).json({ error: "Story not found" });
+
+    const isOwner = await verifyUniverseOwnership(story.universeId, req.userId as string);
+    const isCreator = story.createdById === (req.userId as string);
+    if (!story.isPublic && !isOwner && !isCreator) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     const imagesReady = story.scenes.filter((s) => s.imageUrl).length;
     const totalPages = story.scenes.length;

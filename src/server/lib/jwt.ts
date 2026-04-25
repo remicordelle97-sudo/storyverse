@@ -1,6 +1,26 @@
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "storyverse-dev-secret-change-in-production";
+// Resolve the signing secret at module load. In production we refuse to
+// start without one rather than silently falling back to a known string —
+// anyone reading the source could otherwise mint valid tokens.
+function resolveJwtSecret(): string {
+  const value = process.env.JWT_SECRET;
+  if (value && value.length >= 32) return value;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "JWT_SECRET is missing or too short (min 32 chars). Set it in the production environment before booting."
+    );
+  }
+
+  // Dev fallback — log loudly so it's not accidentally relied on.
+  console.warn(
+    "[jwt] JWT_SECRET not set or shorter than 32 chars; using a development fallback. DO NOT deploy without setting JWT_SECRET."
+  );
+  return "storyverse-dev-secret-change-in-production-only-for-local-development";
+}
+
+const JWT_SECRET = resolveJwtSecret();
 const ACCESS_TOKEN_EXPIRY = "1h";
 const REFRESH_TOKEN_EXPIRY = "7d";
 
