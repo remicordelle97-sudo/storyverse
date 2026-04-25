@@ -32,11 +32,17 @@ export const resetUser = (userId: string) =>
     { method: "POST" }
   );
 // Onboarding / custom universe builder share the same payload shape.
+export interface CharacterPhoto {
+  mimeType: string;
+  data: string; // raw base64 (no "data:..." prefix)
+}
 export interface OnboardingPayload {
   universeName: string;
   themes: string[];
-  hero: { name: string; species: string; traits: string[] };
-  supporting: "auto" | { name: string; species: string; traits: string[] }[];
+  hero: { name: string; species: string; traits: string[]; photo?: CharacterPhoto };
+  supporting:
+    | "auto"
+    | { name: string; species: string; traits: string[]; photo?: CharacterPhoto }[];
 }
 export const completeOnboarding = (payload: OnboardingPayload) =>
   request<{ universeId: string }>("/auth/onboard", {

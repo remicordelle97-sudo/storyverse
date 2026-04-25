@@ -26,18 +26,59 @@ const TRAIT_OPTIONS = [
   "Gentle",
 ];
 
+export interface CharacterPhoto {
+  mimeType: string;
+  data: string; // raw base64 (no "data:..." prefix)
+  previewUrl: string; // data:image/...;base64,... for the <img> preview
+}
+
 interface ManualSupporting {
   name: string;
   species: string;
   traits: string[];
   customTrait: string;
+  photo: CharacterPhoto | null;
 }
 
 export interface UniverseBuilderPayload {
   universeName: string;
   themes: string[];
-  hero: { name: string; species: string; traits: string[] };
-  supporting: "auto" | { name: string; species: string; traits: string[] }[];
+  hero: {
+    name: string;
+    species: string;
+    traits: string[];
+    photo?: { mimeType: string; data: string };
+  };
+  supporting:
+    | "auto"
+    | {
+        name: string;
+        species: string;
+        traits: string[];
+        photo?: { mimeType: string; data: string };
+      }[];
+}
+
+const ALLOWED_PHOTO_MIME = ["image/jpeg", "image/png", "image/webp"];
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024; // 4MB raw → ~5.5MB base64
+
+async function readPhotoFile(file: File): Promise<CharacterPhoto> {
+  if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
+    throw new Error("Please upload a JPG, PNG, or WebP image.");
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    throw new Error("Photo is too large (max 4MB).");
+  }
+  const dataUrl: string = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+  const [meta, raw] = dataUrl.split(",");
+  const match = meta.match(/data:(.+?);base64/);
+  if (!match) throw new Error("Could not read image data.");
+  return { mimeType: match[1], data: raw, previewUrl: dataUrl };
 }
 
 interface UniverseBuilderFormProps {
@@ -69,12 +110,14 @@ export default function UniverseBuilderForm({
   const [heroSpecies, setHeroSpecies] = useState("");
   const [heroTraits, setHeroTraits] = useState<string[]>([]);
   const [heroCustomTrait, setHeroCustomTrait] = useState("");
+  const [heroPhoto, setHeroPhoto] = useState<CharacterPhoto | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const [supportingMode, setSupportingMode] = useState<"auto" | "manual">("auto");
   const [manualSupporting, setManualSupporting] = useState<ManualSupporting[]>([
-    { name: "", species: "", traits: [], customTrait: "" },
-    { name: "", species: "", traits: [], customTrait: "" },
-    { name: "", species: "", traits: [], customTrait: "" },
+    { name: "", species: "", traits: [], customTrait: "", photo: null },
+    { name: "", species: "", traits: [], customTrait: "", photo: null },
+    { name: "", species: "", traits: [], customTrait: "", photo: null },
   ]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -120,6 +163,12 @@ export default function UniverseBuilderForm({
           combineWithCustom(s.traits, s.customTrait).length > 0
       ));
 
+  // Strip the previewUrl before sending — server only needs mimeType + raw base64.
+  function stripPreview(p: CharacterPhoto | null) {
+    if (!p) return undefined;
+    return { mimeType: p.mimeType, data: p.data };
+  }
+
   async function handleSubmit() {
     if (!canSubmit) return;
     setSubmitting(true);
@@ -132,6 +181,7 @@ export default function UniverseBuilderForm({
               name: s.name.trim(),
               species: s.species.trim(),
               traits: combineWithCustom(s.traits, s.customTrait),
+              photo: stripPreview(s.photo),
             }));
       await onSubmit({
         universeName: universeName.trim(),
@@ -140,12 +190,41 @@ export default function UniverseBuilderForm({
           name: heroName.trim(),
           species: heroSpecies.trim(),
           traits: finalHeroTraits,
+          photo: stripPreview(heroPhoto),
         },
         supporting,
       });
     } catch (e: any) {
       setError(e?.message || "Something went wrong");
       setSubmitting(false);
+    }
+  }
+
+  async function handleHeroPhoto(file: File | null) {
+    setPhotoError(null);
+    if (!file) {
+      setHeroPhoto(null);
+      return;
+    }
+    try {
+      setHeroPhoto(await readPhotoFile(file));
+    } catch (e: any) {
+      setPhotoError(e?.message || "Could not read photo");
+      setHeroPhoto(null);
+    }
+  }
+
+  async function handleSupportingPhoto(i: number, file: File | null) {
+    setPhotoError(null);
+    if (!file) {
+      updateSupporting(i, { photo: null });
+      return;
+    }
+    try {
+      const photo = await readPhotoFile(file);
+      updateSupporting(i, { photo });
+    } catch (e: any) {
+      setPhotoError(e?.message || "Could not read photo");
     }
   }
 
@@ -221,6 +300,17 @@ export default function UniverseBuilderForm({
             )}
           </Field>
         </div>
+        <div className="mt-4">
+          <Field
+            label="Photo (optional)"
+            hint="If your hero is a real toy, upload a photo. We'll use it to design the character. Plain background, well-lit works best."
+          >
+            <PhotoUpload
+              photo={heroPhoto}
+              onChange={handleHeroPhoto}
+            />
+          </Field>
+        </div>
       </div>
 
       <div>
@@ -285,12 +375,19 @@ export default function UniverseBuilderForm({
                     />
                   )}
                 </Field>
+                <Field label="Photo (optional)">
+                  <PhotoUpload
+                    photo={s.photo}
+                    onChange={(file) => handleSupportingPhoto(i, file)}
+                  />
+                </Field>
               </div>
             ))}
           </div>
         )}
       </div>
 
+      {photoError && <p className="text-xs text-red-500">{photoError}</p>}
       {error && <p className="text-xs text-red-500">{error}</p>}
 
       <div className="flex justify-between items-center pt-2">
@@ -388,5 +485,43 @@ function ToggleButton({
     >
       {active ? children : children}
     </button>
+  );
+}
+
+function PhotoUpload({
+  photo,
+  onChange,
+}: {
+  photo: CharacterPhoto | null;
+  onChange: (file: File | null) => void;
+}) {
+  if (photo) {
+    return (
+      <div className="flex items-center gap-3">
+        <img
+          src={photo.previewUrl}
+          alt="Uploaded"
+          className="w-20 h-20 object-cover rounded-lg border border-stone-200"
+        />
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="text-xs text-stone-500 hover:text-red-500 transition-colors"
+        >
+          Remove photo
+        </button>
+      </div>
+    );
+  }
+  return (
+    <label className="inline-flex items-center gap-2 px-3 py-2 text-xs border border-dashed border-stone-300 rounded-lg cursor-pointer hover:border-primary hover:text-primary text-stone-500 transition-colors">
+      <span>Upload photo</span>
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => onChange(e.target.files?.[0] || null)}
+      />
+    </label>
   );
 }

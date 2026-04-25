@@ -6,11 +6,22 @@ import { generateStyleReference, generateAllCharacterSheets } from "./geminiGene
 
 const anthropic = new Anthropic();
 
+export interface CharacterPhoto {
+  mimeType: string; // e.g. "image/jpeg"
+  data: string;     // raw base64, no "data:..." prefix
+}
+
+const ALLOWED_PHOTO_MIME = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+// Anthropic vision caps individual images around 5MB after decoding.
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
 export interface UniverseBuilderInput {
   universeName: string;
   themes: string[];
-  hero: { name: string; species: string; traits: string[] };
-  supporting: "auto" | { name: string; species: string; traits: string[] }[];
+  hero: { name: string; species: string; traits: string[]; photo?: CharacterPhoto };
+  supporting:
+    | "auto"
+    | { name: string; species: string; traits: string[]; photo?: CharacterPhoto }[];
 }
 
 export interface BuiltUniverse {
@@ -18,11 +29,52 @@ export interface BuiltUniverse {
   name: string;
 }
 
+interface ClaudeImageBlock {
+  type: "image";
+  source: { type: "base64"; media_type: string; data: string };
+}
+interface ClaudeTextBlock {
+  type: "text";
+  text: string;
+}
+type ClaudeContentBlock = ClaudeImageBlock | ClaudeTextBlock;
+
+/**
+ * Validate and convert an in-memory photo to an Anthropic image content
+ * block. Returns null if the photo is missing/invalid (caller falls
+ * back to text-based generation for that character).
+ */
+function photoToImageBlock(photo?: CharacterPhoto): ClaudeImageBlock | null {
+  if (!photo || !photo.data || !photo.mimeType) return null;
+  if (!ALLOWED_PHOTO_MIME.has(photo.mimeType)) return null;
+  // base64 length × 3/4 ≈ decoded bytes
+  const approxBytes = Math.floor((photo.data.length * 3) / 4);
+  if (approxBytes > MAX_PHOTO_BYTES) return null;
+  return {
+    type: "image",
+    source: { type: "base64", media_type: photo.mimeType, data: photo.data },
+  };
+}
+
+const SYSTEM_PROMPT = `You design complete children's story universes — setting and an ensemble cast — with rich enough detail that every character looks identical across many illustrations.
+
+For any character where the user has uploaded a photo (likely a real-world toy or stuffed animal), treat that photo as the SOURCE OF TRUTH for that character's visual details: shape, colors, distinguishing features, accessories. Use the user-supplied name, species, and traits as personality and behavioral context. If the photo contradicts the species label (e.g., the user typed "rabbit" but the photo shows a teddy bear), describe what you actually see.
+
+When deriving fields from a photo: if a feature isn't directly visible (e.g., the back of the body, the underside, or one side of the head), infer it plausibly from what you can see and from common characteristics of this kind of toy/animal. Never say "not visible" or omit a field — the illustrator needs a complete spec to draw the character from any angle.
+
+For characters with no photo, invent appearance and outfit from species + traits as usual. Every character must have a distinct silhouette, primary color, and size relative to the others.
+
+Return ONLY valid JSON, no markdown fences.`;
+
 /**
  * Synchronous half: ask Claude to flesh out the setting description and
  * every character's appearance/outfit, then persist the universe + its
  * characters. Returns once the records exist so the caller can respond
  * to the client immediately.
+ *
+ * If the user has uploaded photos for any character, those photos are
+ * passed inline as base64 vision inputs in the same Claude call. They
+ * are used in memory only — never written to disk or storage.
  *
  * The caller is expected to invoke startUniverseImageGeneration(id) on
  * the returned universe to kick off the background Gemini work.
@@ -43,8 +95,10 @@ export async function buildCustomUniverse(
     throw new Error("Hero name, species, and at least one trait are required");
   }
 
+  const heroPhotoBlock = photoToImageBlock(input.hero.photo);
+
   let supportingMode: "auto" | "manual" = "auto";
-  let manualSupporting: { name: string; species: string; traits: string[] }[] = [];
+  let manualSupporting: { name: string; species: string; traits: string[]; photoBlock: ClaudeImageBlock | null }[] = [];
   if (Array.isArray(input.supporting)) {
     supportingMode = "manual";
     manualSupporting = input.supporting
@@ -52,32 +106,40 @@ export async function buildCustomUniverse(
         name: s.name.trim(),
         species: s.species.trim(),
         traits: s.traits.map((t) => t.trim()).filter(Boolean),
+        photoBlock: photoToImageBlock(s.photo),
       }))
       .filter((s) => s.name && s.species && s.traits.length > 0);
   }
 
-  const supportingInstruction = supportingMode === "auto"
-    ? `Invent 3 supporting characters that fit this universe and complement the hero. Each should be a different species from the hero and from each other. Give each one: name, species, 2-4 personality traits, a relationship_archetype (their role in the hero's life), appearance, and outfit.`
-    : `Generate appearance and outfit fields for these supporting characters supplied by the user. Use their given name, species, and traits exactly. Add a relationship_archetype that fits.\n\n${manualSupporting.map((s, i) => `Supporting ${i + 1}: name="${s.name}", species="${s.species}", traits=${JSON.stringify(s.traits)}`).join("\n")}`;
+  const heroPhotoNote = heroPhotoBlock ? "(photo provided below)" : "(no photo)";
 
-  const userMessage = `Create a children's story universe and its character ensemble.
+  const supportingRosterText = supportingMode === "auto"
+    ? `Invent 3 supporting characters that fit this universe and complement the hero. Each should be a different species from the hero and from each other. Give each one: name, species, 2-4 personality traits, a relationship_archetype (their role in the hero's life), appearance, and outfit.`
+    : `The user has supplied ${manualSupporting.length} supporting characters:\n${manualSupporting
+        .map((s, i) => {
+          const note = s.photoBlock ? "(photo provided below)" : "(no photo)";
+          return `- Supporting ${i + 1}: name="${s.name}", species="${s.species}", traits=${JSON.stringify(s.traits)} ${note}`;
+        })
+        .join("\n")}\n\nFor each, generate appearance and outfit. Use the user-supplied name, species, and traits exactly. Add a relationship_archetype that fits.`;
+
+  const introText = `Create a children's story universe and its character ensemble.
 
 USER-PROVIDED:
 - Universe name: ${universeName}
 - Themes: ${themes.join(", ")}
-- Hero name: ${heroName}
-- Hero species: ${heroSpecies}
-- Hero personality traits: ${heroTraits.join(", ")}
+- Hero: ${heroName} (${heroSpecies}) — traits: ${heroTraits.join(", ")} ${heroPhotoNote}
 
-YOUR JOB:
+${supportingRosterText}`;
+
+  const jobText = `YOUR JOB:
 1. Write a 3-4 sentence setting_description that paints this world vividly. The themes are the user's interests — weave them in.
-2. Generate the hero's appearance and outfit from the user-supplied species and traits. Keep the user's name, species, and traits exactly as given.
-3. ${supportingInstruction}
+2. For each character WITH a photo: derive "appearance" and "outfit" from what you see in their photo, with hex codes. Capture the actual colors, proportions, materials, and accessories. The illustrator must be able to draw the toy faithfully from your description alone, without the photo. If a feature isn't directly visible in the photo, infer it plausibly — never leave a field blank or say "not visible".
+3. For each character WITHOUT a photo: invent "appearance" and "outfit" from the user's species and traits, with hex codes.
+4. Every character must have a distinct silhouette, primary color, and size relative to the others.
 
 VISUAL FIELD REQUIREMENTS (for every character):
 - "appearance" — BODY ONLY (no clothing). Include BODY (shape, size, primary color with hex), HEAD (shape, color hex), EYES (count, shape, color hex), nose/mouth/snout, EARS, ARMS (with finger count), LEGS, WINGS (or "none"), TAIL (or "none"), ANTENNAE/HORNS (or "none"), MARKINGS (with hex codes). Every color must include a hex code.
-- "outfit" — Format: "ALWAYS WEARS AND CARRIES (never remove any item):\\n- #hex item description". One line per item.
-- Every character must have a different SILHOUETTE, primary color, and size relative to each other.
+- "outfit" — Format: "ALWAYS WEARS AND CARRIES (never remove any item):\\n- #hex item description". One line per item. If the toy in the photo isn't wearing anything separable from its body, return an empty string.
 
 Return EXACTLY this JSON:
 {
@@ -95,13 +157,39 @@ Return EXACTLY this JSON:
   ]
 }`;
 
+  // Build the content array: intro text → labeled image blocks for any
+  // character with a photo → the JOB instructions.
+  const content: ClaudeContentBlock[] = [{ type: "text", text: introText }];
+  if (heroPhotoBlock) {
+    content.push({ type: "text", text: `Photo for the hero (${heroName}):` });
+    content.push(heroPhotoBlock);
+  }
+  manualSupporting.forEach((s, i) => {
+    if (s.photoBlock) {
+      content.push({
+        type: "text",
+        text: `Photo for supporting ${i + 1} (${s.name}, ${s.species}):`,
+      });
+      content.push(s.photoBlock);
+    }
+  });
+  content.push({ type: "text", text: jobText });
+
+  const photoCount =
+    (heroPhotoBlock ? 1 : 0) + manualSupporting.filter((s) => s.photoBlock).length;
+  debug.universe("Universe builder Claude call", {
+    universe: universeName,
+    supportingMode,
+    supportingCount: supportingMode === "auto" ? "auto-3" : manualSupporting.length,
+    photos: photoCount,
+  });
+
   const claudeResp = await anthropic.messages.create({
     model: CLAUDE_MODEL,
     max_tokens: MAX_TOKENS_SHORT,
     temperature: TEMPERATURE_CREATIVE,
-    system:
-      "You design complete children's story universes — setting and an ensemble cast — with rich enough detail that every character looks identical across many illustrations. Return ONLY valid JSON, no markdown fences.",
-    messages: [{ role: "user", content: userMessage }],
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content }],
   });
 
   const textBlock = claudeResp.content.find((b) => b.type === "text");

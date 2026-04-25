@@ -17,7 +17,10 @@ const PORT = process.env.PORT || 3001;
 // Stripe webhook needs raw body — must be before express.json()
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
 
-app.use(express.json());
+// Bumped to 10mb to fit base64-encoded character photos that flow through
+// /api/auth/onboard and /api/universes/custom. The photos are used in
+// memory for a single Claude vision call and never persisted.
+app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
 
 // Health check (no auth required)
