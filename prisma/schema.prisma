@@ -74,6 +74,9 @@ model Story {
   createdBy        User?            @relation(fields: [createdById], references: [id])
   scenes           Scene[]
   characters       StoryCharacter[]
+
+  // Speeds up the monthly quota count: WHERE createdById=? AND createdAt >= ? AND hasIllustrations=?.
+  @@index([createdById, createdAt, hasIllustrations])
 }
 
 model Scene {

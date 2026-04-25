@@ -41,20 +41,16 @@ export async function checkStoryQuota(
     return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
   }
 
-  // Count stories created this calendar month
+  // Count stories THIS user authored this calendar month. Tying the
+  // quota to createdById (not universe ownership) is the only way to
+  // bill the user who pressed Generate — otherwise generating inside
+  // a public universe wouldn't tick the counter.
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const universeIds = (
-    await prisma.universe.findMany({
-      where: { userId },
-      select: { id: true },
-    })
-  ).map((u) => u.id);
-
   const used = await prisma.story.count({
     where: {
-      universeId: { in: universeIds },
+      createdById: userId,
       createdAt: { gte: monthStart },
       hasIllustrations: illustrated,
     },
