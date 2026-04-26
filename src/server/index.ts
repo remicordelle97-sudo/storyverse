@@ -9,8 +9,7 @@ import storiesRouter from "./routes/stories.js";
 import adminRouter from "./routes/admin.js";
 import printRouter from "./routes/print.js";
 import { authMiddleware } from "./middleware/auth.js";
-import { startImageWorker } from "./lib/imageQueue.js";
-import { resumeIncompleteStories } from "./lib/resumeStories.js";
+import { bootWorkers } from "./worker.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,12 +52,12 @@ app.get("*", (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Storyverse running on http://localhost:${PORT}`);
 
-  // Start the image generation queue worker (if Redis is available)
-  startImageWorker();
-
-  // Resume any stories that were mid-illustration when the server restarted
-  // (handles jobs that were lost before the queue was added, or when Redis is unavailable)
-  resumeIncompleteStories().catch((e) => {
-    console.error("Failed to resume incomplete stories:", e);
-  });
+  // Run background workers in the same process by default. Set
+  // WORKER_INLINE=false on the web service once a separate worker
+  // service is provisioned (then run `npm run start:worker` there).
+  if (process.env.WORKER_INLINE !== "false") {
+    bootWorkers();
+  } else {
+    console.log("WORKER_INLINE=false — skipping in-process workers (expect a standalone worker service)");
+  }
 });

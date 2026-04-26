@@ -13,6 +13,8 @@
     "typecheck": "tsc --noEmit",
     "build": "prisma generate && tsc && vite build",
     "start": "node dist/src/server/index.js",
+    "worker": "tsx watch src/server/worker.ts",
+    "start:worker": "node dist/src/server/worker.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {
