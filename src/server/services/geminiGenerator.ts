@@ -2,12 +2,14 @@ import { GoogleGenAI } from "@google/genai";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { saveImage, readImage } from "../lib/storage.js";
+import { GOOGLE_AI_KEY } from "../lib/aiKeys.js";
 import { ART_STYLE, ART_STYLE_REMINDER, buildImageStyleGuide } from "./imageStyleGuide.js";
 
-// .trim() defends against trailing whitespace/newlines in the env var,
-// which surface as Node "Invalid character in header content" errors
-// when the SDK builds the auth header.
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_KEY?.trim() });
+// GOOGLE_AI_KEY is resolved (and trimmed) at module load by aiKeys.ts,
+// which also throws in production when the env var is missing — preventing
+// the silent fallback to ADC that produces "Invalid character in header
+// content [\"authorization\"]".
+const ai = new GoogleGenAI({ apiKey: GOOGLE_AI_KEY });
 
 const IMAGE_MODEL = "gemini-3-pro-image-preview";
 const IMAGE_SIZE = "1K";

@@ -2,11 +2,10 @@ import prisma from "../lib/prisma.js";
 import Anthropic from "@anthropic-ai/sdk";
 import { CLAUDE_MODEL, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT } from "../lib/config.js";
 import { debug } from "../lib/debug.js";
+import { ANTHROPIC_API_KEY } from "../lib/aiKeys.js";
 import { generateStyleReference, generateAllCharacterSheets } from "./geminiGenerator.js";
 
-// Pass apiKey explicitly + trim so trailing whitespace in the env var
-// doesn't poison the auth header (see geminiGenerator.ts for context).
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY?.trim() });
+const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
 export interface CharacterPhoto {
   mimeType: string; // e.g. "image/jpeg"
