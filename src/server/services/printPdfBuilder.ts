@@ -14,7 +14,7 @@
  * That accuracy work belongs in Phase 2 alongside the real layout.
  */
 
-import jsPDF from "jspdf";
+import { jsPDF } from "jspdf";
 import { saveImage } from "../lib/storage.js";
 import { storyRgbColor } from "../../shared/storyColor.js";
 import { debug } from "../lib/debug.js";
