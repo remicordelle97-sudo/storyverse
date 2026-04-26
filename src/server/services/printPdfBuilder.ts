@@ -15,6 +15,8 @@
  */
 
 import { jsPDF } from "jspdf";
+import fs from "fs";
+import path from "path";
 import { saveImage } from "../lib/storage.js";
 import { storyRgbColor } from "../../shared/storyColor.js";
 import { debug } from "../lib/debug.js";
@@ -24,6 +26,34 @@ const POINTS_PER_INCH = 72;
 // We round up to that boundary with blanks; the final book design
 // (Phase 2) replaces those with real end-matter pages.
 const PAGE_COUNT_MULTIPLE = 4;
+// Lulu's standard print bleed for POD products.
+const BLEED_INCHES = 0.125;
+// Custom font registered with jsPDF so glyphs are embedded as font
+// data rather than referenced as a "Standard 14" name. Lulu's print
+// pipeline rejects PDFs with non-embedded fonts.
+const FONT_FAMILY = "Inter";
+
+let cachedFontData: { regular: string; bold: string } | null = null;
+function loadFontData(): { regular: string; bold: string } {
+  if (cachedFontData) return cachedFontData;
+  const fontDir = path.resolve("node_modules/@fontsource/inter/files");
+  const regular = fs
+    .readFileSync(path.join(fontDir, "inter-latin-400-normal.ttf"))
+    .toString("base64");
+  const bold = fs
+    .readFileSync(path.join(fontDir, "inter-latin-700-normal.ttf"))
+    .toString("base64");
+  cachedFontData = { regular, bold };
+  return cachedFontData;
+}
+
+function registerFonts(pdf: jsPDF) {
+  const { regular, bold } = loadFontData();
+  pdf.addFileToVFS("Inter-Regular.ttf", regular);
+  pdf.addFont("Inter-Regular.ttf", FONT_FAMILY, "normal");
+  pdf.addFileToVFS("Inter-Bold.ttf", bold);
+  pdf.addFont("Inter-Bold.ttf", FONT_FAMILY, "bold");
+}
 
 /**
  * Lulu POD package SKUs encode the trim size in their first 9 chars:
@@ -69,8 +99,19 @@ export interface BuiltBytes {
   pageCount: number;
 }
 
-function newDoc(widthPt: number, heightPt: number): jsPDF {
-  return new jsPDF({ unit: "pt", format: [widthPt, heightPt] });
+function newDoc(widthPt: number, heightPt: number, orientation: "p" | "l" = "p"): jsPDF {
+  // Compress streams (smaller PDF) and target a modern PDF version —
+  // Lulu's normalizer prefers PDF 1.5+. jsPDF defaults to 1.3 in some
+  // builds.
+  const pdf = new jsPDF({
+    unit: "pt",
+    format: [widthPt, heightPt],
+    orientation,
+    compress: true,
+    putOnlyUsedFonts: false,
+  });
+  registerFonts(pdf);
+  return pdf;
 }
 
 function pdfImageFormat(mimeType: string): "PNG" | "JPEG" | "WEBP" {
@@ -129,13 +170,13 @@ function buildInteriorPdf(
       const drawY = boxTop + (boxH - drawH) / 2;
       pdf.addImage(dataUrl, format, drawX, drawY, drawW, drawH);
       const textTop = boxTop + boxH + 24;
-      pdf.setFont("helvetica", "normal");
+      pdf.setFont(FONT_FAMILY, "normal");
       pdf.setFontSize(13);
       const lines = pdf.splitTextToSize(scene.content, usableWidth);
       pdf.text(lines, margin, textTop, { lineHeightFactor: 1.55 });
     } else {
       // No illustration — text only, vertically centered.
-      pdf.setFont("helvetica", "normal");
+      pdf.setFont(FONT_FAMILY, "normal");
       pdf.setFontSize(14);
       const lines = pdf.splitTextToSize(scene.content, usableWidth);
       pdf.text(lines, margin, margin + 24, { lineHeightFactor: 1.6 });
@@ -156,9 +197,6 @@ function buildInteriorPdf(
   return { bytes: pdf.output("arraybuffer"), pageCount };
 }
 
-// Lulu's standard print bleed for POD products.
-const BLEED_INCHES = 0.125;
-
 function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
   // Lulu wants the cover as a wraparound: back-cover + spine + front-cover,
   // each with bleed on the outer edges. For saddle-stitch (SS binding)
@@ -171,15 +209,10 @@ function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
   const widthPt = widthInches * POINTS_PER_INCH;
   const heightPt = heightInches * POINTS_PER_INCH;
 
-  const pdf = new jsPDF({
-    unit: "pt",
-    format: [widthPt, heightPt],
-    // Cover is wider than tall (back + spine + front). Without
-    // explicit landscape orientation jsPDF would normalize to
-    // portrait and swap our dimensions, producing a 7.75x15.25
-    // page that Lulu rejects.
-    orientation: "landscape",
-  });
+  // Cover is wider than tall (back + spine + front + bleed). Pass
+  // landscape so jsPDF doesn't normalize the [w, h] format array
+  // back to portrait and swap our dimensions.
+  const pdf = newDoc(widthPt, heightPt, "l");
   const { r, g, b } = storyRgbColor(input.story.id);
   // Fill the entire wrap with the story color (back, spine area, front).
   pdf.setFillColor(r, g, b);
@@ -194,7 +227,7 @@ function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
   const frontCenterX = (frontStart + frontEnd) / 2;
   const frontTextWidth = frontEnd - frontStart - 36; // ~0.25" inside the trim
   pdf.setTextColor(255, 255, 255);
-  pdf.setFont("helvetica", "bold");
+  pdf.setFont(FONT_FAMILY, "bold");
   pdf.setFontSize(40);
   const lines = pdf.splitTextToSize(input.story.title, frontTextWidth);
   pdf.text(lines, frontCenterX, heightPt / 2, { align: "center" });
@@ -203,8 +236,10 @@ function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
 
 export function buildPrintPdfBytes(input: BuildInput): BuiltBytes {
   const trim = trimInchesFromSku(input.podPackageId);
-  // Square paperback only for Phase 1 — width and height should match.
-  const pagePt = trim.width * POINTS_PER_INCH;
+  // Interior pages include 0.125" bleed on each edge so the beige paper
+  // fill extends past the visible trim. Without bleed, the printer's
+  // trim cut can leave a thin white sliver on the edge of every page.
+  const pagePt = (trim.width + 2 * BLEED_INCHES) * POINTS_PER_INCH;
   const interior = buildInteriorPdf(input, pagePt);
   const coverBytes = buildCoverPdf(input, trim.width);
   return { coverBytes, interiorBytes: interior.bytes, pageCount: interior.pageCount };
