@@ -19,13 +19,27 @@ import { saveImage } from "../lib/storage.js";
 import { storyRgbColor } from "../../shared/storyColor.js";
 import { debug } from "../lib/debug.js";
 
-const TRIM_INCHES = 8.5;
 const POINTS_PER_INCH = 72;
-const PAGE_PT = TRIM_INCHES * POINTS_PER_INCH; // 612pt
 // Saddle-stitch requires the interior page count to be a multiple of 4.
 // We round up to that boundary with blanks; the final book design
 // (Phase 2) replaces those with real end-matter pages.
 const PAGE_COUNT_MULTIPLE = 4;
+
+/**
+ * Lulu POD package SKUs encode the trim size in their first 9 chars:
+ * "WWWWXHHHH" in hundredths of an inch. Parsing it means the PDF
+ * dimensions stay in sync with whatever SKU Railway is configured
+ * to use — no separate env var to forget.
+ */
+function trimInchesFromSku(sku: string): { width: number; height: number } {
+  const m = /^(\d{4})X(\d{4})/.exec(sku);
+  if (!m) {
+    throw new Error(
+      `Could not parse trim from POD package id "${sku}". Expected format like "0850X0850...".`
+    );
+  }
+  return { width: parseInt(m[1], 10) / 100, height: parseInt(m[2], 10) / 100 };
+}
 
 interface BuildInput {
   story: {
@@ -33,6 +47,8 @@ interface BuildInput {
     title: string;
     scenes: { sceneNumber: number; content: string }[];
   };
+  // Lulu POD package id — drives the trim size of the emitted PDFs.
+  podPackageId: string;
 }
 
 export interface BuildResult {
@@ -47,14 +63,17 @@ export interface BuiltBytes {
   pageCount: number;
 }
 
-function newSquareDoc(): jsPDF {
-  return new jsPDF({ unit: "pt", format: [PAGE_PT, PAGE_PT] });
+function newDoc(widthPt: number, heightPt: number): jsPDF {
+  return new jsPDF({ unit: "pt", format: [widthPt, heightPt] });
 }
 
-function buildInteriorPdf(input: BuildInput): { bytes: ArrayBuffer; pageCount: number } {
-  const pdf = newSquareDoc();
+function buildInteriorPdf(
+  input: BuildInput,
+  pagePt: number
+): { bytes: ArrayBuffer; pageCount: number } {
+  const pdf = newDoc(pagePt, pagePt);
   const margin = 54; // 0.75"
-  const usableWidth = PAGE_PT - margin * 2;
+  const usableWidth = pagePt - margin * 2;
 
   let pageCount = 0;
 
@@ -62,65 +81,61 @@ function buildInteriorPdf(input: BuildInput): { bytes: ArrayBuffer; pageCount: n
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(36);
   const titleLines = pdf.splitTextToSize(input.story.title, usableWidth);
-  pdf.text(titleLines, PAGE_PT / 2, PAGE_PT / 2 - 12, { align: "center" });
+  pdf.text(titleLines, pagePt / 2, pagePt / 2 - 12, { align: "center" });
   pdf.setFont("helvetica", "italic");
   pdf.setFontSize(13);
-  pdf.text("A Storyverse tale", PAGE_PT / 2, PAGE_PT / 2 + 24, { align: "center" });
+  pdf.text("A Storyverse tale", pagePt / 2, pagePt / 2 + 24, { align: "center" });
   pageCount++;
 
   // One scene per interior page (Phase 2 will adapt the 2-up book layout).
   for (const scene of input.story.scenes) {
-    pdf.addPage([PAGE_PT, PAGE_PT], "p");
+    pdf.addPage([pagePt, pagePt], "p");
     pageCount++;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(14);
     const lines = pdf.splitTextToSize(scene.content, usableWidth);
     pdf.text(lines, margin, margin + 24, { lineHeightFactor: 1.6 });
     pdf.setFontSize(9);
-    pdf.text(String(scene.sceneNumber), PAGE_PT / 2, PAGE_PT - 24, {
-      align: "center",
-    });
+    pdf.text(String(scene.sceneNumber), pagePt / 2, pagePt - 24, { align: "center" });
   }
 
   // Round up to the binding's required multiple — saddle-stitch needs
   // a page count divisible by 4. Anything padded here is blank;
   // Phase 2's real layout will replace these with end-matter content.
   while (pageCount % PAGE_COUNT_MULTIPLE !== 0) {
-    pdf.addPage([PAGE_PT, PAGE_PT], "p");
+    pdf.addPage([pagePt, pagePt], "p");
     pageCount++;
   }
 
   return { bytes: pdf.output("arraybuffer"), pageCount };
 }
 
-function buildCoverPdf(input: BuildInput): ArrayBuffer {
+function buildCoverPdf(input: BuildInput, pagePt: number): ArrayBuffer {
   // Lulu computes the cover-wrap geometry (front + spine + back) during
   // printable_normalization from the POD package and the interior page
   // count. Phase 1 just submits a square cover at trim size; Phase 2
   // will produce the full wrap with spine math.
-  const pdf = newSquareDoc();
+  const pdf = newDoc(pagePt, pagePt);
   const { r, g, b } = storyRgbColor(input.story.id);
   pdf.setFillColor(r, g, b);
-  pdf.rect(0, 0, PAGE_PT, PAGE_PT, "F");
+  pdf.rect(0, 0, pagePt, pagePt, "F");
   pdf.setTextColor(255, 255, 255);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(40);
-  const lines = pdf.splitTextToSize(input.story.title, PAGE_PT - 100);
-  pdf.text(lines, PAGE_PT / 2, PAGE_PT / 2 - 16, { align: "center" });
+  const lines = pdf.splitTextToSize(input.story.title, pagePt - 100);
+  pdf.text(lines, pagePt / 2, pagePt / 2 - 16, { align: "center" });
   pdf.setFont("helvetica", "italic");
   pdf.setFontSize(14);
-  pdf.text("A Storyverse tale", PAGE_PT / 2, PAGE_PT / 2 + 36, { align: "center" });
+  pdf.text("A Storyverse tale", pagePt / 2, pagePt / 2 + 36, { align: "center" });
   return pdf.output("arraybuffer");
 }
 
-/**
- * Build the cover + interior PDF bytes synchronously. Exposed so the
- * caller can run the (slow) Lulu cost quote in parallel with the
- * (slow) PDF uploads.
- */
 export function buildPrintPdfBytes(input: BuildInput): BuiltBytes {
-  const interior = buildInteriorPdf(input);
-  const coverBytes = buildCoverPdf(input);
+  const trim = trimInchesFromSku(input.podPackageId);
+  // Square paperback only for Phase 1 — width and height should match.
+  const pagePt = trim.width * POINTS_PER_INCH;
+  const interior = buildInteriorPdf(input, pagePt);
+  const coverBytes = buildCoverPdf(input, pagePt);
   return { coverBytes, interiorBytes: interior.bytes, pageCount: interior.pageCount };
 }
 

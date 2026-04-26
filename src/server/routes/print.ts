@@ -93,6 +93,13 @@ router.post("/test-order", requireAdmin, async (req, res) => {
 
     const address: ShippingAddress = shippingAddress || SAMPLE_LULU_ADDRESS;
     const contactEmail = (email as string) || "test@example.com";
+    const podPackageId = LULU_CONFIG.defaultPodPackageId;
+    if (!podPackageId) {
+      return res.status(503).json({
+        error:
+          "LULU_DEFAULT_POD_PACKAGE_ID is not set. Pick a SKU at developers.lulu.com/price-calculator and set the env var.",
+      });
+    }
 
     // Build PDFs synchronously, then run the (slow) uploads in parallel
     // with the (slow) Lulu cost quote — they're independent.
@@ -105,6 +112,7 @@ router.post("/test-order", requireAdmin, async (req, res) => {
           content: s.content,
         })),
       },
+      podPackageId,
     });
     const [pdfs, quote] = await Promise.all([
       storePrintPdfBytes(built),
