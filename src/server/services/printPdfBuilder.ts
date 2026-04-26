@@ -156,20 +156,37 @@ function buildInteriorPdf(
   return { bytes: pdf.output("arraybuffer"), pageCount };
 }
 
-function buildCoverPdf(input: BuildInput, pagePt: number): ArrayBuffer {
-  // Lulu computes the cover-wrap geometry (front + spine + back) during
-  // printable_normalization from the POD package and the interior page
-  // count. Phase 1 just submits a square cover at trim size; Phase 2
-  // will produce the full wrap with spine math.
-  const pdf = newDoc(pagePt, pagePt);
+// Lulu's standard print bleed for POD products.
+const BLEED_INCHES = 0.125;
+
+function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
+  // Lulu wants the cover as a wraparound: back-cover + spine + front-cover,
+  // each with bleed on the outer edges. For saddle-stitch (SS binding)
+  // the spine is zero — the book is stapled, no spine width to account
+  // for. For perfect-bound paperback (PB) Phase 2 will compute spine
+  // width from interior page count and paper weight.
+  const SPINE_INCHES = 0;
+  const widthInches = 2 * (trimInches + BLEED_INCHES) + SPINE_INCHES;
+  const heightInches = trimInches + 2 * BLEED_INCHES;
+  const widthPt = widthInches * POINTS_PER_INCH;
+  const heightPt = heightInches * POINTS_PER_INCH;
+
+  const pdf = newDoc(widthPt, heightPt);
   const { r, g, b } = storyRgbColor(input.story.id);
+  // Fill the entire wrap with the story color (back, spine area, front).
   pdf.setFillColor(r, g, b);
-  pdf.rect(0, 0, pagePt, pagePt, "F");
+  pdf.rect(0, 0, widthPt, heightPt, "F");
+
+  // Title goes on the front cover (right half of the wrap). Center it
+  // horizontally inside that half, vertically inside the page.
+  const frontHalfStart = widthPt / 2 + SPINE_INCHES * POINTS_PER_INCH / 2;
+  const frontCenterX = (frontHalfStart + widthPt) / 2;
+  const frontTextWidth = widthPt / 2 - 100;
   pdf.setTextColor(255, 255, 255);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(40);
-  const lines = pdf.splitTextToSize(input.story.title, pagePt - 100);
-  pdf.text(lines, pagePt / 2, pagePt / 2, { align: "center" });
+  const lines = pdf.splitTextToSize(input.story.title, frontTextWidth);
+  pdf.text(lines, frontCenterX, heightPt / 2, { align: "center" });
   return pdf.output("arraybuffer");
 }
 
@@ -178,7 +195,7 @@ export function buildPrintPdfBytes(input: BuildInput): BuiltBytes {
   // Square paperback only for Phase 1 — width and height should match.
   const pagePt = trim.width * POINTS_PER_INCH;
   const interior = buildInteriorPdf(input, pagePt);
-  const coverBytes = buildCoverPdf(input, pagePt);
+  const coverBytes = buildCoverPdf(input, trim.width);
   return { coverBytes, interiorBytes: interior.bytes, pageCount: interior.pageCount };
 }
 
