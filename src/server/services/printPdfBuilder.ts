@@ -79,6 +79,16 @@ function pdfImageFormat(mimeType: string): "PNG" | "JPEG" | "WEBP" {
   return "JPEG";
 }
 
+// Same parchment color as .stf__item in src/client/index.css — the
+// page background users see in the on-screen reader. Keeping the
+// printed book visually consistent with the on-screen experience.
+const PAPER_RGB = { r: 0xf5, g: 0xec, b: 0xd7 };
+
+function paintPaper(pdf: jsPDF, pagePt: number) {
+  pdf.setFillColor(PAPER_RGB.r, PAPER_RGB.g, PAPER_RGB.b);
+  pdf.rect(0, 0, pagePt, pagePt, "F");
+}
+
 function buildInteriorPdf(
   input: BuildInput,
   pagePt: number
@@ -91,25 +101,34 @@ function buildInteriorPdf(
   // of 4. With 10 scenes that's 12 pages: 1 blank front + 10 scenes
   // + 1 blank back. The cover already shows the title, so we don't
   // repeat it on the front matter.
+  paintPaper(pdf, pagePt);
   let pageCount = 1; // first page is blank front matter (already created by jsPDF)
 
   for (const scene of input.story.scenes) {
     pdf.addPage([pagePt, pagePt], "p");
+    paintPaper(pdf, pagePt);
     pageCount++;
 
     if (scene.image) {
-      // Top ~60% of the page is illustration, bottom ~40% is text.
-      const imgBoxTop = margin;
-      const imgBoxHeight = pagePt * 0.55;
-      pdf.addImage(
-        `data:${scene.image.mimeType};base64,${scene.image.data}`,
-        pdfImageFormat(scene.image.mimeType),
-        margin,
-        imgBoxTop,
-        usableWidth,
-        imgBoxHeight,
-      );
-      const textTop = imgBoxTop + imgBoxHeight + 24;
+      const dataUrl = `data:${scene.image.mimeType};base64,${scene.image.data}`;
+      const format = pdfImageFormat(scene.image.mimeType);
+      // Fit the image inside the box preserving its aspect ratio. If
+      // we drew it at the box's exact dimensions jsPDF would stretch
+      // it (Gemini's 4:3 scene art in a 1.45:1 box ends up ~9% wider
+      // than reality). Letterbox/pillarbox the slack instead.
+      const boxLeft = margin;
+      const boxTop = margin;
+      const boxW = usableWidth;
+      const boxH = pagePt * 0.55;
+      const props = pdf.getImageProperties(dataUrl);
+      const imageAR = props.width / props.height;
+      const boxAR = boxW / boxH;
+      const drawW = imageAR > boxAR ? boxW : boxH * imageAR;
+      const drawH = imageAR > boxAR ? boxW / imageAR : boxH;
+      const drawX = boxLeft + (boxW - drawW) / 2;
+      const drawY = boxTop + (boxH - drawH) / 2;
+      pdf.addImage(dataUrl, format, drawX, drawY, drawW, drawH);
+      const textTop = boxTop + boxH + 24;
       pdf.setFont("helvetica", "normal");
       pdf.setFontSize(13);
       const lines = pdf.splitTextToSize(scene.content, usableWidth);
@@ -130,6 +149,7 @@ function buildInteriorPdf(
 
   while (pageCount % PAGE_COUNT_MULTIPLE !== 0) {
     pdf.addPage([pagePt, pagePt], "p");
+    paintPaper(pdf, pagePt);
     pageCount++;
   }
 
