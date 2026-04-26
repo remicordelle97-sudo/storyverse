@@ -19,25 +19,15 @@ const LULU_CLIENT_SECRET = process.env.LULU_CLIENT_SECRET || "";
 const LULU_DEFAULT_POD_PACKAGE_ID =
   process.env.LULU_DEFAULT_POD_PACKAGE_ID || "0850X0850FCSTDPB060UW444MXX";
 
-// Token cache. Lulu access tokens last ~1h; refresh when within 60s
-// of expiry to avoid mid-request invalidation.
+const IS_CONFIGURED = Boolean(LULU_CLIENT_KEY && LULU_CLIENT_SECRET);
+
+// Token cache. Lulu access tokens last ~1h; refresh when within 60s of
+// expiry. `pendingRefresh` single-flights concurrent callers so we
+// don't fire N parallel token requests during the refresh window.
 let cachedToken: { value: string; expiresAt: number } | null = null;
+let pendingRefresh: Promise<string> | null = null;
 
-function isLuluConfigured(): boolean {
-  return Boolean(LULU_CLIENT_KEY && LULU_CLIENT_SECRET);
-}
-
-async function getAccessToken(): Promise<string> {
-  if (!isLuluConfigured()) {
-    throw new Error(
-      "Lulu is not configured. Set LULU_CLIENT_KEY and LULU_CLIENT_SECRET."
-    );
-  }
-  const now = Date.now();
-  if (cachedToken && cachedToken.expiresAt > now + 60_000) {
-    return cachedToken.value;
-  }
-
+async function fetchNewToken(): Promise<string> {
   const credentials = Buffer.from(
     `${LULU_CLIENT_KEY}:${LULU_CLIENT_SECRET}`
   ).toString("base64");
@@ -59,9 +49,26 @@ async function getAccessToken(): Promise<string> {
   const data = (await res.json()) as { access_token: string; expires_in: number };
   cachedToken = {
     value: data.access_token,
-    expiresAt: now + data.expires_in * 1000,
+    expiresAt: Date.now() + data.expires_in * 1000,
   };
   return data.access_token;
+}
+
+async function getAccessToken(): Promise<string> {
+  if (!IS_CONFIGURED) {
+    throw new Error(
+      "Lulu is not configured. Set LULU_CLIENT_KEY and LULU_CLIENT_SECRET."
+    );
+  }
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 60_000) {
+    return cachedToken.value;
+  }
+  if (!pendingRefresh) {
+    pendingRefresh = fetchNewToken().finally(() => {
+      pendingRefresh = null;
+    });
+  }
+  return pendingRefresh;
 }
 
 async function luluFetch<T>(
@@ -97,7 +104,7 @@ function dollarsToCents(value: string | number | null | undefined): number {
 export const LULU_CONFIG = {
   defaultPodPackageId: LULU_DEFAULT_POD_PACKAGE_ID,
   baseUrl: LULU_API_BASE_URL,
-  isConfigured: isLuluConfigured,
+  isConfigured: IS_CONFIGURED,
 };
 
 export interface ShippingAddress {

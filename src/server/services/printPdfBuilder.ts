@@ -16,12 +16,13 @@
 
 import jsPDF from "jspdf";
 import { saveImage } from "../lib/storage.js";
-import { storyHexColor } from "../../shared/storyColor.js";
+import { storyRgbColor } from "../../shared/storyColor.js";
 import { debug } from "../lib/debug.js";
 
 const TRIM_INCHES = 8.5;
 const POINTS_PER_INCH = 72;
 const PAGE_PT = TRIM_INCHES * POINTS_PER_INCH; // 612pt
+const MIN_INTERIOR_PAGES = 24; // Lulu's paperback minimum
 
 interface BuildInput {
   story: {
@@ -37,19 +38,21 @@ export interface BuildResult {
   pageCount: number;
 }
 
+export interface BuiltBytes {
+  coverBytes: ArrayBuffer;
+  interiorBytes: ArrayBuffer;
+  pageCount: number;
+}
+
 function newSquareDoc(): jsPDF {
   return new jsPDF({ unit: "pt", format: [PAGE_PT, PAGE_PT] });
 }
 
-function buildInteriorPdf(input: BuildInput): { bytes: Uint8Array; pageCount: number } {
+function buildInteriorPdf(input: BuildInput): { bytes: ArrayBuffer; pageCount: number } {
   const pdf = newSquareDoc();
   const margin = 54; // 0.75"
   const usableWidth = PAGE_PT - margin * 2;
 
-  // Lulu requires a minimum interior page count (24 for paperback).
-  // We emit a title page, one page per scene, and pad with blanks
-  // until we hit the minimum so the file is always valid.
-  const MIN_INTERIOR_PAGES = 24;
   let pageCount = 0;
 
   // Title page
@@ -81,20 +84,17 @@ function buildInteriorPdf(input: BuildInput): { bytes: Uint8Array; pageCount: nu
     pageCount++;
   }
 
-  const bytes = pdf.output("arraybuffer");
-  return { bytes: new Uint8Array(bytes), pageCount };
+  return { bytes: pdf.output("arraybuffer"), pageCount };
 }
 
-function buildCoverPdf(input: BuildInput, _interiorPageCount: number): Uint8Array {
-  // Lulu computes the proper cover wrap dimensions (front + spine + back)
-  // during printable_normalization based on the POD package and the
-  // interior PDF's page count. For Phase 1 we submit a square cover at
-  // the trim size and let Lulu handle the rest. Phase 2 will emit the
-  // full cover wrap with spine.
+function buildCoverPdf(input: BuildInput): ArrayBuffer {
+  // Lulu computes the cover-wrap geometry (front + spine + back) during
+  // printable_normalization from the POD package and the interior page
+  // count. Phase 1 just submits a square cover at trim size; Phase 2
+  // will produce the full wrap with spine math.
   const pdf = newSquareDoc();
-  const hex = storyHexColor(input.story.id);
-  const rgb = hexToRgb(hex);
-  pdf.setFillColor(rgb.r, rgb.g, rgb.b);
+  const { r, g, b } = storyRgbColor(input.story.id);
+  pdf.setFillColor(r, g, b);
   pdf.rect(0, 0, PAGE_PT, PAGE_PT, "F");
   pdf.setTextColor(255, 255, 255);
   pdf.setFont("helvetica", "bold");
@@ -104,46 +104,41 @@ function buildCoverPdf(input: BuildInput, _interiorPageCount: number): Uint8Arra
   pdf.setFont("helvetica", "italic");
   pdf.setFontSize(14);
   pdf.text("A Storyverse tale", PAGE_PT / 2, PAGE_PT / 2 + 36, { align: "center" });
-  return new Uint8Array(pdf.output("arraybuffer"));
-}
-
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return { r: 200, g: 200, b: 200 };
-  const v = parseInt(m[1], 16);
-  return { r: (v >> 16) & 0xff, g: (v >> 8) & 0xff, b: v & 0xff };
+  return pdf.output("arraybuffer");
 }
 
 /**
- * Build both PDFs for a story, persist them to storage, and return
- * the public URLs Lulu can fetch from. Phase 1 reuses the existing
- * R2/local storage helper (saveImage) — the function is content-type
- * agnostic, so we pass a base64 PDF blob with mimeType "application/pdf".
+ * Build the cover + interior PDF bytes synchronously. Exposed so the
+ * caller can run the (slow) Lulu cost quote in parallel with the
+ * (slow) PDF uploads.
  */
-export async function buildAndStorePrintPdfs(
-  input: BuildInput
-): Promise<BuildResult> {
+export function buildPrintPdfBytes(input: BuildInput): BuiltBytes {
+  const interior = buildInteriorPdf(input);
+  const coverBytes = buildCoverPdf(input);
+  return { coverBytes, interiorBytes: interior.bytes, pageCount: interior.pageCount };
+}
+
+/**
+ * Upload pre-built PDF bytes to storage in parallel and return the URLs.
+ */
+export async function storePrintPdfBytes(built: BuiltBytes): Promise<BuildResult> {
+  const [coverPdfUrl, interiorPdfUrl] = await Promise.all([
+    saveImage(Buffer.from(built.coverBytes).toString("base64"), "application/pdf"),
+    saveImage(Buffer.from(built.interiorBytes).toString("base64"), "application/pdf"),
+  ]);
+  return { coverPdfUrl, interiorPdfUrl, pageCount: built.pageCount };
+}
+
+/**
+ * Convenience wrapper for callers that don't need to overlap the
+ * uploads with anything else.
+ */
+export async function buildAndStorePrintPdfs(input: BuildInput): Promise<BuildResult> {
   debug.story(`Building print PDFs for "${input.story.title}"`, {
     sceneCount: input.story.scenes.length,
   });
-
-  const { bytes: interiorBytes, pageCount } = buildInteriorPdf(input);
-  const coverBytes = buildCoverPdf(input, pageCount);
-
-  const interiorPdfUrl = await saveImage(
-    Buffer.from(interiorBytes).toString("base64"),
-    "application/pdf"
-  );
-  const coverPdfUrl = await saveImage(
-    Buffer.from(coverBytes).toString("base64"),
-    "application/pdf"
-  );
-
-  debug.story("Print PDFs uploaded", {
-    pageCount,
-    coverPdfUrl,
-    interiorPdfUrl,
-  });
-
-  return { coverPdfUrl, interiorPdfUrl, pageCount };
+  const built = buildPrintPdfBytes(input);
+  const result = await storePrintPdfBytes(built);
+  debug.story("Print PDFs uploaded", { pageCount: result.pageCount });
+  return result;
 }

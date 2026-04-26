@@ -47,3 +47,12 @@ export function storyTailwindColor(id: string): string {
 export function storyHexColor(id: string): string {
   return PALETTE_HEX[indexFor(id)];
 }
+
+const PALETTE_RGB = PALETTE_HEX.map((hex) => {
+  const v = parseInt(hex.slice(1), 16);
+  return { r: (v >> 16) & 0xff, g: (v >> 8) & 0xff, b: v & 0xff };
+});
+
+export function storyRgbColor(id: string): { r: number; g: number; b: number } {
+  return PALETTE_RGB[indexFor(id)];
+}

@@ -21,39 +21,58 @@ import {
   LULU_CONFIG,
   type ShippingAddress,
 } from "../services/luluClient.js";
-import { buildAndStorePrintPdfs } from "../services/printPdfBuilder.js";
+import { buildPrintPdfBytes, storePrintPdfBytes } from "../services/printPdfBuilder.js";
 
 const router = Router();
 
 const PRINT_MARKUP = 1.5;
 
+// Lulu's documented sandbox-friendly US address. Don't rely on it for
+// production submissions (it's not validated against the address-
+// verification provider in some regions).
+const SAMPLE_LULU_ADDRESS: ShippingAddress = {
+  name: "Lulu Sandbox",
+  street1: "1010 Sync Street",
+  city: "Raleigh",
+  state_code: "NC",
+  country_code: "US",
+  postcode: "27601",
+  phone_number: "919-555-0100",
+};
+
+// Print-order lifecycle. Phase 1 only writes draft/submitted/failed;
+// Phase 2 grows this with paid/in_production/shipped/delivered/refunded.
+const ORDER_STATUS = {
+  draft: "draft",
+  submitted: "submitted",
+  failed: "failed",
+} as const;
+
 function totalCustomerPriceCents(opts: {
   printCostCents: number;
   shippingCostCents: number;
 }): number {
-  // Markup on the print cost only; shipping is pass-through. Tax is
-  // not charged to the customer separately in Phase 1 — Lulu collects
-  // it at fulfillment.
+  // Markup on the print cost only; shipping is pass-through. Tax stays
+  // with Lulu — they collect it at fulfillment.
   return Math.round(opts.printCostCents * PRINT_MARKUP) + opts.shippingCostCents;
 }
 
-// === GET /api/print/config — admin sanity check =====================
 router.get("/config", requireAdmin, (_req, res) => {
   res.json({
     baseUrl: LULU_CONFIG.baseUrl,
-    isConfigured: LULU_CONFIG.isConfigured(),
+    isConfigured: LULU_CONFIG.isConfigured,
     defaultPodPackageId: LULU_CONFIG.defaultPodPackageId,
     markup: PRINT_MARKUP,
   });
 });
 
-// === POST /api/print/test-order — admin end-to-end sandbox test =====
+// POST /api/print/test-order — admin end-to-end sandbox test
 // Body: { storyId, shippingAddress?, email?, dryRun? }
-//   - shippingAddress defaults to a known Lulu sandbox address.
-//   - dryRun=true skips the Lulu createPrintJob call (only quotes).
+//   - shippingAddress defaults to SAMPLE_LULU_ADDRESS
+//   - dryRun=true skips the Lulu createPrintJob call (only quotes)
 router.post("/test-order", requireAdmin, async (req, res) => {
   try {
-    if (!LULU_CONFIG.isConfigured()) {
+    if (!LULU_CONFIG.isConfigured) {
       return res.status(503).json({
         error: "Lulu is not configured. Set LULU_CLIENT_KEY/LULU_CLIENT_SECRET.",
       });
@@ -64,14 +83,20 @@ router.post("/test-order", requireAdmin, async (req, res) => {
       return res.status(400).json({ error: "storyId is required" });
     }
 
+    // Admin-only endpoint — story is fetched directly without an
+    // ownership check so admins can test against any user's story.
     const story = await prisma.story.findUnique({
       where: { id: storyId },
       include: { scenes: { orderBy: { sceneNumber: "asc" } } },
     });
     if (!story) return res.status(404).json({ error: "Story not found" });
 
-    // 1. Build PDFs and upload them somewhere Lulu can fetch from.
-    const pdfs = await buildAndStorePrintPdfs({
+    const address: ShippingAddress = shippingAddress || SAMPLE_LULU_ADDRESS;
+    const contactEmail = (email as string) || "test@example.com";
+
+    // Build PDFs synchronously, then run the (slow) uploads in parallel
+    // with the (slow) Lulu cost quote — they're independent.
+    const built = buildPrintPdfBytes({
       story: {
         id: story.id,
         title: story.title,
@@ -81,28 +106,25 @@ router.post("/test-order", requireAdmin, async (req, res) => {
         })),
       },
     });
-
-    const address: ShippingAddress = shippingAddress || SAMPLE_LULU_ADDRESS;
-    const contactEmail = (email as string) || "test@example.com";
-
-    // 2. Cost quote.
-    const quote = await calculatePrintJobCost({
-      pageCount: pdfs.pageCount,
-      quantity: 1,
-      shippingAddress: address,
-    });
+    const [pdfs, quote] = await Promise.all([
+      storePrintPdfBytes(built),
+      calculatePrintJobCost({
+        pageCount: built.pageCount,
+        quantity: 1,
+        shippingAddress: address,
+      }),
+    ]);
     const customerPriceCents = totalCustomerPriceCents({
       printCostCents: quote.printCostCents,
       shippingCostCents: quote.shippingCostCents,
     });
 
-    // 3. Persist a draft order so we can see it in the DB regardless
-    // of whether dryRun skips the Lulu submission.
+    // Persist as draft first; only flip to submitted after Lulu accepts.
     const order = await prisma.printOrder.create({
       data: {
         userId: req.userId as string,
         storyId: story.id,
-        status: dryRun ? "draft" : "submitted",
+        status: ORDER_STATUS.draft,
         luluPrintCostCents: quote.printCostCents,
         luluShippingCostCents: quote.shippingCostCents,
         customerPriceCents,
@@ -123,34 +145,48 @@ router.post("/test-order", requireAdmin, async (req, res) => {
       });
     }
 
-    // 4. Submit to Lulu sandbox.
-    const luluJob = await createPrintJob({
-      externalId: order.id,
-      contactEmail,
-      shippingAddress: address,
-      shippingLevel: quote.shippingLevel,
-      coverPdfUrl: pdfs.coverPdfUrl,
-      interiorPdfUrl: pdfs.interiorPdfUrl,
-      title: story.title,
-    });
-
-    const updated = await prisma.printOrder.update({
-      where: { id: order.id },
-      data: {
-        luluPrintJobId: String(luluJob.id),
-      },
-    });
+    let luluJobId: number | null = null;
+    let luluStatusName: string | undefined;
+    try {
+      const luluJob = await createPrintJob({
+        externalId: order.id,
+        contactEmail,
+        shippingAddress: address,
+        shippingLevel: quote.shippingLevel,
+        coverPdfUrl: pdfs.coverPdfUrl,
+        interiorPdfUrl: pdfs.interiorPdfUrl,
+        title: story.title,
+      });
+      luluJobId = luluJob.id;
+      luluStatusName = luluJob.status?.name;
+      await prisma.printOrder.update({
+        where: { id: order.id },
+        data: {
+          status: ORDER_STATUS.submitted,
+          luluPrintJobId: String(luluJob.id),
+        },
+      });
+    } catch (e: any) {
+      await prisma.printOrder.update({
+        where: { id: order.id },
+        data: {
+          status: ORDER_STATUS.failed,
+          rejectionReason: (e?.message || "createPrintJob failed").slice(0, 500),
+        },
+      });
+      throw e;
+    }
 
     debug.story("Lulu sandbox print job created", {
-      orderId: updated.id,
-      luluJobId: luluJob.id,
-      status: luluJob.status?.name,
+      orderId: order.id,
+      luluJobId,
+      status: luluStatusName,
     });
 
     res.json({
-      orderId: updated.id,
-      luluJobId: luluJob.id,
-      luluStatus: luluJob.status?.name,
+      orderId: order.id,
+      luluJobId,
+      luluStatus: luluStatusName,
       quote,
       customerPriceCents,
       pdfs,
@@ -162,7 +198,7 @@ router.post("/test-order", requireAdmin, async (req, res) => {
   }
 });
 
-// === GET /api/print/orders/:id — admin status check =================
+// GET /api/print/orders/:id — admin status check
 router.get("/orders/:id", requireAdmin, async (req, res) => {
   try {
     const order = await prisma.printOrder.findUnique({
@@ -184,18 +220,5 @@ router.get("/orders/:id", requireAdmin, async (req, res) => {
     res.status(500).json({ error: e?.message || "Failed to fetch order" });
   }
 });
-
-// Lulu's documented sandbox-friendly US address. Don't rely on it for
-// production submissions (it's not validated against the address-
-// verification provider in some regions).
-const SAMPLE_LULU_ADDRESS: ShippingAddress = {
-  name: "Lulu Sandbox",
-  street1: "1010 Sync Street",
-  city: "Raleigh",
-  state_code: "NC",
-  country_code: "US",
-  postcode: "27601",
-  phone_number: "919-555-0100",
-};
 
 export default router;

@@ -25,7 +25,7 @@ type Step = "plan" | "choice" | "preset" | "world";
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const [step, setStep] = useState<Step>("plan");
   const [submitting, setSubmitting] = useState(false);
   const [submittingPreset, setSubmittingPreset] = useState(false);
@@ -65,10 +65,13 @@ export default function Onboarding() {
       await refreshUser();
       navigate("/library");
     } catch (e: any) {
-      // No user-facing surface here — admins can fall back to the normal
-      // flow if this 403s for any reason.
       console.error("Skip failed:", e?.message);
     }
+  }
+
+  async function handleLogout() {
+    await logout();
+    navigate("/login");
   }
 
   return (
@@ -84,14 +87,22 @@ export default function Onboarding() {
           <p className="text-stone-500 text-sm">
             Let's get your storybook shelf set up.
           </p>
-          {user?.role === "admin" && (
+          <div className="mt-3 flex items-center justify-center gap-4">
+            {user?.role === "admin" && (
+              <button
+                onClick={handleAdminSkip}
+                className="text-xs text-stone-400 hover:text-stone-700 underline transition-colors"
+              >
+                Skip setup (admin)
+              </button>
+            )}
             <button
-              onClick={handleAdminSkip}
-              className="mt-3 text-xs text-stone-400 hover:text-stone-700 underline transition-colors"
+              onClick={handleLogout}
+              className="text-xs text-stone-400 hover:text-stone-700 underline transition-colors"
             >
-              Skip setup (admin)
+              Log out
             </button>
-          )}
+          </div>
         </div>
 
         <div className="flex items-center justify-center gap-2 mb-10">
