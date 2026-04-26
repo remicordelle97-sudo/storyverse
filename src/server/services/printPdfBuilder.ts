@@ -185,11 +185,14 @@ function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
   pdf.setFillColor(r, g, b);
   pdf.rect(0, 0, widthPt, heightPt, "F");
 
-  // Title goes on the front cover (right half of the wrap). Center it
-  // horizontally inside that half, vertically inside the page.
-  const frontHalfStart = widthPt / 2 + SPINE_INCHES * POINTS_PER_INCH / 2;
-  const frontCenterX = (frontHalfStart + widthPt) / 2;
-  const frontTextWidth = widthPt / 2 - 100;
+  // Front cover spans from the centerline (after spine, here zero) out
+  // to the inner edge of the right bleed. Center the title inside that
+  // visible trim area rather than the half of the full PDF.
+  const bleedPt = BLEED_INCHES * POINTS_PER_INCH;
+  const frontStart = widthPt / 2 + (SPINE_INCHES * POINTS_PER_INCH) / 2;
+  const frontEnd = widthPt - bleedPt;
+  const frontCenterX = (frontStart + frontEnd) / 2;
+  const frontTextWidth = frontEnd - frontStart - 36; // ~0.25" inside the trim
   pdf.setTextColor(255, 255, 255);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(40);
