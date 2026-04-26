@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # `npm ci` runs the postinstall hook, which calls `prisma generate`.
+      # That gates against the stale-client class of bug: if the schema
+      # references a model the generated client doesn't have, typecheck
+      # below will fail.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+        env:
+          # Vite needs this at build time. CI value is a placeholder — the
+          # real client ID is injected by Railway at deploy time.
+          VITE_GOOGLE_CLIENT_ID: ci-placeholder.apps.googleusercontent.com

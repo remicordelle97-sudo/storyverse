@@ -10,8 +10,10 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "typecheck": "tsc --noEmit",
     "build": "prisma generate && tsc && vite build",
-    "start": "node dist/src/server/index.js"
+    "start": "node dist/src/server/index.js",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

@@ -4,27 +4,41 @@ import fs from "fs";
 import path from "path";
 import { debug } from "./debug.js";
 
-const BUCKET = process.env.R2_BUCKET || "";
-const PUBLIC_URL = process.env.R2_PUBLIC_URL || ""; // e.g. https://images.storyverse.com or https://pub-xxx.r2.dev
+// Resolve storage backend at module load. Production refuses to start without
+// R2 — local-disk storage is per-instance, so a multi-instance deploy would
+// silently serve images that only exist on whichever box wrote them.
+function resolveStorage(): { s3: S3Client | null; bucket: string; publicUrl: string; useCloud: boolean } {
+  const bucket = process.env.R2_BUCKET || "";
+  const publicUrl = process.env.R2_PUBLIC_URL || "";
+  const accountId = process.env.R2_ACCOUNT_ID || "";
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID || "";
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY || "";
 
-const s3 = (process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY)
-  ? new S3Client({
+  const fullyConfigured = !!(accountId && accessKeyId && secretAccessKey && bucket && publicUrl);
+
+  if (fullyConfigured) {
+    const s3 = new S3Client({
       region: "auto",
-      endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-      credentials: {
-        accessKeyId: process.env.R2_ACCESS_KEY_ID,
-        secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-      },
-    })
-  : null;
+      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+      credentials: { accessKeyId, secretAccessKey },
+    });
+    debug.image("Storage: Cloudflare R2");
+    return { s3, bucket, publicUrl, useCloud: true };
+  }
 
-const useCloud = !!(s3 && BUCKET && PUBLIC_URL);
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "R2 storage is not fully configured (need R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, R2_PUBLIC_URL). Refusing to boot in production with local-disk fallback — images written on one instance would not be visible to others."
+    );
+  }
 
-if (useCloud) {
-  debug.image("Storage: Cloudflare R2");
-} else {
-  debug.image("Storage: local filesystem (R2 not configured)");
+  console.warn(
+    "[storage] R2 not configured; using local filesystem fallback. DO NOT deploy without setting R2_* env vars."
+  );
+  return { s3: null, bucket: "", publicUrl: "", useCloud: false };
 }
+
+const { s3, bucket: BUCKET, publicUrl: PUBLIC_URL, useCloud } = resolveStorage();
 
 // Local fallback paths
 const IMAGES_DIR = path.resolve("public/images");
