@@ -19,7 +19,11 @@ export async function checkUniverseQuota(userId: string): Promise<QuotaStatus> {
     return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
   }
 
-  const used = await prisma.universe.count({ where: { userId } });
+  // Preset (template-cloned) universes don't count: a free user can pick
+  // a preset during onboarding AND still build their one custom universe.
+  const used = await prisma.universe.count({
+    where: { userId, fromPreset: false },
+  });
   const remaining = Math.max(0, limit - used);
 
   return { allowed: used < limit, used, limit, remaining };

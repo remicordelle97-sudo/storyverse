@@ -33,6 +33,9 @@ model Universe {
   styleReferenceUrl  String      @default("")
   isPublic           Boolean     @default(false)
   isTemplate         Boolean     @default(false)
+  // True for universes cloned from a preset (admin-curated template).
+  // Preset clones do not count toward the user's universe quota.
+  fromPreset         Boolean     @default(false)
   createdAt          DateTime    @default(now())
   user               User        @relation(fields: [userId], references: [id])
   characters         Character[]

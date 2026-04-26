@@ -303,6 +303,9 @@ export async function clonePresetUniverse(
       avoidThemes: template.avoidThemes,
       styleReferenceUrl: template.styleReferenceUrl,
       isPublic: false,
+      // Preset clones don't count toward the user's universe quota — the
+      // user can still build a custom one alongside it.
+      fromPreset: true,
     },
   });
 
