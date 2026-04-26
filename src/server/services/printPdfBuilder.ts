@@ -22,7 +22,7 @@ import { debug } from "../lib/debug.js";
 const TRIM_INCHES = 8.5;
 const POINTS_PER_INCH = 72;
 const PAGE_PT = TRIM_INCHES * POINTS_PER_INCH; // 612pt
-const MIN_INTERIOR_PAGES = 24; // Lulu's paperback minimum
+const MIN_INTERIOR_PAGES = 32; // Lulu's 8.5x8.5 paperback minimum
 
 interface BuildInput {
   story: {
