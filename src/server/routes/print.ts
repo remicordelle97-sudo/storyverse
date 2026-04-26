@@ -156,13 +156,26 @@ router.post("/test-order", requireAdmin, async (req, res) => {
     let luluJobId: number | null = null;
     let luluStatusName: string | undefined;
     try {
+      // If R2 isn't configured, the storage helper returns a relative
+      // /images/... path. Lulu can't fetch a relative path — absolutize
+      // it via APP_URL so it points at the public Express static mount.
+      const externalize = (url: string): string => {
+        if (/^https?:\/\//.test(url)) return url;
+        const base = (process.env.APP_URL || "").replace(/\/$/, "");
+        if (!base) {
+          throw new Error(
+            "APP_URL is not set, and PDF storage is local. Configure R2 or set APP_URL so Lulu can fetch the printable files."
+          );
+        }
+        return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
+      };
       const luluJob = await createPrintJob({
         externalId: order.id,
         contactEmail,
         shippingAddress: address,
         shippingLevel: quote.shippingLevel,
-        coverPdfUrl: pdfs.coverPdfUrl,
-        interiorPdfUrl: pdfs.interiorPdfUrl,
+        coverPdfUrl: externalize(pdfs.coverPdfUrl),
+        interiorPdfUrl: externalize(pdfs.interiorPdfUrl),
         title: story.title,
       });
       luluJobId = luluJob.id;

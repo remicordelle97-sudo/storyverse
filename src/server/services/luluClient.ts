@@ -182,15 +182,16 @@ export async function calculatePrintJobCost(args: {
     "/print-job-cost-calculations/",
     { method: "POST", body: JSON.stringify(body) }
   );
-  const printCostCents = (data.line_item_costs || []).reduce(
-    (acc, li) => acc + dollarsToCents(li.cost_excl_tax),
-    0
-  );
+  // Derive printCost by subtracting shipping + tax from the total —
+  // more robust than summing per-line cost_excl_tax fields, since
+  // Lulu's response shape for line_item_costs varies across products
+  // and sometimes returns those fields as 0 even when the total is right.
   const shippingCostCents = dollarsToCents(
     data.shipping_cost?.total_cost_incl_tax
   );
   const taxCostCents = dollarsToCents(data.total_tax);
   const totalCostCents = dollarsToCents(data.total_cost_incl_tax);
+  const printCostCents = Math.max(0, totalCostCents - shippingCostCents - taxCostCents);
   return {
     printCostCents,
     shippingCostCents,
