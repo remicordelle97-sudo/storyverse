@@ -171,7 +171,15 @@ function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
   const widthPt = widthInches * POINTS_PER_INCH;
   const heightPt = heightInches * POINTS_PER_INCH;
 
-  const pdf = newDoc(widthPt, heightPt);
+  const pdf = new jsPDF({
+    unit: "pt",
+    format: [widthPt, heightPt],
+    // Cover is wider than tall (back + spine + front). Without
+    // explicit landscape orientation jsPDF would normalize to
+    // portrait and swap our dimensions, producing a 7.75x15.25
+    // page that Lulu rejects.
+    orientation: "landscape",
+  });
   const { r, g, b } = storyRgbColor(input.story.id);
   // Fill the entire wrap with the story color (back, spine area, front).
   pdf.setFillColor(r, g, b);
