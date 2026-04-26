@@ -236,16 +236,23 @@ router.get("/orders/:id", requireAdmin, async (req, res) => {
     });
     if (!order) return res.status(404).json({ error: "Order not found" });
 
-    let luluStatus: { name?: string; messages?: string[] } | null = null;
+    let luluStatus: any = null;
+    let luluLineItems: any = null;
     if (order.luluPrintJobId) {
       try {
         const job = await getPrintJob(order.luluPrintJobId);
         luluStatus = job.status || null;
+        // Lulu's top-level status is generic ("REJECTED" / "ACCEPTED");
+        // the actual rejection reason lives on each line item.
+        luluLineItems = job.line_items?.map((li) => ({
+          id: li.id,
+          status: li.status,
+        })) ?? null;
       } catch (e: any) {
         luluStatus = { name: "lookup_failed", messages: [e?.message || ""] };
       }
     }
-    res.json({ order, luluStatus });
+    res.json({ order, luluStatus, luluLineItems });
   } catch (e: any) {
     res.status(500).json({ error: e?.message || "Failed to fetch order" });
   }

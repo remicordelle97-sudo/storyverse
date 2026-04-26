@@ -213,11 +213,20 @@ export interface CreatePrintJobInput {
   quantity?: number;
 }
 
+export interface LuluLineItemStatus {
+  name?: string;
+  messages?: string[] | Record<string, string[]>;
+}
+
 export interface LuluPrintJob {
   id: number;
-  status: { name: string; messages?: string[] };
+  status: { name: string; messages?: string[]; message?: string };
   tracking_urls?: string[];
-  line_items?: Array<{ tracking_urls?: string[] }>;
+  line_items?: Array<{
+    id?: number;
+    status?: LuluLineItemStatus;
+    tracking_urls?: string[];
+  }>;
 }
 
 /**
