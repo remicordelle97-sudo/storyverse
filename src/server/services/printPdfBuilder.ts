@@ -22,7 +22,10 @@ import { debug } from "../lib/debug.js";
 const TRIM_INCHES = 8.5;
 const POINTS_PER_INCH = 72;
 const PAGE_PT = TRIM_INCHES * POINTS_PER_INCH; // 612pt
-const MIN_INTERIOR_PAGES = 32; // Lulu's 8.5x8.5 paperback minimum
+// Saddle-stitch requires the interior page count to be a multiple of 4.
+// We round up to that boundary with blanks; the final book design
+// (Phase 2) replaces those with real end-matter pages.
+const PAGE_COUNT_MULTIPLE = 4;
 
 interface BuildInput {
   story: {
@@ -79,7 +82,10 @@ function buildInteriorPdf(input: BuildInput): { bytes: ArrayBuffer; pageCount: n
     });
   }
 
-  while (pageCount < MIN_INTERIOR_PAGES) {
+  // Round up to the binding's required multiple — saddle-stitch needs
+  // a page count divisible by 4. Anything padded here is blank;
+  // Phase 2's real layout will replace these with end-matter content.
+  while (pageCount % PAGE_COUNT_MULTIPLE !== 0) {
     pdf.addPage([PAGE_PT, PAGE_PT], "p");
     pageCount++;
   }

@@ -16,8 +16,11 @@ const LULU_API_BASE_URL =
   process.env.LULU_API_BASE_URL || "https://api.sandbox.lulu.com";
 const LULU_CLIENT_KEY = process.env.LULU_CLIENT_KEY || "";
 const LULU_CLIENT_SECRET = process.env.LULU_CLIENT_SECRET || "";
-const LULU_DEFAULT_POD_PACKAGE_ID =
-  process.env.LULU_DEFAULT_POD_PACKAGE_ID || "0850X0850FCSTDPB060UW444MXX";
+// No fallback — different bindings have wildly different page-count
+// minimums (perfect-bound = 32, saddle-stitch = 4-ish), so we'd
+// rather error than silently print a 32-blank-page paperback because
+// the env var was forgotten.
+const LULU_DEFAULT_POD_PACKAGE_ID = process.env.LULU_DEFAULT_POD_PACKAGE_ID || "";
 
 const IS_CONFIGURED = Boolean(LULU_CLIENT_KEY && LULU_CLIENT_SECRET);
 
@@ -152,6 +155,11 @@ export async function calculatePrintJobCost(args: {
   shippingLevel?: string;
 }): Promise<CostBreakdown> {
   const podPackageId = args.podPackageId || LULU_DEFAULT_POD_PACKAGE_ID;
+  if (!podPackageId) {
+    throw new Error(
+      "LULU_DEFAULT_POD_PACKAGE_ID is not set. Pick a SKU at developers.lulu.com/price-calculator and set the env var."
+    );
+  }
   const shippingLevel = args.shippingLevel || "MAIL";
   const body = {
     line_items: [
@@ -220,6 +228,11 @@ export async function createPrintJob(
   input: CreatePrintJobInput
 ): Promise<LuluPrintJob> {
   const podPackageId = input.podPackageId || LULU_DEFAULT_POD_PACKAGE_ID;
+  if (!podPackageId) {
+    throw new Error(
+      "LULU_DEFAULT_POD_PACKAGE_ID is not set. Pick a SKU at developers.lulu.com/price-calculator and set the env var."
+    );
+  }
   const quantity = input.quantity || 1;
   const body = {
     external_id: input.externalId,
