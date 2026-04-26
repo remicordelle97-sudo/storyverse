@@ -22,6 +22,7 @@ import {
   type ShippingAddress,
 } from "../services/luluClient.js";
 import { buildPrintPdfBytes, storePrintPdfBytes } from "../services/printPdfBuilder.js";
+import { readImage } from "../lib/storage.js";
 
 const router = Router();
 
@@ -101,15 +102,23 @@ router.post("/test-order", requireAdmin, async (req, res) => {
       });
     }
 
+    // Pre-fetch each scene's illustration so the (sync) PDF builder
+    // can embed them. Running in parallel keeps this fast even for
+    // 10-scene stories.
+    const sceneImages = await Promise.all(
+      story.scenes.map((s) => (s.imageUrl ? readImage(s.imageUrl) : Promise.resolve(null)))
+    );
+
     // Build PDFs synchronously, then run the (slow) uploads in parallel
     // with the (slow) Lulu cost quote — they're independent.
     const built = buildPrintPdfBytes({
       story: {
         id: story.id,
         title: story.title,
-        scenes: story.scenes.map((s) => ({
+        scenes: story.scenes.map((s, i) => ({
           sceneNumber: s.sceneNumber,
           content: s.content,
+          image: sceneImages[i] || undefined,
         })),
       },
       podPackageId,

@@ -45,7 +45,13 @@ interface BuildInput {
   story: {
     id: string;
     title: string;
-    scenes: { sceneNumber: number; content: string }[];
+    scenes: {
+      sceneNumber: number;
+      content: string;
+      // Pre-fetched illustration bytes (route fetches in parallel
+      // before calling buildPrintPdfBytes so this stays sync).
+      image?: { mimeType: string; data: string };
+    }[];
   };
   // Lulu POD package id — drives the trim size of the emitted PDFs.
   podPackageId: string;
@@ -67,6 +73,12 @@ function newDoc(widthPt: number, heightPt: number): jsPDF {
   return new jsPDF({ unit: "pt", format: [widthPt, heightPt] });
 }
 
+function pdfImageFormat(mimeType: string): "PNG" | "JPEG" | "WEBP" {
+  if (mimeType.includes("png")) return "PNG";
+  if (mimeType.includes("webp")) return "WEBP";
+  return "JPEG";
+}
+
 function buildInteriorPdf(
   input: BuildInput,
   pagePt: number
@@ -75,33 +87,47 @@ function buildInteriorPdf(
   const margin = 54; // 0.75"
   const usableWidth = pagePt - margin * 2;
 
-  let pageCount = 0;
+  // Saddle-stitch requires the interior page count to be a multiple
+  // of 4. With 10 scenes that's 12 pages: 1 blank front + 10 scenes
+  // + 1 blank back. The cover already shows the title, so we don't
+  // repeat it on the front matter.
+  let pageCount = 1; // first page is blank front matter (already created by jsPDF)
 
-  // Title page
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(36);
-  const titleLines = pdf.splitTextToSize(input.story.title, usableWidth);
-  pdf.text(titleLines, pagePt / 2, pagePt / 2 - 12, { align: "center" });
-  pdf.setFont("helvetica", "italic");
-  pdf.setFontSize(13);
-  pdf.text("A Storyverse tale", pagePt / 2, pagePt / 2 + 24, { align: "center" });
-  pageCount++;
-
-  // One scene per interior page (Phase 2 will adapt the 2-up book layout).
   for (const scene of input.story.scenes) {
     pdf.addPage([pagePt, pagePt], "p");
     pageCount++;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(14);
-    const lines = pdf.splitTextToSize(scene.content, usableWidth);
-    pdf.text(lines, margin, margin + 24, { lineHeightFactor: 1.6 });
+
+    if (scene.image) {
+      // Top ~60% of the page is illustration, bottom ~40% is text.
+      const imgBoxTop = margin;
+      const imgBoxHeight = pagePt * 0.55;
+      pdf.addImage(
+        `data:${scene.image.mimeType};base64,${scene.image.data}`,
+        pdfImageFormat(scene.image.mimeType),
+        margin,
+        imgBoxTop,
+        usableWidth,
+        imgBoxHeight,
+      );
+      const textTop = imgBoxTop + imgBoxHeight + 24;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(13);
+      const lines = pdf.splitTextToSize(scene.content, usableWidth);
+      pdf.text(lines, margin, textTop, { lineHeightFactor: 1.55 });
+    } else {
+      // No illustration — text only, vertically centered.
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(14);
+      const lines = pdf.splitTextToSize(scene.content, usableWidth);
+      pdf.text(lines, margin, margin + 24, { lineHeightFactor: 1.6 });
+    }
+
     pdf.setFontSize(9);
+    pdf.setTextColor(120);
     pdf.text(String(scene.sceneNumber), pagePt / 2, pagePt - 24, { align: "center" });
+    pdf.setTextColor(0);
   }
 
-  // Round up to the binding's required multiple — saddle-stitch needs
-  // a page count divisible by 4. Anything padded here is blank;
-  // Phase 2's real layout will replace these with end-matter content.
   while (pageCount % PAGE_COUNT_MULTIPLE !== 0) {
     pdf.addPage([pagePt, pagePt], "p");
     pageCount++;
@@ -123,10 +149,7 @@ function buildCoverPdf(input: BuildInput, pagePt: number): ArrayBuffer {
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(40);
   const lines = pdf.splitTextToSize(input.story.title, pagePt - 100);
-  pdf.text(lines, pagePt / 2, pagePt / 2 - 16, { align: "center" });
-  pdf.setFont("helvetica", "italic");
-  pdf.setFontSize(14);
-  pdf.text("A Storyverse tale", pagePt / 2, pagePt / 2 + 36, { align: "center" });
+  pdf.text(lines, pagePt / 2, pagePt / 2, { align: "center" });
   return pdf.output("arraybuffer");
 }
 
