@@ -4,7 +4,10 @@ import { debug } from "../lib/debug.js";
 import { saveImage, readImage } from "../lib/storage.js";
 import { ART_STYLE, ART_STYLE_REMINDER, buildImageStyleGuide } from "./imageStyleGuide.js";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_KEY });
+// .trim() defends against trailing whitespace/newlines in the env var,
+// which surface as Node "Invalid character in header content" errors
+// when the SDK builds the auth header.
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_KEY?.trim() });
 
 const IMAGE_MODEL = "gemini-3-pro-image-preview";
 const IMAGE_SIZE = "1K";

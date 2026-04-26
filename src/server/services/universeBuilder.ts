@@ -4,7 +4,9 @@ import { CLAUDE_MODEL, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT } from "../lib/con
 import { debug } from "../lib/debug.js";
 import { generateStyleReference, generateAllCharacterSheets } from "./geminiGenerator.js";
 
-const anthropic = new Anthropic();
+// Pass apiKey explicitly + trim so trailing whitespace in the env var
+// doesn't poison the auth header (see geminiGenerator.ts for context).
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY?.trim() });
 
 export interface CharacterPhoto {
   mimeType: string; // e.g. "image/jpeg"

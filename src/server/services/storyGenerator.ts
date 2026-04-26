@@ -3,7 +3,9 @@ import { buildSystemPrompt } from "./promptBuilder.js";
 import { CLAUDE_MODEL, CLAUDE_MODEL_FAST, CLAUDE_MODEL_PLANNER, TEMPERATURE_STANDARD, MAX_TOKENS_SHORT, MAX_TOKENS_SMALL, STORY_PAGES } from "../lib/config.js";
 import { debug } from "../lib/debug.js";
 
-const anthropic = new Anthropic();
+// Pass apiKey explicitly + trim so trailing whitespace in the env var
+// doesn't poison the auth header (see geminiGenerator.ts for context).
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY?.trim() });
 
 /** Retry a function with exponential backoff on 429 rate limit errors */
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {

@@ -3,7 +3,9 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { CLAUDE_MODEL, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT } from "../lib/config.js";
 
-const anthropic = new Anthropic();
+// Pass apiKey explicitly + trim so trailing whitespace in the env var
+// doesn't poison the auth header (see geminiGenerator.ts for context).
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY?.trim() });
 
 interface GeneratedCharacter {
   name: string;
