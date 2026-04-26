@@ -5,6 +5,7 @@ import {
   completeOnboarding,
   completeOnboardingPreset,
   getTemplateUniverses,
+  skipOnboarding,
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import StoryLoadingScreen from "../components/StoryLoadingScreen";
@@ -58,6 +59,18 @@ export default function Onboarding() {
   if (submitting) return <StoryLoadingScreen phrases={ONBOARDING_PHRASES} />;
   if (submittingPreset) return <StoryLoadingScreen phrases={PRESET_PHRASES} />;
 
+  async function handleAdminSkip() {
+    try {
+      await skipOnboarding();
+      await refreshUser();
+      navigate("/library");
+    } catch (e: any) {
+      // No user-facing surface here — admins can fall back to the normal
+      // flow if this 403s for any reason.
+      console.error("Skip failed:", e?.message);
+    }
+  }
+
   return (
     <div className="min-h-screen app-bg flex items-start justify-center py-12 px-4">
       <div className={`w-full ${step === "preset" ? "max-w-6xl" : "max-w-3xl"}`}>
@@ -71,6 +84,14 @@ export default function Onboarding() {
           <p className="text-stone-500 text-sm">
             Let's get your storybook shelf set up.
           </p>
+          {user?.role === "admin" && (
+            <button
+              onClick={handleAdminSkip}
+              className="mt-3 text-xs text-stone-400 hover:text-stone-700 underline transition-colors"
+            >
+              Skip setup (admin)
+            </button>
+          )}
         </div>
 
         <div className="flex items-center justify-center gap-2 mb-10">

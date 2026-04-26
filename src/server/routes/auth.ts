@@ -54,8 +54,17 @@ router.post("/google", async (req, res) => {
           onboardedAt: role === "admin" ? new Date() : null,
         },
       });
+    } else if (user.role !== "admin" && isAdminEmail(payload.email)) {
+      // Email is in ADMIN_EMAILS but DB role is still "user" — happens
+      // when an existing account predates the env var being set, or
+      // when the env list is updated after a user already signed up.
+      // Promote on login and skip onboarding.
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { role: "admin", onboardedAt: user.onboardedAt || new Date() },
+      });
     } else if (user.role === "admin" && !user.onboardedAt) {
-      // Grandfather existing admins who predate the onboarding flow
+      // Grandfather existing admins who predate the onboarding flow.
       user = await prisma.user.update({
         where: { id: user.id },
         data: { onboardedAt: new Date() },
@@ -144,6 +153,30 @@ router.post("/onboard-preset", authMiddleware, async (req, res) => {
     console.error("Preset onboarding failed:", e);
     const status = /not found/i.test(msg) ? 404 : 500;
     res.status(status).json({ error: msg });
+  }
+});
+
+// Admin-only escape hatch: mark the current user as onboarded without
+// creating a universe. Defense-in-depth — the existing route guards
+// already auto-skip onboarding for role=admin, but this gives the
+// admin a manual button if role detection ever drifts (e.g. an admin
+// is testing as themselves and got reset).
+router.post("/skip-onboarding", authMiddleware, async (req, res) => {
+  try {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId as string } });
+    if (user.role !== "admin") {
+      return res.status(403).json({ error: "Admins only" });
+    }
+    if (user.onboardedAt) {
+      return res.json({ ok: true, alreadyOnboarded: true });
+    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardedAt: new Date() },
+    });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || "Failed to skip" });
   }
 });
 

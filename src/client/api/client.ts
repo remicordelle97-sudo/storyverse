@@ -49,6 +49,8 @@ export const completeOnboarding = (payload: OnboardingPayload) =>
     method: "POST",
     body: JSON.stringify(payload),
   });
+export const skipOnboarding = () =>
+  request<{ ok: boolean }>("/auth/skip-onboarding", { method: "POST" });
 export const completeOnboardingPreset = (templateUniverseId: string) =>
   request<{ universeId: string }>("/auth/onboard-preset", {
     method: "POST",
