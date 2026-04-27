@@ -8,7 +8,9 @@ import charactersRouter from "./routes/characters.js";
 import storiesRouter from "./routes/stories.js";
 import adminRouter from "./routes/admin.js";
 import printRouter from "./routes/print.js";
+import uploadsRouter from "./routes/uploads.js";
 import { authMiddleware } from "./middleware/auth.js";
+import { httpLatencyMiddleware } from "./middleware/httpLatency.js";
 import { bootWorkers } from "./worker.js";
 
 const app = express();
@@ -17,10 +19,11 @@ const PORT = process.env.PORT || 3001;
 // Stripe webhook needs raw body — must be before express.json()
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
 
-// Bumped to 10mb to fit base64-encoded character photos that flow through
-// /api/auth/onboard and /api/universes/custom. The photos are used in
-// memory for a single Claude vision call and never persisted.
-app.use(express.json({ limit: "10mb" }));
+// Photos no longer ride inside the JSON body — the universe builder
+// uploads them directly to R2 via /api/uploads/photo-url and submits
+// only the resulting key. 1MB is a generous ceiling for what's left
+// (story-builder requests, status polls, admin actions).
+app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
 // Health check (no auth required)
@@ -30,6 +33,12 @@ app.get("/health", (_req, res) => {
 
 // Serve generated images
 app.use("/images", express.static(path.resolve("public/images")));
+
+// Latency middleware — captures every /api/* request after body parsing
+// so we can expose per-route p50/p95/p99 from /api/admin/metrics. The
+// recorded duration is the time spent in our handlers, not in body
+// parsing or static serving.
+app.use("/api", httpLatencyMiddleware);
 
 // Public routes
 app.use("/api/auth", authRouter);
@@ -41,6 +50,7 @@ app.use("/api/characters", authMiddleware, charactersRouter);
 app.use("/api/stories", authMiddleware, storiesRouter);
 app.use("/api/admin", authMiddleware, adminRouter);
 app.use("/api/print", authMiddleware, printRouter);
+app.use("/api/uploads", authMiddleware, uploadsRouter);
 
 // In production, serve the built React app
 const clientDist = path.resolve("dist/client");

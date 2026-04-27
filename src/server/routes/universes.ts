@@ -3,7 +3,14 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { checkUniverseQuota } from "../lib/quota.js";
-import { buildCustomUniverse, startUniverseImageGeneration } from "../services/universeBuilder.js";
+import {
+  validateUniverseInput,
+  createUniversePlaceholder,
+  type UniverseBuildJobPayload,
+} from "../services/universePipeline.js";
+import { createJob } from "../lib/jobs.js";
+import { JOB_KINDS } from "../lib/queues.js";
+import { verifyUniverseOwnership } from "../lib/ownership.js";
 import { deleteUniversesCascade } from "../lib/cascade.js";
 
 const router = Router();
@@ -44,22 +51,38 @@ router.get("/quota", async (req, res) => {
   }
 });
 
-// List all universes for the authenticated user + public universes
-router.get("/", async (req, res) => {
+// Cursor pagination (mirrors stories.ts).
+const DEFAULT_PAGE_LIMIT = 50;
+const MAX_PAGE_LIMIT = 100;
+function parseLimit(raw: unknown): number {
+  const n = typeof raw === "string" ? parseInt(raw, 10) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_PAGE_LIMIT;
+  return Math.min(n, MAX_PAGE_LIMIT);
+}
+
+// GET /api/universes/my — paginated list of the user's own universes.
+// Includes characters because every consumer (Library shelf,
+// MyUniverses detail, StoryBuilder picker, admin manager) needs them.
+router.get("/my", async (req, res) => {
   try {
-    const universes = await prisma.universe.findMany({
-      where: {
-        OR: [
-          { userId: req.userId as string },
-          { isPublic: true },
-        ],
-      },
+    const limit = parseLimit(req.query.limit);
+    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+
+    const rows = await prisma.universe.findMany({
+      where: { userId: req.userId as string },
       include: { characters: true },
       orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     });
-    res.json(universes);
+
+    if (rows.length > limit) {
+      const items = rows.slice(0, limit);
+      return res.json({ items, nextCursor: items[items.length - 1].id });
+    }
+    res.json({ items: rows, nextCursor: null });
   } catch (e) {
-    res.status(500).json({ error: "Failed to fetch universes" });
+    res.status(500).json({ error: "Failed to fetch your universes" });
   }
 });
 
@@ -85,8 +108,9 @@ router.get("/:id", async (req, res) => {
 });
 
 // Create a custom universe from the same builder used during onboarding.
-// Quota-checked. Returns immediately with the new universe id; image
-// generation runs in the background.
+// Quota-checked. Returns 202 with { universeId, jobId }; the worker
+// runs the Claude build + Gemini image generation in the background
+// and the client polls /api/universes/:id/status to track progress.
 router.post("/custom", async (req, res) => {
   try {
     const quota = await checkUniverseQuota(req.userId as string);
@@ -96,14 +120,74 @@ router.post("/custom", async (req, res) => {
       });
     }
 
-    const built = await buildCustomUniverse(req.userId as string, req.body || {});
-    res.status(201).json({ universeId: built.id });
-    startUniverseImageGeneration(built.id, built.name);
+    let validated;
+    try {
+      validated = validateUniverseInput(req.body || {});
+    } catch (e: any) {
+      return res.status(400).json({ error: e.message });
+    }
+
+    const universe = await createUniversePlaceholder({
+      userId: req.userId as string,
+      universeName: validated.universeName,
+      themes: validated.themes,
+    });
+
+    const job = await createJob({
+      kind: JOB_KINDS.universeBuild,
+      ownerId: req.userId as string,
+      universeId: universe.id,
+      payload: { input: req.body } satisfies UniverseBuildJobPayload as any,
+    });
+
+    res.status(202).json({ universeId: universe.id, jobId: job.id });
   } catch (e: any) {
     const msg = e?.message || "Failed to create universe";
-    debug.error(`Custom universe creation failed: ${msg}`);
-    const isValidation = typeof msg === "string" && /required/i.test(msg);
-    res.status(isValidation ? 400 : 500).json({ error: msg });
+    debug.error(`Custom universe enqueue failed: ${msg}`);
+    res.status(500).json({ error: msg });
+  }
+});
+
+// Poll-friendly status for the async universe-creation pipeline. Mirrors
+// /api/stories/:id/status: returns the Universe.status plus the latest
+// GenerationJob's step / progressPercent / lastError.
+router.get("/:id/status", async (req, res) => {
+  try {
+    const universe = await prisma.universe.findUnique({
+      where: { id: req.params.id as string },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        styleReferenceUrl: true,
+        characters: { select: { id: true, referenceImageUrl: true } },
+      },
+    });
+    if (!universe) return res.status(404).json({ error: "Universe not found" });
+
+    if (!await verifyUniverseOwnership(universe.id, req.userId as string)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const totalAssets = universe.characters.length + 1; // +1 for style ref
+    const assetsReady =
+      (universe.styleReferenceUrl ? 1 : 0) +
+      universe.characters.filter((c) => c.referenceImageUrl).length;
+
+    const latestJob = await prisma.generationJob.findFirst({
+      where: { universeId: universe.id },
+      orderBy: { createdAt: "desc" },
+      select: { kind: true, status: true, step: true, progressPercent: true, lastError: true },
+    });
+
+    res.json({
+      status: universe.status,
+      assetsReady,
+      totalAssets,
+      job: latestJob ?? null,
+    });
+  } catch {
+    res.status(500).json({ error: "Failed to check status" });
   }
 });
 

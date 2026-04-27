@@ -32,61 +32,139 @@ router.get("/quota", async (req, res) => {
   }
 });
 
+// Slim shape for the library/story-list views: just the metadata
+// needed to render covers and badges. Full story data (scenes,
+// characters, universe) is served by GET /:id. Avoids shipping
+// every page's prose and image URLs on the home shelf.
+const STORY_SUMMARY_SELECT = {
+  id: true,
+  title: true,
+  isPublic: true,
+  hasIllustrations: true,
+  status: true,
+  createdAt: true,
+  universe: { select: { id: true, name: true } },
+  _count: { select: { scenes: true } },
+} as const;
+
+function flattenStorySummary(s: {
+  id: string;
+  title: string;
+  isPublic: boolean;
+  hasIllustrations: boolean;
+  status: string;
+  createdAt: Date;
+  universe: { id: string; name: string };
+  _count: { scenes: number };
+}) {
+  return {
+    id: s.id,
+    title: s.title,
+    isPublic: s.isPublic,
+    hasIllustrations: s.hasIllustrations,
+    status: s.status,
+    createdAt: s.createdAt,
+    universe: s.universe,
+    scenesCount: s._count.scenes,
+  };
+}
+
+// Cursor pagination caps. The default limit covers the typical
+// Library shelf without follow-up requests; the max prevents a
+// pathological query that would defeat the indexes.
+const DEFAULT_PAGE_LIMIT = 50;
+const MAX_PAGE_LIMIT = 100;
+
+function parseLimit(raw: unknown): number {
+  const n = typeof raw === "string" ? parseInt(raw, 10) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_PAGE_LIMIT;
+  return Math.min(n, MAX_PAGE_LIMIT);
+}
+
+/** Build a cursor-paginated response from a Prisma findMany result.
+ * Convention: pull `limit + 1` rows so we can detect "more available"
+ * without a second count query. nextCursor is the id of the LAST row
+ * returned in this page (clients pass it back as `?cursor=`). */
+function paginate<T extends { id: string }>(rows: T[], limit: number): { items: T[]; nextCursor: string | null } {
+  if (rows.length > limit) {
+    const items = rows.slice(0, limit);
+    return { items, nextCursor: items[items.length - 1].id };
+  }
+  return { items: rows, nextCursor: null };
+}
+
+// GET /api/stories/my — paginated list of stories the user created
+// (directly via createdById) or that live in a universe they own.
+// Excludes other users' public stories, which live on /featured.
+router.get("/my", async (req, res) => {
+  try {
+    const limit = parseLimit(req.query.limit);
+    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+
+    const rows = await prisma.story.findMany({
+      where: {
+        OR: [
+          { createdById: req.userId as string },
+          { createdById: null, universe: { userId: req.userId as string } },
+        ],
+      },
+      select: STORY_SUMMARY_SELECT,
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    });
+
+    const { items, nextCursor } = paginate(rows, limit);
+    res.json({ items: items.map(flattenStorySummary), nextCursor });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to fetch your stories" });
+  }
+});
+
+// GET /api/stories/featured — paginated list of public stories
+// (admin-curated). Used for the "featured" shelf in the library.
+router.get("/featured", async (req, res) => {
+  try {
+    const limit = parseLimit(req.query.limit);
+    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+
+    const rows = await prisma.story.findMany({
+      where: { isPublic: true },
+      select: STORY_SUMMARY_SELECT,
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    });
+
+    const { items, nextCursor } = paginate(rows, limit);
+    res.json({ items: items.map(flattenStorySummary), nextCursor });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to fetch featured stories" });
+  }
+});
+
+// GET /api/stories?universeId=... — list stories in a specific
+// universe. Used by the universe-detail and story-builder pages where
+// the count is bounded by per-universe story growth (small in practice
+// — a universe rarely accumulates more than a few dozen stories).
+// Not paginated for the same reason; if this ever grows we can swap to
+// the cursor pattern above.
 router.get("/", async (req, res) => {
   try {
     const { universeId } = req.query;
-
-    // Slim shape for the library/story-list views: just the metadata
-    // needed to render covers and badges. Full story data (scenes,
-    // characters, universe) is served by GET /:id. Avoids shipping
-    // every page's prose and image URLs on the home shelf.
-    const slimSelect = {
-      id: true,
-      title: true,
-      isPublic: true,
-      hasIllustrations: true,
-      status: true,
-      createdAt: true,
-      universe: { select: { id: true, name: true } },
-      _count: { select: { scenes: true } },
-    } as const;
-
-    const where = universeId && typeof universeId === "string"
-      ? (await verifyUniverseOwnership(universeId, req.userId as string)
-          ? { universeId }
-          : null)
-      : {
-          OR: [
-            { createdById: req.userId as string },
-            { createdById: null, universe: { userId: req.userId as string } },
-            { isPublic: true },
-          ],
-        };
-
-    if (where === null) {
+    if (!universeId || typeof universeId !== "string") {
+      return res.status(400).json({ error: "universeId is required" });
+    }
+    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
     const rows = await prisma.story.findMany({
-      where,
-      select: slimSelect,
+      where: { universeId },
+      select: STORY_SUMMARY_SELECT,
       orderBy: { createdAt: "desc" },
     });
-
-    // Flatten the _count.scenes into a top-level scenesCount field so
-    // clients don't have to know about the Prisma _count shape.
-    const stories = rows.map((s) => ({
-      id: s.id,
-      title: s.title,
-      isPublic: s.isPublic,
-      hasIllustrations: s.hasIllustrations,
-      status: s.status,
-      createdAt: s.createdAt,
-      universe: s.universe,
-      scenesCount: s._count.scenes,
-    }));
-
-    res.json(stories);
+    res.json(rows.map(flattenStorySummary));
   } catch (e) {
     res.status(500).json({ error: "Failed to fetch stories" });
   }

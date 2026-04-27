@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getStories, getUniverses, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
+import { getMyStories, getFeaturedStories, getMyUniverses, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { storyTailwindColor } from "../../shared/storyColor";
 
@@ -9,6 +9,27 @@ import { storyTailwindColor } from "../../shared/storyColor";
 function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { story: any; onClick: () => void; isAdmin?: boolean; onTogglePublic?: () => void; onDelete?: () => void }) {
   const color = storyTailwindColor(story.id);
   const universeName = story.universe?.name || "";
+
+  // Status vocabulary from the async pipeline (PR 4):
+  //   queued | generating_text | illustrating | published
+  //   | failed_text | failed_illustration
+  // Show a friendly stand-in for the not-yet-finalized cases so the
+  // user doesn't see an empty-title book.
+  const statusLabel = (() => {
+    if (story.status === "queued" || story.status === "generating_text") {
+      return "Generating...";
+    }
+    if (story.status === "illustrating") return "Adding illustrations...";
+    if (story.status === "failed_text") return "Failed";
+    if (story.status === "failed_illustration") return "Illustrations failed";
+    return null;
+  })();
+  const isPending =
+    story.status === "queued" ||
+    story.status === "generating_text" ||
+    story.status === "illustrating";
+  const displayTitle =
+    story.title || (isPending ? "Generating story..." : "Untitled");
 
   return (
     <div className="relative" style={{ width: "160px" }}>
@@ -36,17 +57,21 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { stor
             </p>
           )}
 
-          {/* Empty story indicator */}
-          {!story.scenesCount && (
+          {/* Status / unavailable indicator */}
+          {statusLabel ? (
+            <p className="text-white/60 text-[8px] uppercase tracking-wider">
+              {statusLabel}
+            </p>
+          ) : !story.scenesCount ? (
             <p className="text-white/30 text-[8px] uppercase tracking-wider">
               Story unavailable
             </p>
-          )}
+          ) : null}
 
           {/* Title */}
           <div className="flex-1 flex items-center">
             <h3 className="text-white font-bold text-sm leading-snug">
-              {story.title}
+              {displayTitle}
             </h3>
           </div>
         </div>
@@ -120,31 +145,53 @@ export default function Library() {
   const [showMenu, setShowMenu] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
 
-  const { data: stories = [], isLoading } = useQuery({
-    queryKey: ["stories-all"],
-    queryFn: () => getStories(),
-  });
-
-  // Detect universes that haven't finished generating their style reference
-  // and character sheets so we can poll until they're ready and notify
-  // the user.
-  const isUniverseReady = (u: any) => {
-    if (!u.styleReferenceUrl) return false;
-    const chars = u.characters || [];
-    if (chars.length === 0) return false;
-    return chars.every((c: any) => !!c.referenceImageUrl);
-  };
-
-  const { data: universes = [] } = useQuery({
-    queryKey: ["universes"],
-    queryFn: getUniverses,
-    // Poll every 5s while any universe is still generating images.
+  // Library shows two shelves: the user's own stories and the
+  // admin-curated featured shelf. Each is paginated independently;
+  // we just fetch the first page here. "Load more" could be added
+  // later when total counts exceed the default page size.
+  const { data: myStoriesPage, isLoading: myLoading } = useQuery({
+    queryKey: ["stories-my"],
+    queryFn: () => getMyStories(),
     refetchInterval: (query) => {
-      const data = (query.state.data as any[]) || [];
-      const anyPending = data.some((u: any) => !isUniverseReady(u));
+      const items = ((query.state.data as any)?.items as any[]) || [];
+      const pending = items.some(
+        (s: any) =>
+          s.status === "queued" ||
+          s.status === "generating_text" ||
+          s.status === "illustrating",
+      );
+      return pending ? 5000 : false;
+    },
+  });
+  const { data: featuredStoriesPage } = useQuery({
+    queryKey: ["stories-featured"],
+    queryFn: () => getFeaturedStories(),
+  });
+  const stories = myStoriesPage?.items ?? [];
+  const featuredStories = featuredStoriesPage?.items ?? [];
+  const isLoading = myLoading;
+
+  // Universe lifecycle states (PR 5 added the explicit status column):
+  //   queued | building | illustrating_assets | ready | failed
+  // Treat status="ready" as the only success terminal. status="failed"
+  // is a terminal we should stop polling on (otherwise a failed build
+  // would keep the library refetching forever).
+  const isUniverseReady = (u: any) => u.status === "ready";
+  const isUniverseFailed = (u: any) => u.status === "failed";
+
+  const { data: universesPage } = useQuery({
+    queryKey: ["universes-my"],
+    queryFn: () => getMyUniverses(),
+    // Poll every 5s while any universe is still mid-build/illustrating.
+    refetchInterval: (query) => {
+      const items = ((query.state.data as any)?.items as any[]) || [];
+      const anyPending = items.some(
+        (u: any) => !isUniverseReady(u) && !isUniverseFailed(u),
+      );
       return anyPending ? 5000 : false;
     },
   });
+  const universes = universesPage?.items ?? [];
 
   // Track "newly-ready" transitions so we can show a toast when background
   // image generation completes.

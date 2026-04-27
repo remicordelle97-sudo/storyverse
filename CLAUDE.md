@@ -43,7 +43,9 @@ Two AI services work in sequence:
 
 ### Story Generation Flow
 
-Story generation uses **three sequential Claude API calls**:
+Story generation runs **asynchronously** in the worker process. `POST /api/stories/generate` validates and returns 202 with `{ storyId, jobId }` in milliseconds; the actual work happens in a `story_text` job processed by `runStoryTextJob` (`storyPipeline.ts`). On success the processor enqueues a follow-up `story_images` job (if illustrations were requested). See "Async Generation Pipeline" below for the queue mechanics.
+
+The text job makes **three sequential Claude API calls**:
 
 ```
 buildPrompt() → planStory() → writeStory() → refineImagePrompts()
@@ -95,44 +97,80 @@ Image generation for stories uses a **multi-turn Gemini chat session**:
 
 Reference images are labeled as identity references with anti-copying instructions to prevent Gemini from compositing them into the scene. The style guide lives in `imageStyleGuide.ts`.
 
-Image generation runs **in the background** after the story text is saved and returned to the client. The client polls `/stories/:id/status` to track progress. On server restart, `resumeStories.ts` finds stories stuck in "illustrating" status and re-queues them.
+Image generation runs as a `story_images` job (`storyPipeline.ts: runStoryImagesJob`) consumed by the gemini-tasks queue. It only fills in scenes whose `imageUrl` is empty, so a partial-failure restart only redoes missing pages. The client polls `/stories/:id/status` to track progress.
 
-### Background Jobs (in transition)
+### Async Generation Pipeline
 
-Two systems coexist while the codebase migrates from inline+image-only
-queueing to a vendor-level job queue:
+All AI work runs through a queued `GenerationJob` row + a vendor-level
+BullMQ worker. The HTTP routes are thin: validate, create the
+placeholder entity row, enqueue, return 202 + `{ entityId, jobId }`.
+The client navigates to the entity's reading/library view and polls
+`/api/stories/:id/status` or `/api/universes/:id/status`.
 
-**Legacy (currently driving production):**
-- `src/server/lib/imageQueue.ts` — single BullMQ queue (`image-generation`)
-  for story illustrations. Falls back to in-process if `REDIS_URL` is
-  unset.
-- `src/server/lib/resumeStories.ts` — startup sweep for stories stuck
-  in `"illustrating"` after a restart.
-- Story text generation is still inline in `POST /api/stories/generate`
-  via SSE (see Streaming below).
-
-**New infrastructure (wired but inert):**
+**Files:**
 - `src/server/lib/queues.ts` — two vendor-level BullMQ queues:
   `claude-tasks` (handles `story_text`, `universe_build`) and
-  `gemini-tasks` (handles `story_images`, `universe_images`).
-  Per-vendor concurrency knobs via `CLAUDE_QUEUE_CONCURRENCY` and
-  `GEMINI_QUEUE_CONCURRENCY` env vars (default 2 each).
-- `src/server/lib/jobs.ts` — DB persistence + lifecycle for the
-  `GenerationJob` row: `createJob` (atomically inserts + enqueues),
-  `claimJob` (lock-acquisition primitive for resume), plus progress /
-  complete / fail helpers. The BullMQ jobId is the GenerationJob row
-  id, so the two stores stay aligned.
-- `src/server/worker.ts` — entry point that boots all background
-  consumers. `bootWorkers()` is called inline by the web process when
-  `WORKER_INLINE !== "false"` (the default), or stand-alone by
-  `npm run worker` / `npm run start:worker`. Stub processors for the
-  new claude/gemini kinds fail loudly with "not yet implemented" —
-  real handlers land when story/universe creation is moved onto the
-  async pipeline.
+  `gemini-tasks` (handles `story_images`, `universe_images`). Per-
+  vendor concurrency knobs via `CLAUDE_QUEUE_CONCURRENCY` and
+  `GEMINI_QUEUE_CONCURRENCY` (default 2 each).
+- `src/server/lib/jobs.ts` — `GenerationJob` row CRUD: `createJob`
+  (atomically inserts + enqueues to the matching queue), `claimJob`
+  (atomic lock acquisition), `markJobCompleted` / `markJobFailed` /
+  `updateJobProgress`, `findResumableJobs`. The BullMQ jobId is the
+  GenerationJob row id so the two stores stay aligned.
+- `src/server/services/storyPipeline.ts` — `runStoryTextJob` and
+  `runStoryImagesJob` processors plus `createStoryPlaceholder` and
+  `pickStoryParameters` route helpers.
+- `src/server/services/universePipeline.ts` — same shape for
+  universes: `runUniverseBuildJob`, `runUniverseImagesJob`,
+  `createUniversePlaceholder`, `validateUniverseInput`.
+- `src/server/worker.ts` — `bootWorkers()` entry point. Sets up
+  BullMQ Workers for the two queues with their concurrency caps,
+  dispatches each job to the right processor by `kind`, and runs
+  the resume sweep on boot. Called inline by the web process when
+  `WORKER_INLINE !== "false"` (the default) or standalone via
+  `npm run worker` / `npm run start:worker`.
 
-The `Universe.status` and the expanded `Story.status` vocabulary
-documented on those models are the user-facing counterpart to
-GenerationJob's worker-side state.
+**Idempotency.** Every processor reloads the entity row first and
+exits if the work has moved past its phase. `runStoryTextJob` also
+checks for existing scenes (guards the "crashed after createMany"
+case). `runStoryImagesJob` only generates images for scenes with
+empty `imageUrl`. Same pattern for universe processors.
+
+**Resume on restart.** `findResumableJobs` returns rows with
+`status='queued'` plus rows whose `lockedAt` is older than 15 min
+(presumed-abandoned). With Redis the resume sweep re-enqueues to
+BullMQ; without Redis it runs the jobs in-process. In single-process
+mode (no `REDIS_URL`) the boot path additionally resets all
+`status='running'` rows to `queued` since they're by definition
+abandoned by the previous process.
+
+**No-Redis fallback.** Without `REDIS_URL` the queues are null and
+the worker polls the DB every 2 seconds for queued jobs. An
+in-process semaphore in `worker.ts` enforces the same per-vendor
+concurrency caps (`inFlightClaude` / `inFlightGemini`) that BullMQ
+would. Production should always set `REDIS_URL`; the polling
+fallback is a dev convenience.
+
+**Failure surfacing.** When a processor throws, the worker catches
+it and:
+1. Calls the entity-specific marker (`markStoryTextFailed` /
+   `markStoryImagesFailed` / `markUniverseFailed`) to flip the
+   entity row to a terminal failure status.
+2. Calls `markJobFailed(jobId, error)` to populate
+   `GenerationJob.lastError` for the status endpoint.
+3. Re-throws so BullMQ records the retry attempt.
+
+The status endpoints surface `Story.status` / `Universe.status`
+plus the latest `GenerationJob.{step, progressPercent, lastError}`
+so the polling client can render real progress and human-readable
+error messages.
+
+`GET /api/stories/:id/status` and `GET /api/universes/:id/status`
+are the canonical polling endpoints. The legacy SSE-based
+`POST /api/stories/generate` and `POST /api/stories/:id/regenerate-images`
+endpoints (which used to stream events back over the request) have
+been replaced with 202+enqueue.
 
 ### Key Configuration
 
@@ -153,11 +191,11 @@ User → GenerationJob (→ Story?, → Universe?)
 
 **User**: Google OAuth, JWT auth. Roles: user, admin. Plans: free (5 stories/month, 1 universe), premium (unlimited), admin.
 
-**Universe**: Name, setting description, themes, avoid-themes, style reference image. `status` (default `"ready"`) tracks the async creation lifecycle: `queued | building | illustrating_assets | ready | failed`. Sensory details/world rules/scale fields exist in schema but are deprecated (no longer written to or read from).
+**Universe**: Name, setting description, themes, avoid-themes, style reference image. `status` tracks the async creation lifecycle: `queued | building | illustrating_assets | ready | failed`. Default is `"ready"` so legacy rows (pre-PR-5) are correct without a migration; new universes from `/api/auth/onboard` and `/api/universes/custom` start at `"queued"`. Preset clones (`/api/auth/onboard-preset`) skip the pipeline entirely and land at `"ready"` immediately. Sensory details/world rules/scale fields exist in schema but are deprecated.
 
 **Character**: Name, species, personality traits, appearance, outfit, relationship archetype, reference image. The `specialDetail` field exists in schema but is deprecated.
 
-**Story**: Title, mood, age group. `status` vocabulary: today the synchronous flow only writes `"illustrating"` and `"published"`; the async pipeline expands it to `queued | generating_text | illustrating | published | failed_text | failed_illustration`. Debug fields store the plan prompt, write prompt, generated plan, and structure archetype for admin inspection.
+**Story**: Title, mood, age group. `status` vocabulary: `queued | generating_text | illustrating | published | failed_text | failed_illustration`. Default is `"draft"` for legacy rows. Debug fields store the plan prompt, write prompt, generated plan, and structure archetype for admin inspection.
 
 **Scene**: Scene number, content (prose text), image prompt, image URL.
 
@@ -167,11 +205,24 @@ User → GenerationJob (→ Story?, → Universe?)
 
 Auth is JWT-based (Google OAuth), enforced by `src/server/middleware/auth.ts` on all `/api/*` routes except `/api/auth`. All routes verify universe ownership via `src/server/lib/ownership.ts`.
 
-### Streaming
+### Client-side polling
 
-Story generation uses **Server-Sent Events (SSE)**. The server sends `data: {type, ...}\n\n` events. Types: `progress` (step + detail), `complete` (full story object), `error`. The client in `src/client/api/client.ts` has SSE reader functions that parse these streams.
+Pages that depend on async generation state poll the relevant
+status endpoint via `react-query`'s `refetchInterval`:
 
-This is the current, request-bound implementation — incompatible with horizontal scaling because the HTTP request stays open for the duration of generation. The async pipeline (in progress) will replace the SSE stream on `POST /api/stories/generate` with a `202 { storyId, jobId }` response and lightweight status polling against `GET /api/stories/:id/status`. The Background Jobs subsection above describes the queue infrastructure that will back it.
+- `ReadingMode.tsx` polls `/stories/:id/status` every 3s while the
+  story is in any non-terminal state (`queued | generating_text |
+  illustrating`). Renders `STORY_TEXT_PHRASES` during the text
+  phase and `STORY_IMAGE_PHRASES` once images start. Failed states
+  (`failed_text` / `failed_illustration`) render a friendly error
+  screen with admin-only access to the underlying job error.
+- `Library.tsx` and `MyUniverses.tsx` poll their respective list
+  endpoints every 5s while any item is non-terminal. `BookCover`
+  shows status-aware labels ("Generating…", "Adding illustrations…",
+  "Failed") and a `displayTitle` fallback so empty-title placeholder
+  rows don't show a blank book.
+- `MyUniverses.tsx`'s `UniverseStatusBadge` component covers the
+  full universe status vocabulary.
 
 ### Reading Mode
 

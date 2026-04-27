@@ -32,9 +32,34 @@ export const resetUser = (userId: string) =>
     { method: "POST" }
   );
 // Onboarding / custom universe builder share the same payload shape.
+// Photos are uploaded directly to R2 via a presigned URL (see
+// uploadPhoto below) and the returned `photoKey` is what gets sent
+// in the universe payload — never the bytes themselves.
 export interface CharacterPhoto {
-  mimeType: string;
-  data: string; // raw base64 (no "data:..." prefix)
+  photoKey: string;
+}
+
+/** Two-step photo upload:
+ *   1. POST /api/uploads/photo-url to get a presigned PUT URL + key.
+ *   2. PUT the file blob directly to R2 using that URL.
+ * Returns the key the caller should embed in the universe payload. */
+export async function uploadPhoto(file: File): Promise<{ photoKey: string }> {
+  const signed = await request<{ uploadUrl: string; key: string; expiresInSeconds: number }>(
+    "/uploads/photo-url",
+    {
+      method: "POST",
+      body: JSON.stringify({ mimeType: file.type, contentLength: file.size }),
+    },
+  );
+  const putRes = await fetch(signed.uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!putRes.ok) {
+    throw new Error(`Photo upload failed (HTTP ${putRes.status})`);
+  }
+  return { photoKey: signed.key };
 }
 export interface OnboardingPayload {
   universeName: string;
@@ -44,8 +69,17 @@ export interface OnboardingPayload {
     | "auto"
     | { name: string; species: string; traits: string[]; photo?: CharacterPhoto }[];
 }
+// Async universe-creation endpoints. Both onboard (custom) and
+// /universes/custom return 202 with { universeId, jobId } and the
+// worker handles Claude + Gemini in the background. Clients should
+// navigate to the library and rely on getUniverseStatus polling for
+// the per-universe placeholder card.
+export interface UniverseJobEnvelope {
+  universeId: string;
+  jobId: string;
+}
 export const completeOnboarding = (payload: OnboardingPayload) =>
-  request<{ universeId: string }>("/auth/onboard", {
+  request<UniverseJobEnvelope>("/auth/onboard", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -70,10 +104,25 @@ export const getTemplateUniverses = () =>
 export const toggleUniverseTemplate = (id: string) =>
   request<{ isTemplate: boolean }>(`/universes/${id}/toggle-template`, { method: "POST" });
 export const createCustomUniverse = (payload: OnboardingPayload) =>
-  request<{ universeId: string }>("/universes/custom", {
+  request<UniverseJobEnvelope>("/universes/custom", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+
+export interface UniverseStatus {
+  status: string; // queued | building | illustrating_assets | ready | failed
+  assetsReady: number;
+  totalAssets: number;
+  job: {
+    kind: string;
+    status: string;
+    step: string;
+    progressPercent: number;
+    lastError: string;
+  } | null;
+}
+export const getUniverseStatus = (id: string) =>
+  request<UniverseStatus>(`/universes/${id}/status`);
 
 // Character rename — admin-only on the server. Regular users can only
 // set the hero name once, during onboarding (handled inline by
@@ -97,7 +146,20 @@ export const deleteUniverse = (id: string) =>
   request<{ ok: boolean }>(`/universes/${id}`, { method: "DELETE" });
 export const getUniverseQuota = () =>
   request<{ allowed: boolean; used: number; limit: number; remaining: number }>("/universes/quota");
-export const getUniverses = () => request<any[]>("/universes");
+export interface UniversePage {
+  items: any[];
+  nextCursor: string | null;
+}
+
+// Cursor-paginated list of the user's own universes (templates live
+// at GET /universes/templates and are returned uncoupled).
+export const getMyUniverses = (cursor?: string | null, limit?: number) => {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  if (limit) params.set("limit", String(limit));
+  const qs = params.toString();
+  return request<UniversePage>(`/universes/my${qs ? `?${qs}` : ""}`);
+};
 export const getUniverse = (id: string) => request<any>(`/universes/${id}`);
 export const generateStyleReference = (universeId: string) =>
   request<any>(`/universes/${universeId}/generate-style-reference`, { method: "POST" });
@@ -134,8 +196,35 @@ export interface StorySummary {
   universe: { id: string; name: string };
   scenesCount: number;
 }
-export const getStories = (universeId?: string) =>
-  request<StorySummary[]>(universeId ? `/stories?universeId=${universeId}` : "/stories");
+export interface StoryPage {
+  items: StorySummary[];
+  nextCursor: string | null;
+}
+
+// Stories scoped to a single universe — bounded by per-universe story
+// growth so no pagination needed. Used by the universe-detail and
+// story-builder pages.
+export const getStoriesInUniverse = (universeId: string) =>
+  request<StorySummary[]>(`/stories?universeId=${universeId}`);
+
+// Cursor-paginated lists of the user's own stories vs the
+// admin-curated featured shelf. Pass `cursor` from the previous
+// page's `nextCursor` to fetch more; null means end-of-list.
+export const getMyStories = (cursor?: string | null, limit?: number) => {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  if (limit) params.set("limit", String(limit));
+  const qs = params.toString();
+  return request<StoryPage>(`/stories/my${qs ? `?${qs}` : ""}`);
+};
+
+export const getFeaturedStories = (cursor?: string | null, limit?: number) => {
+  const params = new URLSearchParams();
+  if (cursor) params.set("cursor", cursor);
+  if (limit) params.set("limit", String(limit));
+  const qs = params.toString();
+  return request<StoryPage>(`/stories/featured${qs ? `?${qs}` : ""}`);
+};
 export const getStory = (id: string) => request<any>(`/stories/${id}`);
 export const getStoryDebug = (id: string) => request<any>(`/stories/${id}/debug`);
 export interface StoryStatus {

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getUniverses, getUniverseQuota } from "../api/client";
+import { getMyUniverses, getUniverseQuota } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { parseStringList } from "../lib/parseStringList";
 
@@ -9,10 +9,20 @@ export default function MyUniverses() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
 
-  const { data: universes = [], isLoading } = useQuery({
-    queryKey: ["universes"],
-    queryFn: getUniverses,
+  const { data: universesPage, isLoading } = useQuery({
+    queryKey: ["universes-my"],
+    queryFn: () => getMyUniverses(),
+    // Poll while any universe is mid-build/illustrating; stop once
+    // every universe is either ready or terminally failed.
+    refetchInterval: (query) => {
+      const items = ((query.state.data as any)?.items as any[]) || [];
+      const pending = items.some(
+        (u: any) => u.status !== "ready" && u.status !== "failed",
+      );
+      return pending ? 5000 : false;
+    },
   });
+  const universes = universesPage?.items ?? [];
 
   const { data: quota } = useQuery({
     queryKey: ["universe-quota"],
@@ -110,11 +120,7 @@ export default function MyUniverses() {
                 <div className="bg-white rounded-xl border border-stone-200 p-5">
                   <div className="flex items-center gap-3 mb-3">
                     <h2 className="text-lg font-bold text-stone-800">{selected.name}</h2>
-                    {!selected.styleReferenceUrl && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-                        Generating images...
-                      </span>
-                    )}
+                    <UniverseStatusBadge universe={selected} />
                   </div>
                   {themes.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-3">
@@ -169,6 +175,34 @@ export default function MyUniverses() {
         </div>
       )}
     </div>
+  );
+}
+
+/** Badge showing where a universe is in the async creation pipeline.
+ * Renders nothing once status === "ready" — the card itself is the
+ * affirmative signal at that point. */
+function UniverseStatusBadge({ universe }: { universe: any }) {
+  const status: string = universe.status || "ready";
+  if (status === "ready") return null;
+  if (status === "failed") {
+    return (
+      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
+        Failed
+      </span>
+    );
+  }
+  const label =
+    status === "queued"
+      ? "Queued..."
+      : status === "building"
+        ? "Building..."
+        : status === "illustrating_assets"
+          ? "Generating images..."
+          : "Working...";
+  return (
+    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+      {label}
+    </span>
   );
 }
 
