@@ -217,7 +217,14 @@ const CoverPage = forwardRef<HTMLDivElement, { title?: string; color: string; su
 const IllustrationPage = forwardRef<HTMLDivElement, { imageUrl?: string; pageNum: number }>(
   ({ imageUrl, pageNum }, ref) => (
     <div ref={ref}>
-      <div className={`${pageInner} flex items-center justify-center`}>
+      <div
+        className={`${pageInner} flex items-center justify-center`}
+        // Explicit beige backdrop so the image's mix-blend-mode:multiply
+        // has a guaranteed parchment color to multiply against, even if
+        // react-pageflip's per-frame inline style updates clobber the
+        // .stf__item background-color rule.
+        style={{ backgroundColor: "#F5ECD7" }}
+      >
         {imageUrl ? (
           <img
             src={imageUrl}
