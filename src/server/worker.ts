@@ -161,10 +161,32 @@ export function bootWorkers(): void {
 
   const workerId = `worker-${process.pid}-${randomUUID().slice(0, 8)}`;
 
+  // No-Redis single-process mode: any "running" job at boot is by
+  // definition abandoned (we ARE the only worker). Reset them to
+  // queued before the resume sweep runs so they get picked up
+  // immediately instead of waiting 15 minutes for the stale-lock
+  // threshold. With Redis, BullMQ's own stalled-job recovery handles
+  // this — and other worker processes might legitimately be running
+  // those jobs — so we only do it in the no-Redis branch.
+  const bootStart = redisConnection
+    ? Promise.resolve()
+    : prisma.generationJob
+        .updateMany({
+          where: { status: "running" },
+          data: { status: "queued", lockedAt: null, lockedBy: null },
+        })
+        .then((res) => {
+          if (res.count > 0) {
+            debug.story(`Boot: reclaimed ${res.count} job(s) abandoned by previous process`);
+          }
+        });
+
   // Resume sweep is fire-and-forget; we don't want to block boot on it.
-  resumeJobs(workerId).catch((e) => {
-    console.error("Resume sweep failed:", e);
-  });
+  bootStart
+    .then(() => resumeJobs(workerId))
+    .catch((e) => {
+      console.error("Resume sweep failed:", e);
+    });
 
   if (!redisConnection) {
     debug.story("Workers: claude-tasks/gemini-tasks not started (no REDIS_URL); polling DB for new jobs every 2s");
