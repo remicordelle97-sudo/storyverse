@@ -51,22 +51,38 @@ router.get("/quota", async (req, res) => {
   }
 });
 
-// List all universes for the authenticated user + public universes
-router.get("/", async (req, res) => {
+// Cursor pagination (mirrors stories.ts).
+const DEFAULT_PAGE_LIMIT = 50;
+const MAX_PAGE_LIMIT = 100;
+function parseLimit(raw: unknown): number {
+  const n = typeof raw === "string" ? parseInt(raw, 10) : NaN;
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_PAGE_LIMIT;
+  return Math.min(n, MAX_PAGE_LIMIT);
+}
+
+// GET /api/universes/my — paginated list of the user's own universes.
+// Includes characters because every consumer (Library shelf,
+// MyUniverses detail, StoryBuilder picker, admin manager) needs them.
+router.get("/my", async (req, res) => {
   try {
-    const universes = await prisma.universe.findMany({
-      where: {
-        OR: [
-          { userId: req.userId as string },
-          { isPublic: true },
-        ],
-      },
+    const limit = parseLimit(req.query.limit);
+    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+
+    const rows = await prisma.universe.findMany({
+      where: { userId: req.userId as string },
       include: { characters: true },
       orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     });
-    res.json(universes);
+
+    if (rows.length > limit) {
+      const items = rows.slice(0, limit);
+      return res.json({ items, nextCursor: items[items.length - 1].id });
+    }
+    res.json({ items: rows, nextCursor: null });
   } catch (e) {
-    res.status(500).json({ error: "Failed to fetch universes" });
+    res.status(500).json({ error: "Failed to fetch your universes" });
   }
 });
 
