@@ -138,101 +138,37 @@ export const getStories = (universeId?: string) =>
   request<StorySummary[]>(universeId ? `/stories?universeId=${universeId}` : "/stories");
 export const getStory = (id: string) => request<any>(`/stories/${id}`);
 export const getStoryDebug = (id: string) => request<any>(`/stories/${id}/debug`);
+export interface StoryStatus {
+  status: string; // queued | generating_text | illustrating | published | failed_text | failed_illustration
+  hasIllustrations: boolean;
+  imagesReady: number;
+  totalPages: number;
+  job: {
+    kind: string;
+    status: string;
+    step: string;
+    progressPercent: number;
+    lastError: string;
+  } | null;
+}
 export const getStoryStatus = (id: string) =>
-  request<{ status: string; hasIllustrations: boolean; imagesReady: number; totalPages: number }>(`/stories/${id}/status`);
+  request<StoryStatus>(`/stories/${id}/status`);
 export const toggleStoryPublic = (id: string) =>
   request<{ isPublic: boolean }>(`/stories/${id}/toggle-public`, { method: "POST" });
 export const deleteStory = (id: string) =>
   request<{ ok: boolean }>(`/stories/${id}`, { method: "DELETE" });
-/**
- * Shared SSE consumer for the story-generation endpoints. Both
- * /stories/generate and /stories/:id/regenerate-images stream
- * `data: {type, ...}` events: "progress" (forwarded to onProgress),
- * "complete" (resolves), and "error" (rejects).
- */
-function streamSSE<T>(
-  url: string,
-  init: RequestInit,
-  onProgress: ((step: string, detail?: string) => void) | undefined,
-  onComplete: (event: any) => T
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const token = getAccessToken();
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      ...((init.headers as Record<string, string>) || {}),
-    };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
+// Async story-generation endpoints. Both return 202 with a job
+// envelope; the client navigates to /reading/:storyId and the
+// existing useQuery poll on /stories/:id/status drives the loading
+// UI until status flips to "published" (or "failed_*").
 
-    fetch(`${BASE}${url}`, { ...init, headers })
-      .then((res) => {
-        if (!res.ok) {
-          return res.json().then((body) => {
-            throw new Error(body.error || `HTTP ${res.status}`);
-          });
-        }
-        const reader = res.body?.getReader();
-        if (!reader) throw new Error("No response stream");
-
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        function read(): Promise<void> {
-          return reader!.read().then(({ done, value }) => {
-            if (done) {
-              reject(new Error("Stream ended without completion"));
-              return;
-            }
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split("\n");
-            buffer = lines.pop() || "";
-            for (const line of lines) {
-              if (!line.startsWith("data: ")) continue;
-              try {
-                const event = JSON.parse(line.slice(6));
-                if (event.type === "progress" && onProgress) {
-                  onProgress(event.step, event.detail);
-                } else if (event.type === "complete") {
-                  resolve(onComplete(event));
-                  return;
-                } else if (event.type === "error") {
-                  reject(new Error(event.error));
-                  return;
-                }
-              } catch {
-                // skip malformed events
-              }
-            }
-            return read();
-          });
-        }
-
-        return read();
-      })
-      .catch(reject);
-  });
+export interface JobEnvelope {
+  storyId: string;
+  jobId: string;
 }
 
-export function generateStory(
-  data: any,
-  onProgress?: (step: string, detail?: string) => void
-): Promise<{ story: any }> {
-  return streamSSE(
-    "/stories/generate",
-    { method: "POST", body: JSON.stringify(data) },
-    onProgress,
-    (event) => ({ story: event.story })
-  );
-}
+export const generateStory = (data: any) =>
+  request<JobEnvelope>("/stories/generate", { method: "POST", body: JSON.stringify(data) });
 
-export function regenerateStoryImages(
-  storyId: string,
-  onProgress?: (step: string, detail?: string) => void
-): Promise<any> {
-  return streamSSE(
-    `/stories/${storyId}/regenerate-images`,
-    { method: "POST" },
-    onProgress,
-    (event) => event.story
-  );
-}
+export const regenerateStoryImages = (storyId: string) =>
+  request<JobEnvelope>(`/stories/${storyId}/regenerate-images`, { method: "POST" });
