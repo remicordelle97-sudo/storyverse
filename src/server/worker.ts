@@ -6,6 +6,8 @@ import {
   GEMINI_QUEUE_CONCURRENCY,
   GEMINI_QUEUE_NAME,
   JOB_KINDS,
+  isClaudeKind,
+  isGeminiKind,
   redisConnection,
 } from "./lib/queues.js";
 import { claimJob, markJobCompleted, markJobFailed, findResumableJobs } from "./lib/jobs.js";
@@ -112,75 +114,110 @@ async function processGeminiJob(job: Job<JobEnvelope>, workerId: string) {
   }
 }
 
+// In-process semaphore for the no-Redis poll path. Without these
+// counters the 2s setInterval in bootWorkers fires fresh ticks while
+// previous ticks are still awaiting Claude/Gemini, fanning out
+// concurrent calls past the configured per-vendor limit. With Redis,
+// BullMQ enforces the cap structurally inside its Worker class — the
+// counters here are dev-mode only.
+let inFlightClaude = 0;
+let inFlightGemini = 0;
+
+type ClaimedJob = Awaited<ReturnType<typeof claimJob>>;
+type NonNullClaimedJob = Exclude<ClaimedJob, null>;
+
+/** Run a single claimed job inline, mark it complete or failed, and
+ * propagate the failure to the entity row. Used by the no-Redis poll
+ * path; the BullMQ-backed path uses processClaudeJob / processGeminiJob. */
+async function runInlineJob(claimed: NonNullClaimedJob) {
+  try {
+    if (claimed.kind === JOB_KINDS.storyText && claimed.storyId) {
+      await runStoryTextJob(
+        claimed.id,
+        claimed.payload as unknown as StoryTextJobPayload,
+        claimed.storyId,
+      );
+    } else if (claimed.kind === JOB_KINDS.storyImages) {
+      await runStoryImagesJob(claimed.id, claimed.payload as unknown as StoryImagesJobPayload);
+    } else if (claimed.kind === JOB_KINDS.universeBuild && claimed.universeId) {
+      await runUniverseBuildJob(
+        claimed.id,
+        claimed.payload as unknown as UniverseBuildJobPayload,
+        claimed.universeId,
+      );
+    } else if (claimed.kind === JOB_KINDS.universeImages) {
+      await runUniverseImagesJob(claimed.id, claimed.payload as unknown as UniverseImagesJobPayload);
+    } else {
+      throw new Error(`Resume: unsupported kind "${claimed.kind}"`);
+    }
+    await markJobCompleted(claimed.id);
+  } catch (e: any) {
+    debug.error(`Inline job ${claimed.id} (${claimed.kind}) failed: ${e.message}`);
+    if (claimed.kind === JOB_KINDS.storyText && claimed.storyId) {
+      await markStoryTextFailed(claimed.storyId).catch(() => {});
+    } else if (claimed.kind === JOB_KINDS.storyImages && claimed.storyId) {
+      await markStoryImagesFailed(claimed.storyId).catch(() => {});
+    } else if (
+      (claimed.kind === JOB_KINDS.universeBuild ||
+        claimed.kind === JOB_KINDS.universeImages) &&
+      claimed.universeId
+    ) {
+      await markUniverseFailed(claimed.universeId).catch(() => {});
+    }
+    await markJobFailed(claimed.id, e.message);
+  }
+}
+
 /** Re-enqueue any jobs that are queued or whose lock is stale. Runs
- * once at worker boot so a redeploy doesn't strand work. Without
- * Redis we can't actually re-enqueue (no BullMQ queues), so we
- * fall back to running them in-process. */
+ * once at worker boot, then on each poll tick (in no-Redis mode) so
+ * a redeploy doesn't strand work and new jobs created after boot
+ * still get processed. */
 async function resumeJobs(workerId: string) {
   const resumable = await findResumableJobs(STALE_LOCK_MS);
   if (resumable.length === 0) return;
   debug.story(`Resume sweep: ${resumable.length} job(s) to recover`);
 
   for (const row of resumable) {
-    debug.story(`Resuming job ${row.id} (${row.kind}, status=${row.status})`);
-
     if (redisConnection) {
       // With Redis we let the BullMQ worker pick it up. Reset the lock
       // and the BullMQ-side retry budget by re-adding the job; the
       // claim path will set status=running atomically.
+      debug.story(`Resuming job ${row.id} (${row.kind}, status=${row.status})`);
       await prisma.generationJob.update({
         where: { id: row.id },
         data: { status: "queued", lockedAt: null, lockedBy: null },
       });
-      // Re-enqueue: BullMQ uses the row id as jobId, so adding with the
-      // same id is a no-op if it's still in the queue, otherwise it
-      // re-creates the BullMQ job. Either way the worker will see it.
-      const { claudeQueue, geminiQueue, isClaudeKind, isGeminiKind } = await import("./lib/queues.js");
+      const { claudeQueue, geminiQueue } = await import("./lib/queues.js");
       const queue = isClaudeKind(row.kind) ? claudeQueue : isGeminiKind(row.kind) ? geminiQueue : null;
       if (queue) {
         await queue.add(row.kind, { jobId: row.id }, { jobId: row.id, attempts: 3 });
       }
-    } else {
-      // No Redis: run inline so the work doesn't sit forever.
-      const claimed = await claimJob(row.id, workerId);
-      if (!claimed) continue;
-      try {
-        if (claimed.kind === JOB_KINDS.storyText && claimed.storyId) {
-          await runStoryTextJob(
-            claimed.id,
-            claimed.payload as unknown as StoryTextJobPayload,
-            claimed.storyId,
-          );
-        } else if (claimed.kind === JOB_KINDS.storyImages) {
-          await runStoryImagesJob(claimed.id, claimed.payload as unknown as StoryImagesJobPayload);
-        } else if (claimed.kind === JOB_KINDS.universeBuild && claimed.universeId) {
-          await runUniverseBuildJob(
-            claimed.id,
-            claimed.payload as unknown as UniverseBuildJobPayload,
-            claimed.universeId,
-          );
-        } else if (claimed.kind === JOB_KINDS.universeImages) {
-          await runUniverseImagesJob(claimed.id, claimed.payload as unknown as UniverseImagesJobPayload);
-        } else {
-          throw new Error(`Resume: unsupported kind "${claimed.kind}"`);
-        }
-        await markJobCompleted(claimed.id);
-      } catch (e: any) {
-        debug.error(`Resume failed for ${claimed.id}: ${e.message}`);
-        if (claimed.kind === JOB_KINDS.storyText && claimed.storyId) {
-          await markStoryTextFailed(claimed.storyId).catch(() => {});
-        } else if (claimed.kind === JOB_KINDS.storyImages && claimed.storyId) {
-          await markStoryImagesFailed(claimed.storyId).catch(() => {});
-        } else if (
-          (claimed.kind === JOB_KINDS.universeBuild ||
-            claimed.kind === JOB_KINDS.universeImages) &&
-          claimed.universeId
-        ) {
-          await markUniverseFailed(claimed.universeId).catch(() => {});
-        }
-        await markJobFailed(claimed.id, e.message);
-      }
+      continue;
     }
+
+    // No-Redis mode: enforce per-vendor concurrency before claiming.
+    // If we're at the cap, leave the row queued — the next poll tick
+    // will pick it up when a slot frees.
+    const claudeJob = isClaudeKind(row.kind);
+    const geminiJob = isGeminiKind(row.kind);
+    if (claudeJob && inFlightClaude >= CLAUDE_QUEUE_CONCURRENCY) continue;
+    if (geminiJob && inFlightGemini >= GEMINI_QUEUE_CONCURRENCY) continue;
+
+    const claimed = await claimJob(row.id, workerId);
+    if (!claimed) continue;
+
+    debug.story(`Running inline job ${claimed.id} (${claimed.kind})`);
+    if (claudeJob) inFlightClaude++;
+    else if (geminiJob) inFlightGemini++;
+
+    // Fire-and-forget so the loop can claim the next job and overlap
+    // up to the per-vendor cap. Errors are swallowed inside
+    // runInlineJob — they surface on Story.status / Universe.status
+    // and on the GenerationJob row's lastError.
+    runInlineJob(claimed).finally(() => {
+      if (claudeJob) inFlightClaude--;
+      else if (geminiJob) inFlightGemini--;
+    });
   }
 }
 

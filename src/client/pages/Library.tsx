@@ -10,6 +10,27 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { stor
   const color = storyTailwindColor(story.id);
   const universeName = story.universe?.name || "";
 
+  // Status vocabulary from the async pipeline (PR 4):
+  //   queued | generating_text | illustrating | published
+  //   | failed_text | failed_illustration
+  // Show a friendly stand-in for the not-yet-finalized cases so the
+  // user doesn't see an empty-title book.
+  const statusLabel = (() => {
+    if (story.status === "queued" || story.status === "generating_text") {
+      return "Generating...";
+    }
+    if (story.status === "illustrating") return "Adding illustrations...";
+    if (story.status === "failed_text") return "Failed";
+    if (story.status === "failed_illustration") return "Illustrations failed";
+    return null;
+  })();
+  const isPending =
+    story.status === "queued" ||
+    story.status === "generating_text" ||
+    story.status === "illustrating";
+  const displayTitle =
+    story.title || (isPending ? "Generating story..." : "Untitled");
+
   return (
     <div className="relative" style={{ width: "160px" }}>
       <button
@@ -36,17 +57,21 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { stor
             </p>
           )}
 
-          {/* Empty story indicator */}
-          {!story.scenesCount && (
+          {/* Status / unavailable indicator */}
+          {statusLabel ? (
+            <p className="text-white/60 text-[8px] uppercase tracking-wider">
+              {statusLabel}
+            </p>
+          ) : !story.scenesCount ? (
             <p className="text-white/30 text-[8px] uppercase tracking-wider">
               Story unavailable
             </p>
-          )}
+          ) : null}
 
           {/* Title */}
           <div className="flex-1 flex items-center">
             <h3 className="text-white font-bold text-sm leading-snug">
-              {story.title}
+              {displayTitle}
             </h3>
           </div>
         </div>
@@ -123,6 +148,19 @@ export default function Library() {
   const { data: stories = [], isLoading } = useQuery({
     queryKey: ["stories-all"],
     queryFn: () => getStories(),
+    // Poll while any story is mid-generation so the cover title +
+    // status label refresh without a hard reload. Stops once every
+    // story is in a terminal state.
+    refetchInterval: (query) => {
+      const data = (query.state.data as any[]) || [];
+      const pending = data.some(
+        (s: any) =>
+          s.status === "queued" ||
+          s.status === "generating_text" ||
+          s.status === "illustrating",
+      );
+      return pending ? 5000 : false;
+    },
   });
 
   // Universe lifecycle states (PR 5 added the explicit status column):
