@@ -96,13 +96,15 @@ router.post("/google", async (req, res) => {
   }
 });
 
-// Complete onboarding: build a custom universe from the user's choices.
-// Synchronous: generate the setting description + every character's
-// appearance/outfit via Claude, then create the DB rows and mark the
-// user as onboarded so they can leave the loading screen.
-// Background: generate the style reference + character sheets via
-// Gemini. The library polls and shows a notification when the
-// universe is fully ready.
+// Complete onboarding: kick off an async custom universe build.
+// Validates the request, creates a placeholder Universe row with
+// status='queued', marks the user onboarded immediately (so a refresh
+// during the build doesn't loop them through the wizard again), and
+// enqueues a universe_build job. Returns 202 with { universeId, jobId };
+// the client navigates to the library and polls the universe's status
+// until it's "ready" (or "failed" if the build aborts). The actual
+// Claude + Gemini work happens in the worker — see
+// services/universePipeline.ts.
 router.post("/onboard", authMiddleware, async (req, res) => {
   try {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId as string } });
