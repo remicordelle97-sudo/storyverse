@@ -8,11 +8,18 @@ import { debug } from "./debug.js";
 // R2 — local-disk storage is per-instance, so a multi-instance deploy would
 // silently serve images that only exist on whichever box wrote them.
 function resolveStorage(): { s3: S3Client | null; bucket: string; publicUrl: string; useCloud: boolean } {
-  const bucket = process.env.R2_BUCKET || "";
-  const publicUrl = process.env.R2_PUBLIC_URL || "";
-  const accountId = process.env.R2_ACCOUNT_ID || "";
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID || "";
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY || "";
+  // .trim() defends against trailing whitespace in env vars: R2_ACCESS_KEY_ID
+  // is interpolated literally into the sigv4 Authorization header
+  // ("AWS4-HMAC-SHA256 Credential=<id>/..."), so a stray newline produces
+  // "Invalid character in header content [\"Authorization\"]" from Node's
+  // https module — surfaces as intermittent failures during R2 uploads
+  // since the page-level try/catch in geminiGenerator.ts re-labels it as
+  // a generation failure.
+  const bucket = (process.env.R2_BUCKET ?? "").trim();
+  const publicUrl = (process.env.R2_PUBLIC_URL ?? "").trim();
+  const accountId = (process.env.R2_ACCOUNT_ID ?? "").trim();
+  const accessKeyId = (process.env.R2_ACCESS_KEY_ID ?? "").trim();
+  const secretAccessKey = (process.env.R2_SECRET_ACCESS_KEY ?? "").trim();
 
   const fullyConfigured = !!(accountId && accessKeyId && secretAccessKey && bucket && publicUrl);
 

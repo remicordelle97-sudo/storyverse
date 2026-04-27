@@ -457,7 +457,16 @@ Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EV
         debug.error(`Page ${i + 1}/${pages.length}: failed after 3 attempts`);
       }
     } catch (e: any) {
-      debug.error(`Page ${i + 1}/${pages.length}: failed: ${e.message}`);
+      // Surface code, cause, and the call site so we can tell whether the
+      // failure is from chat.sendMessage (Gemini SDK, uses fetch) or from
+      // saveImage (S3 SDK, uses Node https) — they look identical at the
+      // top of the catch otherwise.
+      const code = e?.code ?? e?.cause?.code ?? "unknown";
+      const causeMessage = e?.cause?.message ?? "";
+      const stackTop = (e?.stack ?? "").split("\n").slice(0, 4).join(" | ");
+      debug.error(
+        `Page ${i + 1}/${pages.length}: failed: ${e.message} [code=${code}${causeMessage ? `, cause="${causeMessage}"` : ""}] @ ${stackTop}`,
+      );
     }
   }
 
