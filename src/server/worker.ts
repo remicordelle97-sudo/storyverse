@@ -168,21 +168,29 @@ async function runInlineJob(claimed: NonNullClaimedJob) {
   }
 }
 
-/** Re-enqueue any jobs that are queued or whose lock is stale. Runs
- * once at worker boot, then on each poll tick (in no-Redis mode) so
- * a redeploy doesn't strand work and new jobs created after boot
- * still get processed. */
+/** Recover jobs that need a kick: stale-locked rows always, plus queued
+ * rows when we're the poll-mode worker (no Redis). With Redis,
+ * healthy queued rows are BullMQ's responsibility — sweeping them
+ * here would re-add already-queued work and, combined with any claim
+ * race, risk duplicate execution.
+ *
+ * For stale-running rows we reset status to queued first (with lock
+ * cleared) so the strict claimJob — which only accepts queued — can
+ * pick them up. */
 async function resumeJobs(workerId: string) {
-  const resumable = await findResumableJobs(STALE_LOCK_MS);
+  const resumable = await findResumableJobs(STALE_LOCK_MS, {
+    includeQueued: !redisConnection,
+  });
   if (resumable.length === 0) return;
   debug.story(`Resume sweep: ${resumable.length} job(s) to recover`);
 
   for (const row of resumable) {
     if (redisConnection) {
-      // With Redis we let the BullMQ worker pick it up. Reset the lock
-      // and the BullMQ-side retry budget by re-adding the job; the
-      // claim path will set status=running atomically.
-      debug.story(`Resuming job ${row.id} (${row.kind}, status=${row.status})`);
+      // Stale-running only in Redis mode. Reset the row to queued
+      // (clearing the dead worker's lock), then re-enqueue. BullMQ
+      // dedupes on jobId, so adding with the same id is a no-op if
+      // it's still in the queue — otherwise it re-creates the entry.
+      debug.story(`Resuming stale job ${row.id} (${row.kind})`);
       await prisma.generationJob.update({
         where: { id: row.id },
         data: { status: "queued", lockedAt: null, lockedBy: null },
@@ -202,6 +210,17 @@ async function resumeJobs(workerId: string) {
     const geminiJob = isGeminiKind(row.kind);
     if (claudeJob && inFlightClaude >= CLAUDE_QUEUE_CONCURRENCY) continue;
     if (geminiJob && inFlightGemini >= GEMINI_QUEUE_CONCURRENCY) continue;
+
+    // If this is a stale-running row (the only way it ended up here
+    // with status='running' is via the stale-lock branch in
+    // findResumableJobs), reset it to queued first so the strict
+    // claim succeeds.
+    if (row.status === "running") {
+      await prisma.generationJob.update({
+        where: { id: row.id },
+        data: { status: "queued", lockedAt: null, lockedBy: null },
+      });
+    }
 
     const claimed = await claimJob(row.id, workerId);
     if (!claimed) continue;
