@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getUniverses, generateStory, getStoryQuota, createCheckoutSession } from "../api/client";
+import { getMyUniverses, generateStory, getStoryQuota, createCheckoutSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
 import StoryLoadingScreen, { STORY_TEXT_PHRASES } from "../components/StoryLoadingScreen";
@@ -14,10 +14,11 @@ export default function StoryBuilder() {
   const { isAdmin } = useAuth();
   const storedUniverseId = localStorage.getItem("universeId") || "";
 
-  const { data: universes = [] } = useQuery({
-    queryKey: ["universes"],
-    queryFn: getUniverses,
+  const { data: universesPage } = useQuery({
+    queryKey: ["universes-my"],
+    queryFn: () => getMyUniverses(),
   });
+  const universes = universesPage?.items ?? [];
 
   const { data: quota } = useQuery({
     queryKey: ["story-quota"],

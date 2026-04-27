@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getUniverses, getUniverseQuota } from "../api/client";
+import { getMyUniverses, getUniverseQuota } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { parseStringList } from "../lib/parseStringList";
 
@@ -9,19 +9,20 @@ export default function MyUniverses() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
 
-  const { data: universes = [], isLoading } = useQuery({
-    queryKey: ["universes"],
-    queryFn: getUniverses,
+  const { data: universesPage, isLoading } = useQuery({
+    queryKey: ["universes-my"],
+    queryFn: () => getMyUniverses(),
     // Poll while any universe is mid-build/illustrating; stop once
     // every universe is either ready or terminally failed.
     refetchInterval: (query) => {
-      const data = (query.state.data as any[]) || [];
-      const pending = data.some(
+      const items = ((query.state.data as any)?.items as any[]) || [];
+      const pending = items.some(
         (u: any) => u.status !== "ready" && u.status !== "failed",
       );
       return pending ? 5000 : false;
     },
   });
+  const universes = universesPage?.items ?? [];
 
   const { data: quota } = useQuery({
     queryKey: ["universe-quota"],

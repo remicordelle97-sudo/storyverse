@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { uploadPhoto } from "../api/client";
 
 const THEME_OPTIONS = [
   "Space",
@@ -26,10 +27,13 @@ const TRAIT_OPTIONS = [
   "Gentle",
 ];
 
+// We hold the raw File for later direct-to-R2 upload, plus a
+// data-URL preview for the inline thumbnail. The base64 bytes are
+// no longer in the payload submitted to the server — only the R2
+// key is.
 export interface CharacterPhoto {
-  mimeType: string;
-  data: string; // raw base64 (no "data:..." prefix)
-  previewUrl: string; // data:image/...;base64,... for the <img> preview
+  file: File;
+  previewUrl: string;
 }
 
 interface ManualSupporting {
@@ -47,7 +51,7 @@ export interface UniverseBuilderPayload {
     name: string;
     species: string;
     traits: string[];
-    photo?: { mimeType: string; data: string };
+    photo?: { photoKey: string };
   };
   supporting:
     | "auto"
@@ -55,12 +59,12 @@ export interface UniverseBuilderPayload {
         name: string;
         species: string;
         traits: string[];
-        photo?: { mimeType: string; data: string };
+        photo?: { photoKey: string };
       }[];
 }
 
 const ALLOWED_PHOTO_MIME = ["image/jpeg", "image/png", "image/webp"];
-const MAX_PHOTO_BYTES = 4 * 1024 * 1024; // 4MB raw → ~5.5MB base64
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 
 async function readPhotoFile(file: File): Promise<CharacterPhoto> {
   if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
@@ -69,16 +73,15 @@ async function readPhotoFile(file: File): Promise<CharacterPhoto> {
   if (file.size > MAX_PHOTO_BYTES) {
     throw new Error("Photo is too large (max 4MB).");
   }
-  const dataUrl: string = await new Promise((resolve, reject) => {
+  // Just for the preview thumbnail. The real upload happens at submit
+  // time directly to R2 via the presigned URL.
+  const previewUrl: string = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
     reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
-  const [meta, raw] = dataUrl.split(",");
-  const match = meta.match(/data:(.+?);base64/);
-  if (!match) throw new Error("Could not read image data.");
-  return { mimeType: match[1], data: raw, previewUrl: dataUrl };
+  return { file, previewUrl };
 }
 
 interface UniverseBuilderFormProps {
@@ -170,10 +173,12 @@ export default function UniverseBuilderForm({
 
   const [step, setStep] = useState<"universe" | "hero" | "supporting">("universe");
 
-  // Strip the previewUrl before sending — server only needs mimeType + raw base64.
-  function stripPreview(p: CharacterPhoto | null) {
+  // Upload one photo to R2 and return the resulting key envelope, or
+  // undefined if no photo was attached. A failed upload throws — the
+  // submit handler shows the error and lets the user retry.
+  async function uploadIfNeeded(p: CharacterPhoto | null): Promise<{ photoKey: string } | undefined> {
     if (!p) return undefined;
-    return { mimeType: p.mimeType, data: p.data };
+    return uploadPhoto(p.file);
   }
 
   async function handleSubmit() {
@@ -181,15 +186,24 @@ export default function UniverseBuilderForm({
     setSubmitting(true);
     setError(null);
     try {
-      const supporting =
-        supportingMode === "auto"
-          ? "auto"
-          : manualSupporting.map((s) => ({
-              name: s.name.trim(),
-              species: s.species.trim(),
-              traits: combineWithCustom(s.traits, s.customTrait),
-              photo: stripPreview(s.photo),
-            }));
+      // Upload all photos in parallel before assembling the payload —
+      // each one round-trips a presigned URL to R2 (typical: ~1-2s),
+      // so doing them serially would noticeably stall the form.
+      const heroPhotoEnvelope = await uploadIfNeeded(heroPhoto);
+      let supporting: UniverseBuilderPayload["supporting"];
+      if (supportingMode === "auto") {
+        supporting = "auto";
+      } else {
+        const supportingPhotoEnvelopes = await Promise.all(
+          manualSupporting.map((s) => uploadIfNeeded(s.photo)),
+        );
+        supporting = manualSupporting.map((s, i) => ({
+          name: s.name.trim(),
+          species: s.species.trim(),
+          traits: combineWithCustom(s.traits, s.customTrait),
+          photo: supportingPhotoEnvelopes[i],
+        }));
+      }
       await onSubmit({
         universeName: universeName.trim(),
         themes: finalThemes,
@@ -197,7 +211,7 @@ export default function UniverseBuilderForm({
           name: heroName.trim(),
           species: heroSpecies.trim(),
           traits: finalHeroTraits,
-          photo: stripPreview(heroPhoto),
+          photo: heroPhotoEnvelope,
         },
         supporting,
       });

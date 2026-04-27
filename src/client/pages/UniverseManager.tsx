@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getUniverses,
+  getMyUniverses,
   getUniverse,
   regenerateCharacterSheet,
   generateAllCharacterSheets,
@@ -60,10 +60,11 @@ export default function UniverseManager() {
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
 
-  const { data: universes = [], isLoading } = useQuery({
-    queryKey: ["universes"],
-    queryFn: getUniverses,
+  const { data: universesPage, isLoading } = useQuery({
+    queryKey: ["universes-my"],
+    queryFn: () => getMyUniverses(),
   });
+  const universes = universesPage?.items ?? [];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetPreview, setSheetPreview] = useState<string | null>(null);
