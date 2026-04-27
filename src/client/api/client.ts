@@ -44,8 +44,17 @@ export interface OnboardingPayload {
     | "auto"
     | { name: string; species: string; traits: string[]; photo?: CharacterPhoto }[];
 }
+// Async universe-creation endpoints. Both onboard (custom) and
+// /universes/custom return 202 with { universeId, jobId } and the
+// worker handles Claude + Gemini in the background. Clients should
+// navigate to the library and rely on getUniverseStatus polling for
+// the per-universe placeholder card.
+export interface UniverseJobEnvelope {
+  universeId: string;
+  jobId: string;
+}
 export const completeOnboarding = (payload: OnboardingPayload) =>
-  request<{ universeId: string }>("/auth/onboard", {
+  request<UniverseJobEnvelope>("/auth/onboard", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -70,10 +79,25 @@ export const getTemplateUniverses = () =>
 export const toggleUniverseTemplate = (id: string) =>
   request<{ isTemplate: boolean }>(`/universes/${id}/toggle-template`, { method: "POST" });
 export const createCustomUniverse = (payload: OnboardingPayload) =>
-  request<{ universeId: string }>("/universes/custom", {
+  request<UniverseJobEnvelope>("/universes/custom", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+
+export interface UniverseStatus {
+  status: string; // queued | building | illustrating_assets | ready | failed
+  assetsReady: number;
+  totalAssets: number;
+  job: {
+    kind: string;
+    status: string;
+    step: string;
+    progressPercent: number;
+    lastError: string;
+  } | null;
+}
+export const getUniverseStatus = (id: string) =>
+  request<UniverseStatus>(`/universes/${id}/status`);
 
 // Character rename — admin-only on the server. Regular users can only
 // set the hero name once, during onboarding (handled inline by

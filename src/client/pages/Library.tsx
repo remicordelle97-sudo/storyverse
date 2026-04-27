@@ -125,23 +125,23 @@ export default function Library() {
     queryFn: () => getStories(),
   });
 
-  // Detect universes that haven't finished generating their style reference
-  // and character sheets so we can poll until they're ready and notify
-  // the user.
-  const isUniverseReady = (u: any) => {
-    if (!u.styleReferenceUrl) return false;
-    const chars = u.characters || [];
-    if (chars.length === 0) return false;
-    return chars.every((c: any) => !!c.referenceImageUrl);
-  };
+  // Universe lifecycle states (PR 5 added the explicit status column):
+  //   queued | building | illustrating_assets | ready | failed
+  // Treat status="ready" as the only success terminal. status="failed"
+  // is a terminal we should stop polling on (otherwise a failed build
+  // would keep the library refetching forever).
+  const isUniverseReady = (u: any) => u.status === "ready";
+  const isUniverseFailed = (u: any) => u.status === "failed";
 
   const { data: universes = [] } = useQuery({
     queryKey: ["universes"],
     queryFn: getUniverses,
-    // Poll every 5s while any universe is still generating images.
+    // Poll every 5s while any universe is still mid-build/illustrating.
     refetchInterval: (query) => {
       const data = (query.state.data as any[]) || [];
-      const anyPending = data.some((u: any) => !isUniverseReady(u));
+      const anyPending = data.some(
+        (u: any) => !isUniverseReady(u) && !isUniverseFailed(u),
+      );
       return anyPending ? 5000 : false;
     },
   });
