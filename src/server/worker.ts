@@ -18,6 +18,13 @@ import {
   type StoryTextJobPayload,
   type StoryImagesJobPayload,
 } from "./services/storyPipeline.js";
+import {
+  runUniverseBuildJob,
+  runUniverseImagesJob,
+  markUniverseFailed,
+  type UniverseBuildJobPayload,
+  type UniverseImagesJobPayload,
+} from "./services/universePipeline.js";
 import prisma from "./lib/prisma.js";
 
 // Worker process entry. Boots all background consumers:
@@ -48,20 +55,25 @@ async function processClaudeJob(job: Job<JobEnvelope>, workerId: string) {
     return;
   }
   const storyId = claimed.storyId ?? undefined;
+  const universeId = claimed.universeId ?? undefined;
   try {
     if (claimed.kind === JOB_KINDS.storyText) {
       if (!storyId) throw new Error(`story_text job ${claimed.id} has no storyId`);
       await runStoryTextJob(claimed.id, claimed.payload as unknown as StoryTextJobPayload, storyId);
       await markJobCompleted(claimed.id);
+    } else if (claimed.kind === JOB_KINDS.universeBuild) {
+      if (!universeId) throw new Error(`universe_build job ${claimed.id} has no universeId`);
+      await runUniverseBuildJob(claimed.id, claimed.payload as unknown as UniverseBuildJobPayload, universeId);
+      await markJobCompleted(claimed.id);
     } else {
-      // universe_build lands in a later PR — fail fast so we don't
-      // silently swallow an unsupported job.
       throw new Error(`No processor registered for claude kind "${claimed.kind}"`);
     }
   } catch (e: any) {
     debug.error(`claude job ${claimed.id} (${claimed.kind}) failed: ${e.message}`);
     if (claimed.kind === JOB_KINDS.storyText && storyId) {
       await markStoryTextFailed(storyId).catch(() => {});
+    } else if (claimed.kind === JOB_KINDS.universeBuild && universeId) {
+      await markUniverseFailed(universeId).catch(() => {});
     }
     await markJobFailed(claimed.id, e.message);
     throw e; // surfaces to BullMQ for its retry bookkeeping
@@ -75,10 +87,15 @@ async function processGeminiJob(job: Job<JobEnvelope>, workerId: string) {
     return;
   }
   const storyId = claimed.storyId ?? undefined;
+  const universeId = claimed.universeId ?? undefined;
   try {
     if (claimed.kind === JOB_KINDS.storyImages) {
       const payload = claimed.payload as unknown as StoryImagesJobPayload;
       await runStoryImagesJob(claimed.id, payload);
+      await markJobCompleted(claimed.id);
+    } else if (claimed.kind === JOB_KINDS.universeImages) {
+      const payload = claimed.payload as unknown as UniverseImagesJobPayload;
+      await runUniverseImagesJob(claimed.id, payload);
       await markJobCompleted(claimed.id);
     } else {
       throw new Error(`No processor registered for gemini kind "${claimed.kind}"`);
@@ -87,6 +104,8 @@ async function processGeminiJob(job: Job<JobEnvelope>, workerId: string) {
     debug.error(`gemini job ${claimed.id} (${claimed.kind}) failed: ${e.message}`);
     if (claimed.kind === JOB_KINDS.storyImages && storyId) {
       await markStoryImagesFailed(storyId).catch(() => {});
+    } else if (claimed.kind === JOB_KINDS.universeImages && universeId) {
+      await markUniverseFailed(universeId).catch(() => {});
     }
     await markJobFailed(claimed.id, e.message);
     throw e;
@@ -134,6 +153,14 @@ async function resumeJobs(workerId: string) {
           );
         } else if (claimed.kind === JOB_KINDS.storyImages) {
           await runStoryImagesJob(claimed.id, claimed.payload as unknown as StoryImagesJobPayload);
+        } else if (claimed.kind === JOB_KINDS.universeBuild && claimed.universeId) {
+          await runUniverseBuildJob(
+            claimed.id,
+            claimed.payload as unknown as UniverseBuildJobPayload,
+            claimed.universeId,
+          );
+        } else if (claimed.kind === JOB_KINDS.universeImages) {
+          await runUniverseImagesJob(claimed.id, claimed.payload as unknown as UniverseImagesJobPayload);
         } else {
           throw new Error(`Resume: unsupported kind "${claimed.kind}"`);
         }
@@ -144,6 +171,12 @@ async function resumeJobs(workerId: string) {
           await markStoryTextFailed(claimed.storyId).catch(() => {});
         } else if (claimed.kind === JOB_KINDS.storyImages && claimed.storyId) {
           await markStoryImagesFailed(claimed.storyId).catch(() => {});
+        } else if (
+          (claimed.kind === JOB_KINDS.universeBuild ||
+            claimed.kind === JOB_KINDS.universeImages) &&
+          claimed.universeId
+        ) {
+          await markUniverseFailed(claimed.universeId).catch(() => {});
         }
         await markJobFailed(claimed.id, e.message);
       }
