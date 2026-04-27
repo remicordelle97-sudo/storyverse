@@ -49,14 +49,17 @@ export default function StoryBuilder() {
     setError("");
 
     try {
-      const result = await generateStory({
+      // POST /stories/generate now returns 202 + { storyId, jobId } and
+      // the worker handles text + image generation in the background.
+      // ReadingMode polls /stories/:id/status to drive its loading UI.
+      const { storyId } = await generateStory({
         universeId,
         language: "en",
         ageGroup,
         structure: isAdmin ? structure : undefined,
         generateImages,
       });
-      navigate(`/reading/${result.story.id}`);
+      navigate(`/reading/${storyId}`);
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.");
       setLoading(false);
