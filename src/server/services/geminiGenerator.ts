@@ -2,9 +2,14 @@ import { GoogleGenAI } from "@google/genai";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { saveImage, readImage } from "../lib/storage.js";
+import { GOOGLE_AI_KEY } from "../lib/aiKeys.js";
 import { ART_STYLE, ART_STYLE_REMINDER, buildImageStyleGuide } from "./imageStyleGuide.js";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_KEY });
+// GOOGLE_AI_KEY is resolved (and trimmed) at module load by aiKeys.ts,
+// which also throws in production when the env var is missing — preventing
+// the silent fallback to ADC that produces "Invalid character in header
+// content [\"authorization\"]".
+const ai = new GoogleGenAI({ apiKey: GOOGLE_AI_KEY });
 
 const IMAGE_MODEL = "gemini-3-pro-image-preview";
 const IMAGE_SIZE = "1K";
@@ -452,7 +457,16 @@ Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EV
         debug.error(`Page ${i + 1}/${pages.length}: failed after 3 attempts`);
       }
     } catch (e: any) {
-      debug.error(`Page ${i + 1}/${pages.length}: failed: ${e.message}`);
+      // Surface code, cause, and the call site so we can tell whether the
+      // failure is from chat.sendMessage (Gemini SDK, uses fetch) or from
+      // saveImage (S3 SDK, uses Node https) — they look identical at the
+      // top of the catch otherwise.
+      const code = e?.code ?? e?.cause?.code ?? "unknown";
+      const causeMessage = e?.cause?.message ?? "";
+      const stackTop = (e?.stack ?? "").split("\n").slice(0, 4).join(" | ");
+      debug.error(
+        `Page ${i + 1}/${pages.length}: failed: ${e.message} [code=${code}${causeMessage ? `, cause="${causeMessage}"` : ""}] @ ${stackTop}`,
+      );
     }
   }
 

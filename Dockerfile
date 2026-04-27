@@ -26,7 +26,10 @@ RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
 COPY prisma ./prisma/
-RUN npm ci --omit=dev && npx prisma generate
+# --ignore-scripts skips the postinstall hook, which expects the `prisma`
+# CLI from devDependencies. We invoke `npx prisma generate` explicitly so
+# the runtime client is generated against the correct production deps.
+RUN npm ci --omit=dev --ignore-scripts && npx prisma generate
 
 # Copy built output
 COPY --from=builder /app/dist ./dist

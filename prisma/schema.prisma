@@ -8,38 +8,49 @@ datasource db {
 }
 
 model User {
-  id               String     @id @default(uuid())
-  googleId         String     @unique
-  email            String     @unique
+  id               String          @id @default(uuid())
+  googleId         String          @unique
+  email            String          @unique
   name             String
-  role             String     @default("user")
-  plan             String     @default("free")
-  stripeCustomerId String?    @unique
-  picture          String     @default("")
+  role             String          @default("user")
+  plan             String          @default("free")
+  stripeCustomerId String?         @unique
+  picture          String          @default("")
   onboardedAt      DateTime?
-  createdAt        DateTime   @default(now())
+  createdAt        DateTime        @default(now())
   universes        Universe[]
   stories          Story[]
   printOrders      PrintOrder[]
+  generationJobs   GenerationJob[]
 }
 
 model Universe {
-  id                 String      @id @default(uuid())
+  id                 String          @id @default(uuid())
   userId             String
   name               String
   settingDescription String
   themes             String
-  avoidThemes        String      @default("")
-  styleReferenceUrl  String      @default("")
-  isPublic           Boolean     @default(false)
-  isTemplate         Boolean     @default(false)
+  avoidThemes        String          @default("")
+  styleReferenceUrl  String          @default("")
+  isPublic           Boolean         @default(false)
+  isTemplate         Boolean         @default(false)
   // True for universes cloned from a preset (admin-curated template).
   // Preset clones do not count toward the user's universe quota.
-  fromPreset         Boolean     @default(false)
-  createdAt          DateTime    @default(now())
-  user               User        @relation(fields: [userId], references: [id])
+  fromPreset         Boolean         @default(false)
+  // Lifecycle status. Existing rows default to "ready" so the column is
+  // safe to add without a data migration. The async creation pipeline
+  // (introduced in a later PR) will explicitly write:
+  //   queued | building | illustrating_assets | ready | failed
+  status             String          @default("ready")
+  createdAt          DateTime        @default(now())
+  user               User            @relation(fields: [userId], references: [id])
   characters         Character[]
   stories            Story[]
+  generationJobs     GenerationJob[]
+
+  @@index([userId, createdAt])
+  @@index([isPublic, createdAt])
+  @@index([isTemplate, createdAt])
 }
 
 model Character {
@@ -67,6 +78,11 @@ model Story {
   language         String           @default("en")
   ageGroup         String
   hasIllustrations Boolean          @default(false)
+  // Lifecycle status. Currently the synchronous flow only writes
+  // "illustrating" and "published"; "draft" is the table default. The
+  // async pipeline (introduced in a later PR) will expand to:
+  //   queued | generating_text | illustrating | published
+  //   | failed_text | failed_illustration
   status           String           @default("draft")
   isPublic         Boolean          @default(false)
   debugPlanPrompt  String           @default("")
@@ -79,9 +95,13 @@ model Story {
   scenes           Scene[]
   characters       StoryCharacter[]
   printOrders      PrintOrder[]
+  generationJobs   GenerationJob[]
 
   // Speeds up the monthly quota count: WHERE createdById=? AND createdAt >= ? AND hasIllustrations=?.
   @@index([createdById, createdAt, hasIllustrations])
+  @@index([universeId, createdAt])
+  @@index([isPublic, createdAt])
+  @@index([status])
 }
 
 model Scene {
@@ -98,32 +118,32 @@ model Scene {
 // abbreviated (sandbox testing only): "draft" → "submitted" → terminal.
 // Production lifecycle adds payment + Lulu webhook states.
 model PrintOrder {
-  id                  String   @id @default(uuid())
-  userId              String
-  storyId             String
-  status              String   @default("draft")
+  id                    String   @id @default(uuid())
+  userId                String
+  storyId               String
+  status                String   @default("draft")
   // Lulu API state
-  luluPrintJobId      String?
-  luluTrackingUrl     String?
+  luluPrintJobId        String?
+  luluTrackingUrl       String?
   // Pricing snapshot (cents) — frozen at quote time so a later Lulu
   // price change doesn't retroactively rewrite what the user paid.
-  luluPrintCostCents  Int?
+  luluPrintCostCents    Int?
   luluShippingCostCents Int?
-  customerPriceCents  Int?
+  customerPriceCents    Int?
   // Stripe wiring (Phase 2). Nullable now.
-  stripeSessionId     String?
-  stripePaymentId     String?
+  stripeSessionId       String?
+  stripePaymentId       String?
   // Shipping
-  shippingAddress     String   @default("")  // JSON-encoded address blob
+  shippingAddress       String   @default("") // JSON-encoded address blob
   // Source PDFs (R2 URLs) snapshotted for re-submission and audit.
-  coverPdfUrl         String   @default("")
-  interiorPdfUrl      String   @default("")
+  coverPdfUrl           String   @default("")
+  interiorPdfUrl        String   @default("")
   // Failure / cancellation reason for support
-  rejectionReason     String   @default("")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  user                User     @relation(fields: [userId], references: [id])
-  story               Story    @relation(fields: [storyId], references: [id])
+  rejectionReason       String   @default("")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id])
+  story                 Story    @relation(fields: [storyId], references: [id])
 
   @@index([userId, createdAt])
 }
@@ -134,6 +154,54 @@ model StoryCharacter {
   roleInStory String    @default("featured")
   story       Story     @relation(fields: [storyId], references: [id])
   character   Character @relation(fields: [characterId], references: [id])
+
   @@id([storyId, characterId])
 }
 
+// Worker-side metadata for an async generation task. The user-facing
+// status lives on Story.status / Universe.status; this row carries the
+// retry, locking, progress, and audit detail. One entity may have
+// multiple jobs over its lifetime (e.g. story_text then story_images,
+// or a retried universe_build).
+//
+// kind:    story_text | story_images | universe_build | universe_images
+// status:  queued | running | completed | failed | cancelled
+// step:    free-form, kind-specific (e.g. "planning", "writing",
+//          "refining", "illustrating_scene_3"). Surfaced in the
+//          status-polling endpoint.
+//
+// lockedAt + lockedBy form the claim mechanism for resume / retry: a
+// worker sets both atomically before processing and clears them on
+// completion. Stale locks (lockedAt older than the job timeout) can be
+// reclaimed by another worker.
+model GenerationJob {
+  id              String    @id @default(uuid())
+  kind            String
+  status          String    @default("queued")
+  ownerId         String
+  storyId         String?
+  universeId      String?
+  payload         Json      @default("{}")
+  step            String    @default("")
+  progressPercent Int       @default(0)
+  attempts        Int       @default(0)
+  lastError       String    @default("")
+  lockedAt        DateTime?
+  lockedBy        String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  owner           User      @relation(fields: [ownerId], references: [id])
+  story           Story?    @relation(fields: [storyId], references: [id])
+  universe        Universe? @relation(fields: [universeId], references: [id])
+
+  // Worker poll: WHERE status='queued' AND kind=? ORDER BY createdAt ASC.
+  @@index([status, kind, createdAt])
+  // Stale-lock sweep: WHERE lockedAt < now() - timeout.
+  @@index([lockedAt])
+  // Lookups by entity for status endpoints and audit trails.
+  @@index([storyId])
+  @@index([universeId])
+  @@index([ownerId, createdAt])
+}

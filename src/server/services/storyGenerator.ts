@@ -2,8 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { buildSystemPrompt } from "./promptBuilder.js";
 import { CLAUDE_MODEL, CLAUDE_MODEL_FAST, CLAUDE_MODEL_PLANNER, TEMPERATURE_STANDARD, MAX_TOKENS_SHORT, MAX_TOKENS_SMALL, STORY_PAGES } from "../lib/config.js";
 import { debug } from "../lib/debug.js";
+import { ANTHROPIC_API_KEY } from "../lib/aiKeys.js";
 
-const anthropic = new Anthropic();
+const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
 /** Retry a function with exponential backoff on 429 rate limit errors */
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {

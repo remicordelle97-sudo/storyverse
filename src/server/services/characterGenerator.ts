@@ -1,9 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
+import { ANTHROPIC_API_KEY } from "../lib/aiKeys.js";
 import { CLAUDE_MODEL, TEMPERATURE_CREATIVE, MAX_TOKENS_SHORT } from "../lib/config.js";
 
-const anthropic = new Anthropic();
+const anthropic = new Anthropic({ apiKey: ANTHROPIC_API_KEY });
 
 interface GeneratedCharacter {
   name: string;
