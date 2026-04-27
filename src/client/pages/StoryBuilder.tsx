@@ -18,7 +18,14 @@ export default function StoryBuilder() {
     queryKey: ["universes-my"],
     queryFn: () => getMyUniverses(),
   });
-  const universes = universesPage?.items ?? [];
+  // Only ready universes can be used for story generation. A universe
+  // mid-build doesn't have its hero yet (pickStoryParameters would
+  // throw "Universe has no main character"), and a failed universe
+  // is broken — the user should delete it from MyUniverses, not pick
+  // it here.
+  const universes = (universesPage?.items ?? []).filter(
+    (u: any) => u.status === "ready",
+  );
 
   const { data: quota } = useQuery({
     queryKey: ["story-quota"],
@@ -84,6 +91,18 @@ export default function StoryBuilder() {
         Create a new story
       </h1>
 
+      {universes.length === 0 ? (
+        <div className="bg-white rounded-xl border border-stone-200 p-6 text-sm text-stone-500">
+          You don't have any universes ready for stories yet.{" "}
+          <button
+            onClick={() => navigate("/my-universes")}
+            className="text-primary hover:text-primary/80 font-medium underline"
+          >
+            Open My universes
+          </button>{" "}
+          to build a new one or remove a failed one.
+        </div>
+      ) : (
       <>
           {/* Universe selector (if multiple) */}
           {universes.length > 1 && (
@@ -206,6 +225,7 @@ export default function StoryBuilder() {
               : "Create story"}
           </button>
       </>
+      )}
     </div>
   );
 }

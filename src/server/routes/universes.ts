@@ -250,13 +250,24 @@ router.post("/:id/toggle-template", requireAdmin, async (req, res) => {
   }
 });
 
-// Delete a universe and all its data (admin only)
-router.delete("/:id", requireAdmin, async (req, res) => {
+// Delete a universe and all its data. The owner can delete their own
+// universe (critical recovery path: a failed onboarding build leaves
+// a placeholder that counts toward the free-tier quota until removed,
+// and pickStoryParameters fails on the missing hero so the universe
+// can't be used for stories either). Admins can delete any universe.
+router.delete("/:id", async (req, res) => {
   try {
     const universeId = req.params.id as string;
     const universe = await prisma.universe.findUnique({ where: { id: universeId } });
     if (!universe) {
       return res.status(404).json({ error: "Universe not found" });
+    }
+
+    const requester = await prisma.user.findUnique({ where: { id: req.userId as string } });
+    const isOwner = universe.userId === (req.userId as string);
+    const isAdmin = requester?.role === "admin";
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: "Access denied" });
     }
 
     await deleteUniversesCascade([universeId]);
