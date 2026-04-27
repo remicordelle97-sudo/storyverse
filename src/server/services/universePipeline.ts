@@ -9,6 +9,7 @@ import {
 } from "./geminiGenerator.js";
 import { updateJobProgress, createJob } from "../lib/jobs.js";
 import { JOB_KINDS } from "../lib/queues.js";
+import { readImageByKey } from "../lib/storage.js";
 
 // Async universe-creation pipeline. Two job kinds run sequentially:
 //
@@ -39,10 +40,15 @@ const ALLOWED_PHOTO_MIME: AnthropicImageMimeType[] = [
 ];
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
-export interface CharacterPhoto {
-  mimeType: string;
-  data: string; // raw base64, no "data:..." prefix
-}
+// Two photo shapes are accepted:
+//   `photoKey` — R2 object key produced by /api/uploads/photo-url. The
+//                worker resolves to bytes just-in-time. Preferred for
+//                new submissions; keeps `GenerationJob.payload` small.
+//   inline     — { mimeType, data } (raw base64). Legacy path kept so
+//                pre-PR-6 jobs already in the queue still process.
+export type CharacterPhoto =
+  | { photoKey: string }
+  | { mimeType: string; data: string };
 
 export interface UniverseBuildInput {
   universeName: string;
@@ -85,14 +91,31 @@ function isAllowedMime(m: string): m is AnthropicImageMimeType {
   return (ALLOWED_PHOTO_MIME as string[]).includes(m);
 }
 
-function photoToImageBlock(photo?: CharacterPhoto): ClaudeImageBlock | null {
-  if (!photo || !photo.data || !photo.mimeType) return null;
-  if (!isAllowedMime(photo.mimeType)) return null;
-  const approxBytes = Math.floor((photo.data.length * 3) / 4);
+/** Resolve a CharacterPhoto (either a key or inline base64) to a Claude
+ * vision image block. Returns null on any validation failure (caller
+ * falls back to text-only generation for that character). */
+async function photoToImageBlock(photo?: CharacterPhoto): Promise<ClaudeImageBlock | null> {
+  if (!photo) return null;
+
+  let mimeType: string;
+  let data: string;
+  if ("photoKey" in photo) {
+    const resolved = await readImageByKey(photo.photoKey);
+    if (!resolved) return null;
+    mimeType = resolved.mimeType;
+    data = resolved.data;
+  } else {
+    mimeType = photo.mimeType;
+    data = photo.data;
+  }
+
+  if (!data || !mimeType) return null;
+  if (!isAllowedMime(mimeType)) return null;
+  const approxBytes = Math.floor((data.length * 3) / 4);
   if (approxBytes > MAX_PHOTO_BYTES) return null;
   return {
     type: "image",
-    source: { type: "base64", media_type: photo.mimeType, data: photo.data },
+    source: { type: "base64", media_type: mimeType, data },
   };
 }
 
@@ -184,7 +207,7 @@ export async function runUniverseBuildJob(
   await updateJobProgress(jobId, "preparing", 5);
 
   const input = payload.input;
-  const heroPhotoBlock = photoToImageBlock(input.hero.photo);
+  const heroPhotoBlock = await photoToImageBlock(input.hero.photo);
   const heroName = input.hero.name.trim();
   const heroSpecies = input.hero.species.trim();
   const heroTraits = input.hero.traits.map((t) => t.trim()).filter(Boolean);
@@ -198,14 +221,18 @@ export async function runUniverseBuildJob(
   }[] = [];
   if (Array.isArray(input.supporting)) {
     supportingMode = "manual";
-    manualSupporting = input.supporting
-      .map((s) => ({
+    // Resolve photo blocks in parallel since each may hit R2 — do this
+    // before the filter so a slow single fetch doesn't bottleneck the
+    // others.
+    const resolved = await Promise.all(
+      input.supporting.map(async (s) => ({
         name: s.name.trim(),
         species: s.species.trim(),
         traits: s.traits.map((t) => t.trim()).filter(Boolean),
-        photoBlock: photoToImageBlock(s.photo),
-      }))
-      .filter((s) => s.name && s.species && s.traits.length > 0);
+        photoBlock: await photoToImageBlock(s.photo),
+      })),
+    );
+    manualSupporting = resolved.filter((s) => s.name && s.species && s.traits.length > 0);
   }
 
   const heroPhotoNote = heroPhotoBlock ? "(photo provided below)" : "(no photo)";
