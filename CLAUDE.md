@@ -172,6 +172,83 @@ are the canonical polling endpoints. The legacy SSE-based
 endpoints (which used to stream events back over the request) have
 been replaced with 202+enqueue.
 
+### Read API & Pagination
+
+The list endpoints are split by scope and cursor-paginated. Response
+shape is always `{ items, nextCursor: string | null }` — pass back
+`nextCursor` as `?cursor=...` for the next page. Default `?limit=50`,
+max 100.
+
+- `GET /api/stories/my` — your own stories (createdById match OR
+  stories in a universe you own).
+- `GET /api/stories/featured` — admin-curated public stories.
+- `GET /api/stories?universeId=...` — bounded, unpaginated list of
+  stories in a single universe (still capped by per-universe story
+  growth in practice).
+- `GET /api/universes/my` — your own universes (with characters
+  included; every consumer needs them).
+- `GET /api/universes/templates` — admin-curated preset universes
+  for onboarding.
+
+The pagination relies on the `Story(createdById, createdAt)` and
+`Universe(userId, createdAt)` indexes from PR 2. Server uses
+Prisma's `cursor + skip:1 + take: limit + 1` trick to detect
+"more available" without a separate count query.
+
+### Photo uploads (universe builder)
+
+Character photos uploaded during onboarding / new-universe creation
+go directly to R2 from the browser via a presigned URL. The bytes
+never ride inside the JSON request body.
+
+1. Client calls `POST /api/uploads/photo-url` with `{ mimeType,
+   contentLength }`. Validates against an allowlist (jpeg/png/webp/
+   gif) and ≤5MB.
+2. Server returns `{ uploadUrl, key, expiresInSeconds }`. The
+   uploadUrl is a 15-minute presigned `PutObjectCommand` URL; the
+   key is namespaced `uploads/<userId>/<uuid>.<ext>`.
+3. Client `PUT`s the file blob directly to the URL.
+4. Client submits the universe-build payload with `{ photoKey }`
+   instead of `{ mimeType, data }`.
+
+The worker's `runUniverseBuildJob` resolves keys to bytes
+just-in-time via `readImageByKey()` in `storage.ts` so the bytes
+aren't stored in `GenerationJob.payload`. The legacy inline shape
+(`{ mimeType, data }`) is still accepted by `photoToImageBlock` so
+pre-PR-6 jobs sitting in the queue at deploy time keep processing.
+
+**R2 setup required:**
+- **CORS**: the bucket must allow `PUT` from the app origin
+  (`Content-Type` header included).
+- **Lifecycle rule**: configure R2 to expire objects under
+  `uploads/` after ~30 days. Universes that never finished building
+  leave orphan photos there; the lifecycle rule is the simplest
+  cleanup path. A server-side cron is a future TODO if it ever
+  becomes a problem.
+
+The express body limit is `1mb` (down from 10mb pre-PR-6) since
+photos no longer ride the JSON body.
+
+### Observability — `GET /api/admin/metrics`
+
+Admin-only endpoint that returns three blocks:
+
+- **`queues`** — BullMQ counts per queue (`waiting / active /
+  completed / failed / delayed`) plus a `redisAvailable` flag.
+  Without `REDIS_URL` the counts are null and the flag is false —
+  signal to provision Redis before bumping concurrency env vars.
+- **`jobs`** — `GenerationJob` aggregates: `groupBy(status, kind)`
+  for current state, average runtime per kind over the last 24h
+  (sample count + avg ms), and total `failed` count last 24h.
+  Lets you spot a regressed kind without trawling logs.
+- **`http`** — per-route latency from `httpLatencyMiddleware`
+  (`src/server/middleware/httpLatency.ts`). 5000-sample in-memory
+  ring buffer keyed by route pattern (not URL). Returns count,
+  avg, p50, p95, p99, and 5xx error count per `(method, route)`.
+  In-memory only; restarts wipe the buffer. For longer retention
+  point Prometheus / Datadog at the endpoint and scrape on a
+  schedule.
+
 ### Key Configuration
 
 - `src/server/lib/config.ts` — Claude model (`claude-sonnet-4-6`), temperatures (0.75 standard, 0.85 creative), token limits (4000 plan, 8000 write), moods, plan limits
