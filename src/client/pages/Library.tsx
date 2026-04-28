@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMyStories, getFeaturedStories, getMyUniverses, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { storyTailwindColor } from "../../shared/storyColor";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 
 
 function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { story: any; onClick: () => void; isAdmin?: boolean; onTogglePublic?: () => void; onDelete?: () => void }) {
@@ -145,31 +146,30 @@ export default function Library() {
   const [showMenu, setShowMenu] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
 
-  // Library shows two shelves: the user's own stories and the
-  // admin-curated featured shelf. Each is paginated independently;
-  // we just fetch the first page here. "Load more" could be added
-  // later when total counts exceed the default page size.
-  const { data: myStoriesPage, isLoading: myLoading } = useQuery({
+  // Library shows two shelves: the user's own stories (infinite scroll
+  // via useInfiniteList) and the admin-curated featured shelf (single
+  // page — admin curation makes growth bounded). Polling is scoped to
+  // the first page only; in-progress stories always land at the top of
+  // a newest-first list, so older pages don't need refetching.
+  const myStoriesList = useInfiniteList({
     queryKey: ["stories-my"],
-    queryFn: () => getMyStories(),
-    refetchInterval: (query) => {
-      const items = ((query.state.data as any)?.items as any[]) || [];
-      const pending = items.some(
+    fetchPage: (cursor) => getMyStories(cursor),
+    shouldPoll: (firstPageItems) =>
+      firstPageItems.some(
         (s: any) =>
           s.status === "queued" ||
           s.status === "generating_text" ||
           s.status === "illustrating",
-      );
-      return pending ? 5000 : false;
-    },
+      ),
   });
+  const stories = myStoriesList.items;
+  const isLoading = myStoriesList.isLoading;
+
   const { data: featuredStoriesPage } = useQuery({
     queryKey: ["stories-featured"],
     queryFn: () => getFeaturedStories(),
   });
-  const stories = myStoriesPage?.items ?? [];
   const featuredStories = featuredStoriesPage?.items ?? [];
-  const isLoading = myLoading;
 
   // Universe lifecycle states (PR 5 added the explicit status column):
   //   queued | building | illustrating_assets | ready | failed
@@ -179,19 +179,13 @@ export default function Library() {
   const isUniverseReady = (u: any) => u.status === "ready";
   const isUniverseFailed = (u: any) => u.status === "failed";
 
-  const { data: universesPage } = useQuery({
+  const universesList = useInfiniteList({
     queryKey: ["universes-my"],
-    queryFn: () => getMyUniverses(),
-    // Poll every 5s while any universe is still mid-build/illustrating.
-    refetchInterval: (query) => {
-      const items = ((query.state.data as any)?.items as any[]) || [];
-      const anyPending = items.some(
-        (u: any) => !isUniverseReady(u) && !isUniverseFailed(u),
-      );
-      return anyPending ? 5000 : false;
-    },
+    fetchPage: (cursor) => getMyUniverses(cursor),
+    shouldPoll: (firstPageItems) =>
+      firstPageItems.some((u: any) => !isUniverseReady(u) && !isUniverseFailed(u)),
   });
-  const universes = universesPage?.items ?? [];
+  const universes = universesList.items;
 
   // Track "newly-ready" transitions so we can show a toast when background
   // image generation completes.
@@ -436,6 +430,21 @@ export default function Library() {
                 ))}
               </Shelf>
             ))}
+            {/* Infinite-scroll sentinel: when this enters the viewport
+                useInfiniteList fires fetchNextPage. Sized small + with
+                a 300px rootMargin so the next page starts loading
+                slightly before the user scrolls all the way down. */}
+            {myStoriesList.hasNextPage && (
+              <div ref={myStoriesList.sentinelRef} className="h-4" />
+            )}
+            {myStoriesList.isFetchingNextPage && (
+              <p
+                className="text-stone-400 text-sm text-center py-4"
+                style={{ fontFamily: "Georgia, serif" }}
+              >
+                Loading more...
+              </p>
+            )}
           </div>
         ) : (
           <div className="py-2">

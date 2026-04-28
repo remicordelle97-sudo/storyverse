@@ -13,7 +13,11 @@
 // Prisma's cursor positions on a primary key but the orderBy still
 // controls the result order.
 
-export const DEFAULT_PAGE_LIMIT = 100;
+// Default 50 keeps first-page render fast. Max stays 100 so a single
+// request can't pull more than that. Clients use cursor pagination
+// (useInfiniteList hook) to chain pages as the user scrolls, so the
+// default size only affects perceived initial load.
+export const DEFAULT_PAGE_LIMIT = 50;
 export const MAX_PAGE_LIMIT = 100;
 
 export function parseLimit(raw: unknown): number {
