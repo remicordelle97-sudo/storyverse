@@ -248,10 +248,15 @@ export default function Library() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const shelves: any[][] = [];
-  for (let i = 0; i < stories.length; i += perShelf) {
-    shelves.push(stories.slice(i, i + perShelf));
+  function chunkIntoShelves(books: any[]): any[][] {
+    const out: any[][] = [];
+    for (let i = 0; i < books.length; i += perShelf) {
+      out.push(books.slice(i, i + perShelf));
+    }
+    return out;
   }
+  const shelves = chunkIntoShelves(stories);
+  const featuredShelves = chunkIntoShelves(featuredStories);
 
   return (
     <div className="min-h-screen app-bg">
@@ -416,12 +421,16 @@ export default function Library() {
                     isAdmin={isAdmin}
                     onTogglePublic={async () => {
                       await toggleStoryPublic(story.id);
-                      queryClient.invalidateQueries({ queryKey: ["stories-all"] });
+                      // Invalidate both shelves: toggling isPublic moves
+                      // the story between the "my" and "featured" sets.
+                      queryClient.invalidateQueries({ queryKey: ["stories-my"] });
+                      queryClient.invalidateQueries({ queryKey: ["stories-featured"] });
                     }}
                     onDelete={async () => {
                       if (!confirm(`Delete "${story.title}"? This cannot be undone.`)) return;
                       await deleteStory(story.id);
-                      queryClient.invalidateQueries({ queryKey: ["stories-all"] });
+                      queryClient.invalidateQueries({ queryKey: ["stories-my"] });
+                      queryClient.invalidateQueries({ queryKey: ["stories-featured"] });
                     }}
                   />
                 ))}
@@ -437,15 +446,47 @@ export default function Library() {
                     Your bookshelf is empty
                   </p>
                   <button
-                    onClick={() => navigate("/new-universe")}
+                    onClick={handleNewStory}
                     className="px-6 py-3 bg-amber-800 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors"
                     style={{ fontFamily: "Georgia, serif" }}
                   >
-                    Create your first universe
+                    {universes.length === 0 ? "Create your first universe" : "Create your first story"}
                   </button>
                 </div>
               </div>
             </Shelf>
+          </div>
+        )}
+
+        {featuredShelves.length > 0 && (
+          <div className="pt-2 pb-2">
+            <h2
+              className="text-stone-400 text-sm uppercase tracking-wider mb-4 px-3 sm:px-8"
+              style={{ fontFamily: "Georgia, serif" }}
+            >
+              Featured
+            </h2>
+            {featuredShelves.map((shelf, i) => (
+              <Shelf key={`featured-${i}`}>
+                {shelf.map((story: any) => (
+                  <BookCover
+                    key={story.id}
+                    story={story}
+                    onClick={() => navigate(`/reading/${story.id}`)}
+                    isAdmin={isAdmin}
+                    onTogglePublic={
+                      isAdmin
+                        ? async () => {
+                            await toggleStoryPublic(story.id);
+                            queryClient.invalidateQueries({ queryKey: ["stories-my"] });
+                            queryClient.invalidateQueries({ queryKey: ["stories-featured"] });
+                          }
+                        : undefined
+                    }
+                  />
+                ))}
+              </Shelf>
+            ))}
           </div>
         )}
       </div>

@@ -183,7 +183,7 @@ export default function UniverseManager() {
                         onClick={async () => {
                           if (!confirm(`Delete "${universe.name}" and all its stories and characters? This cannot be undone.`)) return;
                           await deleteUniverse(universe.id);
-                          queryClient.invalidateQueries({ queryKey: ["universes"] });
+                          queryClient.invalidateQueries({ queryKey: ["universes-my"] });
                           setSelectedId(null);
                         }}
                         className="text-[10px] px-2.5 py-1 rounded-full font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"

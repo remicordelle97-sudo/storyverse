@@ -9,6 +9,7 @@ import { verifyUniverseOwnership, verifyUniverseAccess } from "../lib/ownership.
 import { deleteStoriesCascade } from "../lib/cascade.js";
 import { createJob } from "../lib/jobs.js";
 import { JOB_KINDS } from "../lib/queues.js";
+import { parseLimit, paginate } from "../lib/pagination.js";
 import {
   pickStoryParameters,
   createStoryPlaceholder,
@@ -69,29 +70,9 @@ function flattenStorySummary(s: {
   };
 }
 
-// Cursor pagination caps. The default limit covers the typical
-// Library shelf without follow-up requests; the max prevents a
-// pathological query that would defeat the indexes.
-const DEFAULT_PAGE_LIMIT = 50;
-const MAX_PAGE_LIMIT = 100;
-
-function parseLimit(raw: unknown): number {
-  const n = typeof raw === "string" ? parseInt(raw, 10) : NaN;
-  if (!Number.isFinite(n) || n <= 0) return DEFAULT_PAGE_LIMIT;
-  return Math.min(n, MAX_PAGE_LIMIT);
-}
-
-/** Build a cursor-paginated response from a Prisma findMany result.
- * Convention: pull `limit + 1` rows so we can detect "more available"
- * without a second count query. nextCursor is the id of the LAST row
- * returned in this page (clients pass it back as `?cursor=`). */
-function paginate<T extends { id: string }>(rows: T[], limit: number): { items: T[]; nextCursor: string | null } {
-  if (rows.length > limit) {
-    const items = rows.slice(0, limit);
-    return { items, nextCursor: items[items.length - 1].id };
-  }
-  return { items: rows, nextCursor: null };
-}
+// Pagination helpers (DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, parseLimit,
+// paginate) live in src/server/lib/pagination.ts so stories.ts and
+// universes.ts share one source of truth.
 
 // GET /api/stories/my — paginated list of stories the user created
 // (directly via createdById) or that live in a universe they own.
@@ -109,7 +90,10 @@ router.get("/my", async (req, res) => {
         ],
       },
       select: STORY_SUMMARY_SELECT,
-      orderBy: { createdAt: "desc" },
+      // `id` as a tiebreaker keeps cursor + skip:1 stable when two rows
+      // share the same createdAt (timestamps are millisecond-precise so
+      // bursts of bulk-generated content easily collide).
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     });
@@ -131,7 +115,10 @@ router.get("/featured", async (req, res) => {
     const rows = await prisma.story.findMany({
       where: { isPublic: true },
       select: STORY_SUMMARY_SELECT,
-      orderBy: { createdAt: "desc" },
+      // `id` as a tiebreaker keeps cursor + skip:1 stable when two rows
+      // share the same createdAt (timestamps are millisecond-precise so
+      // bursts of bulk-generated content easily collide).
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     });
