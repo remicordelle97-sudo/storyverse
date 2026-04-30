@@ -109,9 +109,10 @@ router.post("/test-order", requireAdmin, async (req, res) => {
       story.scenes.map((s) => (s.imageUrl ? readImage(s.imageUrl) : Promise.resolve(null)))
     );
 
-    // Build PDFs synchronously, then run the (slow) uploads in parallel
-    // with the (slow) Lulu cost quote — they're independent.
-    const built = buildPrintPdfBytes({
+    // Build PDFs (async — fonts are fetched lazily), then run the (slow)
+    // uploads in parallel with the (slow) Lulu cost quote — they're
+    // independent.
+    const built = await buildPrintPdfBytes({
       story: {
         id: story.id,
         title: story.title,
