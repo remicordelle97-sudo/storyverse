@@ -9,6 +9,8 @@ import MyUniverses from "./pages/MyUniverses";
 import Onboarding from "./pages/Onboarding";
 import StoryBuilder from "./pages/StoryBuilder";
 import ReadingMode from "./pages/ReadingMode";
+import PrintOrders from "./pages/PrintOrders";
+import PrintOrderDetail from "./pages/PrintOrderDetail";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isImpersonating } = useAuth();
@@ -109,6 +111,14 @@ function AppRoutes() {
       <Route
         path="/reading/:storyId"
         element={<ProtectedRoute><ReadingMode /></ProtectedRoute>}
+      />
+      <Route
+        path="/orders"
+        element={<ProtectedRoute><PrintOrders /></ProtectedRoute>}
+      />
+      <Route
+        path="/print/orders/:orderId"
+        element={<ProtectedRoute><PrintOrderDetail /></ProtectedRoute>}
       />
       <Route
         path="/"

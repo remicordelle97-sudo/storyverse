@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
 import HTMLFlipBook from "react-pageflip";
 import StoryLoadingScreen, { STORY_IMAGE_PHRASES, STORY_TEXT_PHRASES } from "../components/StoryLoadingScreen";
+import PrintModal from "../components/PrintModal";
 import { storyHexColor } from "../../shared/storyColor";
 
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
@@ -316,6 +317,7 @@ export default function ReadingMode() {
   const [regenerating, setRegenerating] = useState(false);
   const [regenProgress, setRegenProgress] = useState("");
   const [showDebug, setShowDebug] = useState(false);
+  const [showPrintModal, setShowPrintModal] = useState(false);
   const bookRef = useRef<any>(null);
 
   const queryClient = useQueryClient();
@@ -596,6 +598,20 @@ export default function ReadingMode() {
             {exporting ? "Saving..." : "Save PDF"}
           </button>
           )}
+          {/* Print on Demand. Hidden until the story has finished
+              illustrating — printing a half-rendered book is wasted
+              money. Once status is "published" the button shows. */}
+          {story?.status === "published" && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPrintModal(true);
+              }}
+              className="text-white/80 hover:text-white text-sm font-semibold transition-colors"
+            >
+              Print book
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={(e) => { e.stopPropagation(); setShowDebug(!showDebug); }}
@@ -606,6 +622,15 @@ export default function ReadingMode() {
           )}
         </div>
       </div>
+
+      {/* Print on Demand modal */}
+      {showPrintModal && story && (
+        <PrintModal
+          storyId={storyId!}
+          storyTitle={story.title}
+          onClose={() => setShowPrintModal(false)}
+        />
+      )}
 
       {/* Debug panel (admin only) */}
       {isAdmin && showDebug && (

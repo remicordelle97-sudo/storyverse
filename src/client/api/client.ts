@@ -261,3 +261,81 @@ export const generateStory = (data: any) =>
 
 export const regenerateStoryImages = (storyId: string) =>
   request<JobEnvelope>(`/stories/${storyId}/regenerate-images`, { method: "POST" });
+
+// === Print on Demand =========================================
+export interface PrintShippingAddress {
+  name: string;
+  street1: string;
+  street2?: string;
+  city: string;
+  state_code: string;
+  country_code: string; // ISO-3166-1 alpha-2, e.g. "US"
+  postcode: string;
+  phone_number: string;
+}
+
+export interface PrintQuote {
+  pageCount: number;
+  quantity: number;
+  printCostCents: number;
+  shippingCostCents: number;
+  taxCostCents: number;
+  luluTotalCostCents: number;
+  customerPriceCents: number;
+  shippingLevel: string;
+}
+
+export const getPrintQuote = (input: {
+  storyId: string;
+  shippingAddress: PrintShippingAddress;
+  quantity?: number;
+}) =>
+  request<PrintQuote>("/print/quote", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export const startPrintCheckout = (input: {
+  storyId: string;
+  shippingAddress: PrintShippingAddress;
+  quantity?: number;
+}) =>
+  request<{ url: string; orderId: string }>("/print/checkout", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+
+export interface PrintOrderSummary {
+  id: string;
+  status: string;
+  storyId: string;
+  storyTitle: string;
+  customerPriceCents: number | null;
+  luluTrackingUrl: string | null;
+  rejectionReason: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const listPrintOrders = () =>
+  request<{ items: PrintOrderSummary[] }>("/print/orders");
+
+export interface PrintOrderDetail {
+  order: PrintOrderSummary & {
+    luluPrintCostCents?: number | null;
+    luluShippingCostCents?: number | null;
+    luluPrintJobId?: string | null;
+    coverPdfUrl?: string;
+    interiorPdfUrl?: string;
+    shippingAddress: string;
+  };
+  luluStatus: { name?: string; messages?: string[] } | null;
+  luluLineItems?: Array<{
+    id?: number;
+    status?: { name?: string; messages?: string[] | Record<string, string[]> };
+    tracking_urls?: string[];
+  }>;
+}
+
+export const getPrintOrder = (id: string) =>
+  request<PrintOrderDetail>(`/print/orders/${id}`);

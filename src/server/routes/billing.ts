@@ -3,6 +3,10 @@ import Stripe from "stripe";
 import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { authMiddleware } from "../middleware/auth.js";
+import {
+  submitOrderToLulu,
+  PRINT_ORDER_STATUS,
+} from "../services/printSubmit.js";
 
 const stripeKey = process.env.STRIPE_SECRET_KEY;
 const stripe = stripeKey ? new Stripe(stripeKey) : null;
@@ -101,6 +105,58 @@ router.post(
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+        const kind = session.metadata?.kind;
+        // Two flows share this webhook: subscription upgrades (Phase 1
+        // billing) and one-time print purchases (Phase 2). The "kind"
+        // metadata disambiguates them; legacy subscription sessions
+        // don't set it, so the absence-of-kind fallback handles them.
+        if (kind === "print") {
+          const orderId = session.metadata?.orderId;
+          if (!orderId) {
+            debug.error("Stripe print session.completed missing orderId metadata");
+            break;
+          }
+          // Idempotency: if the order is already past pending_payment
+          // (e.g. webhook is being retried), don't re-submit. The
+          // submitOrderToLulu helper is itself idempotent via
+          // luluPrintJobId, but skipping here avoids re-querying Lulu.
+          const order = await prisma.printOrder.findUnique({ where: { id: orderId } });
+          if (!order) {
+            debug.error(`Stripe webhook: print order ${orderId} not found`);
+            break;
+          }
+          if (order.status !== PRINT_ORDER_STATUS.pending_payment) {
+            debug.story(
+              `Stripe webhook: print order ${orderId} already past pending_payment (${order.status}), skipping`
+            );
+            break;
+          }
+          await prisma.printOrder.update({
+            where: { id: orderId },
+            data: {
+              status: PRINT_ORDER_STATUS.paid,
+              stripePaymentId:
+                typeof session.payment_intent === "string"
+                  ? session.payment_intent
+                  : session.payment_intent?.id ?? null,
+            },
+          });
+          debug.story(`Print order ${orderId} marked paid; submitting to Lulu`);
+          try {
+            await submitOrderToLulu(orderId);
+          } catch (e: any) {
+            // submitOrderToLulu already flips the order to "failed"
+            // and stores the rejectionReason. We log here so the
+            // webhook still 200s — Stripe will keep retrying
+            // otherwise, and the user-facing remediation is via the
+            // failed status, not by reprocessing the payment.
+            debug.error(
+              `Lulu submission failed for paid order ${orderId}: ${e?.message}`
+            );
+          }
+          break;
+        }
+        // Subscription upgrade (legacy / Phase 1 path).
         const userId = session.metadata?.userId;
         if (userId) {
           await prisma.user.update({

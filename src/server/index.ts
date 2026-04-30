@@ -8,6 +8,7 @@ import charactersRouter from "./routes/characters.js";
 import storiesRouter from "./routes/stories.js";
 import adminRouter from "./routes/admin.js";
 import printRouter from "./routes/print.js";
+import luluWebhookRouter from "./routes/luluWebhook.js";
 import uploadsRouter from "./routes/uploads.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { httpLatencyMiddleware } from "./middleware/httpLatency.js";
@@ -16,8 +17,12 @@ import { bootWorkers } from "./worker.js";
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Stripe webhook needs raw body — must be before express.json()
+// Webhooks that verify signatures need the raw request body; they
+// must be mounted before express.json() so the JSON parser doesn't
+// consume the stream first. The Lulu webhook router carries its own
+// raw() middleware so we mount it directly here.
 app.use("/api/billing/webhook", express.raw({ type: "application/json" }));
+app.use("/api/print/lulu-webhook", luluWebhookRouter);
 
 // Photos no longer ride inside the JSON body — the universe builder
 // uploads them directly to R2 via /api/uploads/photo-url and submits

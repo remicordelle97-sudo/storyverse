@@ -321,26 +321,62 @@ status endpoint via `react-query`'s `refetchInterval`:
 - FAQ modal centered on screen (not dropdown)
 - Spine shadow hidden on mobile (no spine in single-page mode)
 
-### Print on Demand (Lulu) — Phase 1, sandbox-only
+### Print on Demand (Lulu) — Phase 2, sandbox-only
 
-Wired against Lulu's sandbox API. Single admin endpoint
-`POST /api/print/test-order` builds a cover + interior PDF for a
-story, uploads them to storage, gets a Lulu cost quote, and submits
-a sandbox print job. `POST /api/print/test-order` accepts
-`dryRun: true` to skip the Lulu submission and just return the
-quote. `GET /api/print/orders/:id` fetches an order plus its
-current Lulu status (including per-line-item rejection messages
-when Lulu kicks a job back).
+Wired against Lulu's sandbox API end-to-end: from the user clicking
+"Print book" in the reader, through Stripe Checkout, to Lulu print
+job submission and shipment-status callbacks.
+
+**User flow:**
+1. `ReadingMode` shows a "Print book" control once the story is
+   `published`. Clicking it opens `PrintModal` (`src/client/components/PrintModal.tsx`).
+2. The modal collects a shipping address and calls
+   `POST /api/print/quote`. The route forwards to Lulu's
+   `/print-job-cost-calculations/`, applies the markup formula,
+   and returns the price the user will see at checkout. No DB
+   write — quote endpoint is read-only.
+3. The user confirms; the modal calls `POST /api/print/checkout`,
+   which builds the cover + interior PDFs, persists a `PrintOrder`
+   row at `status="pending_payment"`, creates a Stripe Checkout
+   session in `mode: "payment"`, and returns the redirect URL.
+4. Stripe redirects back to `/print/orders/:orderId?session_id=...`.
+   That page (`PrintOrderDetail`) polls `GET /api/print/orders/:id`
+   every 3s while the order is in any non-terminal status.
+5. Stripe fires `checkout.session.completed`, handled in
+   `routes/billing.ts`. `metadata.kind === "print"` dispatches to
+   `submitOrderToLulu(orderId)`, which calls Lulu's `/print-jobs/`
+   and flips status to `submitted` (or `failed` if Lulu rejects).
+6. Lulu fires status-change webhooks at `POST /api/print/lulu-webhook`
+   as the job moves through `IN_PRODUCTION → SHIPPED → ...`.
+   `mapLuluStatusToOrderStatus` translates to our vocabulary and
+   captures the first tracking URL when shipped. Signature is
+   HMAC-SHA256 of the raw body using `LULU_WEBHOOK_SECRET`.
+
+**Order lifecycle vocabulary** (`PRINT_ORDER_STATUS` in `services/printSubmit.ts`):
+`draft` (admin test path) | `pending_payment` | `paid` |
+`submitted` | `in_production` | `shipped` | `delivered` |
+`cancelled` | `failed` | `refunded`. The user-facing pages map
+each to plain-English copy in `PrintOrderDetail.tsx` /
+`PrintOrders.tsx`.
+
+**Admin smoke test:**
+`POST /api/print/test-order` is still wired in (admin-only). It
+takes a `storyId` + optional `shippingAddress` + optional
+`dryRun: true` and runs the same PDF build / Lulu cost calc /
+Lulu submit chain as the user flow but without Stripe. Used to
+debug PDF-rejection issues against Lulu's normalizer without
+spending credit.
 
 **PDF builder (`src/server/services/printPdfBuilder.ts`):**
 - Trim size is derived from the configured Lulu SKU
   (`LULU_DEFAULT_POD_PACKAGE_ID`).
-- **Inter font** (from `@fontsource/inter`) is read from the
-  package on first PDF build, cached, and registered with every
-  jsPDF doc via `addFileToVFS` + `addFont`. Lulu's normalizer
-  rejects PDFs with non-embedded fonts; jsPDF's default helvetica
-  references the standard PDF font by name rather than embedding
-  glyph data, so it had to be replaced.
+- **Inter font** is read from `assets/fonts/Inter-Regular.ttf` and
+  `Inter-Bold.ttf` (committed to the repo from rsms/inter v4.0),
+  cached on first build, and registered with every jsPDF doc via
+  `addFileToVFS` + `addFont`. Lulu rejects PDFs with non-embedded
+  fonts; jsPDF's default helvetica references the standard PDF
+  font by name rather than embedding glyph data. Both `assets/`
+  and `public/` are copied into the runtime stage in `Dockerfile`.
 - **Interior** pages embed the scene illustration above the prose,
   fit-to-box with letterboxing/pillarboxing to preserve aspect
   ratio (Gemini's 4:3 art doesn't get stretched into the page
@@ -352,15 +388,24 @@ when Lulu kicks a job back).
   bleed on the outer edges, in landscape orientation. The title is
   centered inside the front-cover trim region (not the full PDF
   width). Spine width is zero for saddle-stitch (SS) binding;
-  Phase 2 will compute spine width from interior page count for
+  Phase 3 will compute spine width from interior page count for
   perfect-bound (PB).
 
 Pricing: print cost × 1.5 + shipping pass-through (no separate tax
 charge to customer).
 
-Phase 2 will add user-facing UI (print button + address form +
-Stripe Checkout) and a Lulu webhook handler. Phase 3 flips Lulu +
-Stripe to live mode.
+**Idempotency:** `submitOrderToLulu` checks `luluPrintJobId` first
+and short-circuits if the order has already been submitted. The
+Stripe webhook also gates on `status === "pending_payment"` before
+calling submit, so a webhook retry can't double-submit. The Lulu
+webhook ignores events for unknown jobs (acks 200 so Lulu doesn't
+keep retrying) and refuses to roll backwards over terminal statuses
+(`refunded` / `cancelled`).
+
+Phase 3 will flip Lulu + Stripe to live mode (production base URLs
++ live keys), add real address validation (currently the form
+accepts whatever the user types), and a polished cover/interior
+layout that matches the on-screen reader.
 
 **TEMPORARY (development-only):** the admin "reset user" endpoint
 (`POST /api/admin/users/:userId/reset`) currently deletes the user's
@@ -387,4 +432,4 @@ See `.env.example` for the full annotated list. Summary:
 - `CLAUDE_QUEUE_CONCURRENCY`, `GEMINI_QUEUE_CONCURRENCY` — per-vendor worker concurrency. Default 2 each.
 - `ADMIN_EMAILS` — comma-separated list auto-promoted to `admin` on first sign-in.
 - Stripe: `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, `STRIPE_WEBHOOK_SECRET`, `APP_URL`.
-- Lulu (sandbox or production): `LULU_CLIENT_KEY`, `LULU_CLIENT_SECRET`, optionally `LULU_API_BASE_URL` and `LULU_DEFAULT_POD_PACKAGE_ID`.
+- Lulu (sandbox or production): `LULU_CLIENT_KEY`, `LULU_CLIENT_SECRET`, optionally `LULU_API_BASE_URL`, `LULU_DEFAULT_POD_PACKAGE_ID`, and `LULU_WEBHOOK_SECRET` (HMAC-SHA256 secret configured against the Lulu webhook URL — required only if you want auto-updates to `shipped`/`delivered`).
