@@ -29,6 +29,7 @@ router.get("/quota", async (req, res) => {
 });
 
 router.get("/", async (req, res) => {
+  console.log("[stories] GET / hit", { universeId: req.query.universeId, userId: req.userId });
   try {
     const { universeId } = req.query;
 
