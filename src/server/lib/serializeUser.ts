@@ -8,6 +8,11 @@ export interface SerializedUser {
   role: string;
   plan: string;
   onboardedAt: Date | null;
+  // True when User.shippingAddress is non-empty. The cart UI keys off
+  // this to decide whether to ask for an address before checkout. The
+  // raw address is only sent over /api/account so it doesn't leak
+  // through cached /me responses.
+  hasShippingAddress: boolean;
 }
 
 /**
@@ -26,5 +31,6 @@ export function serializeUser(user: User): SerializedUser {
     role: user.role,
     plan: user.plan,
     onboardedAt: user.onboardedAt,
+    hasShippingAddress: Boolean(user.shippingAddress && user.shippingAddress.length > 0),
   };
 }

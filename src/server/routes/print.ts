@@ -1,25 +1,25 @@
 /**
- * Print-on-demand routes.
+ * Print-on-demand routes — cart-based flow.
  *
- * Phase 1 (admin-only sandbox test) endpoints:
- *   POST /api/print/test-order      — admin smoke test, no payment.
- *   GET  /api/print/orders/:id      — admin order lookup.
- *   GET  /api/print/config          — admin config snapshot.
+ * User flow (Phase 2 cart UX):
+ *   POST /api/print/cart               — add a story to cart (status=cart)
+ *   GET  /api/print/cart               — list cart items + total quote
+ *   DELETE /api/print/cart/:id         — remove cart item
+ *   POST /api/print/cart/checkout      — build PDFs, assign batchId,
+ *                                        create Stripe Checkout session
+ *   GET  /api/print/orders             — list user's print batches
+ *   GET  /api/print/orders/:batchId    — batch detail
  *
- * Phase 2 (user-facing) endpoints:
- *   POST /api/print/quote           — get a Lulu cost quote.
- *   POST /api/print/checkout        — build PDFs, create draft order +
- *                                     Stripe Checkout session.
- *   GET  /api/print/orders          — current user's print orders.
- *   GET  /api/print/orders/:id      — current user's print order detail.
+ * Admin smoke test (single-book, no payment):
+ *   POST /api/print/test-order
+ *   GET  /api/print/config
  *
- * Stripe webhook handling lives in routes/billing.ts (it shares the
- * raw-body verification with the subscription flow). The Lulu webhook
- * for print-job status transitions is mounted in index.ts because it
- * also needs the raw body for HMAC verification, before express.json().
+ * Stripe webhook handling lives in routes/billing.ts; the Lulu webhook
+ * for status callbacks lives in routes/luluWebhook.ts.
  */
 
 import { Router } from "express";
+import crypto from "crypto";
 import Stripe from "stripe";
 import prisma from "../lib/prisma.js";
 import { requireAdmin } from "../middleware/auth.js";
@@ -33,17 +33,18 @@ import {
 import { buildPrintPdfBytes, storePrintPdfBytes } from "../services/printPdfBuilder.js";
 import { readImage } from "../lib/storage.js";
 import {
-  submitOrderToLulu,
+  submitBatchToLulu,
   PRINT_ORDER_STATUS,
 } from "../services/printSubmit.js";
+import {
+  validateShippingAddress,
+  parseStoredAddress,
+} from "../lib/shippingAddress.js";
 
 const router = Router();
 
 const PRINT_MARKUP = 1.5;
 
-// Lulu's documented sandbox-friendly US address. Don't rely on it for
-// production submissions (it's not validated against the address-
-// verification provider in some regions).
 const SAMPLE_LULU_ADDRESS: ShippingAddress = {
   name: "Lulu Sandbox",
   street1: "1010 Sync Street",
@@ -58,47 +59,6 @@ const stripeKey = process.env.STRIPE_SECRET_KEY;
 const stripe = stripeKey ? new Stripe(stripeKey) : null;
 const APP_URL = process.env.APP_URL || "http://localhost:3000";
 
-function totalCustomerPriceCents(opts: {
-  printCostCents: number;
-  shippingCostCents: number;
-}): number {
-  // Markup on the print cost only; shipping is pass-through. Tax stays
-  // with Lulu — they collect it at fulfillment.
-  return Math.round(opts.printCostCents * PRINT_MARKUP) + opts.shippingCostCents;
-}
-
-/** Validate the incoming address shape before forwarding to Lulu. */
-function validateShippingAddress(input: any): ShippingAddress {
-  const required: (keyof ShippingAddress)[] = [
-    "name",
-    "street1",
-    "city",
-    "state_code",
-    "country_code",
-    "postcode",
-    "phone_number",
-  ];
-  if (!input || typeof input !== "object") {
-    throw new Error("shippingAddress is required");
-  }
-  for (const key of required) {
-    const value = input[key];
-    if (typeof value !== "string" || !value.trim()) {
-      throw new Error(`shippingAddress.${key} is required`);
-    }
-  }
-  return {
-    name: String(input.name).trim(),
-    street1: String(input.street1).trim(),
-    street2: input.street2 ? String(input.street2).trim() : undefined,
-    city: String(input.city).trim(),
-    state_code: String(input.state_code).trim(),
-    country_code: String(input.country_code).trim().toUpperCase(),
-    postcode: String(input.postcode).trim(),
-    phone_number: String(input.phone_number).trim(),
-  };
-}
-
 /**
  * Compute interior page count without building the PDF — needed for
  * the cost quote. Mirrors the padding logic in printPdfBuilder.ts:
@@ -106,7 +66,7 @@ function validateShippingAddress(input: any): ShippingAddress {
  * of 4 for saddle-stitch binding.
  */
 function estimateInteriorPageCount(sceneCount: number): number {
-  const raw = sceneCount + 1; // +1 for the blank front matter
+  const raw = sceneCount + 1;
   return Math.ceil(raw / 4) * 4;
 }
 
@@ -119,26 +79,17 @@ router.get("/config", requireAdmin, (_req, res) => {
   });
 });
 
-// POST /api/print/quote — user-facing cost quote.
-// Body: { storyId, shippingAddress, quantity? }
-// Doesn't write anything (no orphan rows) — just calls Lulu and
-// returns the breakdown.
-router.post("/quote", async (req, res) => {
+// ─── Cart ──────────────────────────────────────────────────────
+
+// POST /api/print/cart — add a story to the cart.
+// Body: { storyId }. No PDFs built yet — that happens at checkout.
+router.post("/cart", async (req, res) => {
   try {
-    if (!LULU_CONFIG.isConfigured) {
-      return res.status(503).json({ error: "Print is not configured." });
-    }
-    const { storyId, shippingAddress, quantity } = req.body || {};
+    const { storyId } = req.body || {};
     if (!storyId || typeof storyId !== "string") {
       return res.status(400).json({ error: "storyId is required" });
     }
-    let address: ShippingAddress;
-    try {
-      address = validateShippingAddress(shippingAddress);
-    } catch (e: any) {
-      return res.status(400).json({ error: e.message });
-    }
-    const qty = Math.max(1, Math.min(20, Number(quantity) || 1));
+    const userId = req.userId as string;
 
     const story = await prisma.story.findUnique({
       where: { id: storyId },
@@ -148,62 +99,162 @@ router.post("/quote", async (req, res) => {
       },
     });
     if (!story) return res.status(404).json({ error: "Story not found" });
-    // Owners and admins can quote. Skip for public stories — printing
-    // someone else's story isn't supported right now.
-    const userId = req.userId as string;
-    const requester = await prisma.user.findUnique({ where: { id: userId } });
-    const isAdmin = requester?.role === "admin";
-    if (!isAdmin && story.universe.userId !== userId && story.createdById !== userId) {
+    if (story.universe.userId !== userId && story.createdById !== userId) {
       return res.status(403).json({ error: "Access denied" });
     }
-    if (story.scenes.length === 0) {
-      return res.status(400).json({ error: "This story doesn't have any pages yet." });
-    }
-
-    const podPackageId = LULU_CONFIG.defaultPodPackageId;
-    if (!podPackageId) {
-      return res.status(503).json({
-        error:
-          "LULU_DEFAULT_POD_PACKAGE_ID is not set. Pick a SKU at developers.lulu.com/price-calculator and set the env var.",
+    if (story.status !== "published") {
+      return res.status(400).json({
+        error: "Wait for the story to finish illustrating before adding it to the print list.",
       });
     }
+    if (story.scenes.length === 0) {
+      return res.status(400).json({ error: "This story has no pages." });
+    }
 
-    const pageCount = estimateInteriorPageCount(story.scenes.length);
-    const quote = await calculatePrintJobCost({
-      pageCount,
-      quantity: qty,
-      shippingAddress: address,
+    // Don't let the same story land in the cart twice — duplicates are
+    // confusing in the list and a single Lulu line_item already covers
+    // the "I want N copies" case via quantity (Phase 3 will surface it).
+    const existing = await prisma.printOrder.findFirst({
+      where: { userId, storyId, status: PRINT_ORDER_STATUS.cart },
     });
-    const customerPriceCents = totalCustomerPriceCents({
-      printCostCents: quote.printCostCents,
-      shippingCostCents: quote.shippingCostCents,
-    });
+    if (existing) {
+      return res.json({ id: existing.id, alreadyInCart: true });
+    }
 
-    res.json({
-      pageCount,
-      quantity: qty,
-      printCostCents: quote.printCostCents,
-      shippingCostCents: quote.shippingCostCents,
-      taxCostCents: quote.taxCostCents,
-      // What Lulu would charge us.
-      luluTotalCostCents: quote.totalCostCents,
-      // What the customer pays Stripe (markup on print + pass-through shipping).
-      customerPriceCents,
-      shippingLevel: quote.shippingLevel,
+    const cartItem = await prisma.printOrder.create({
+      data: {
+        userId,
+        storyId,
+        status: PRINT_ORDER_STATUS.cart,
+      },
     });
+    res.json({ id: cartItem.id, alreadyInCart: false });
   } catch (e: any) {
-    debug.error(`Print quote failed: ${e?.message}`);
-    res.status(500).json({ error: e?.message || "Failed to compute print quote" });
+    debug.error(`Print cart-add failed: ${e?.message}`);
+    res.status(500).json({ error: e?.message || "Failed to add to cart" });
   }
 });
 
-// POST /api/print/checkout — user-facing Stripe Checkout flow.
-// Body: { storyId, shippingAddress, quantity? }
-// Builds the PDFs, creates a draft PrintOrder, then a Stripe Checkout
-// session pointing back to our success page. The Stripe webhook
-// (routes/billing.ts) flips the order to "paid" and calls
-// submitOrderToLulu when the payment completes.
-router.post("/checkout", async (req, res) => {
+// GET /api/print/cart — return cart items + a combined Lulu quote
+// using the user's saved shipping address.
+router.get("/cart", async (req, res) => {
+  try {
+    const userId = req.userId as string;
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const address = parseStoredAddress(user.shippingAddress);
+
+    const items = await prisma.printOrder.findMany({
+      where: { userId, status: PRINT_ORDER_STATUS.cart },
+      include: {
+        story: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            scenes: { select: { id: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const cartLines = items.map((item) => ({
+      id: item.id,
+      storyId: item.storyId,
+      storyTitle: item.story.title,
+      sceneCount: item.story.scenes.length,
+      pageCount: estimateInteriorPageCount(item.story.scenes.length),
+    }));
+
+    let quote: {
+      printCostCents: number;
+      shippingCostCents: number;
+      taxCostCents: number;
+      customerPriceCents: number;
+      shippingLevel: string;
+      perItem: { id: string; printCostCents: number }[];
+    } | null = null;
+
+    // No address yet, no items, or Lulu unconfigured → skip the quote
+    // call and let the cart page render the empty/setup state. We
+    // still return the cart contents so the page can prompt for an
+    // address.
+    if (address && cartLines.length > 0 && LULU_CONFIG.isConfigured) {
+      const podPackageId = LULU_CONFIG.defaultPodPackageId;
+      if (!podPackageId) {
+        return res.status(503).json({ error: "LULU_DEFAULT_POD_PACKAGE_ID is not set." });
+      }
+      const luluResp = await calculatePrintJobCost({
+        pageCount: cartLines[0].pageCount, // unused when line_items provided
+        quantity: 1,
+        shippingAddress: address,
+        lineItems: cartLines.map((l) => ({
+          page_count: l.pageCount,
+          pod_package_id: podPackageId,
+          quantity: 1,
+        })),
+      });
+      const customerPriceCents =
+        Math.round(luluResp.printCostCents * PRINT_MARKUP) + luluResp.shippingCostCents;
+      // Per-item attribution for display: each item's share of the
+      // markup'd print cost. Shipping is one flat fee for the batch
+      // and isn't broken out per item in the UI.
+      const perItem = cartLines.map((l, i) => ({
+        id: l.id,
+        // Per-item cost: each book proportional to its page count.
+        // Lulu doesn't break down per-line-item costs in the same shape
+        // across products, so we approximate with page-count weighting.
+        printCostCents: Math.round(
+          (luluResp.printCostCents * l.pageCount) /
+            cartLines.reduce((acc, it) => acc + it.pageCount, 0)
+        ),
+      }));
+      quote = {
+        printCostCents: luluResp.printCostCents,
+        shippingCostCents: luluResp.shippingCostCents,
+        taxCostCents: luluResp.taxCostCents,
+        customerPriceCents,
+        shippingLevel: luluResp.shippingLevel,
+        perItem,
+      };
+    }
+
+    res.json({
+      items: cartLines,
+      address,
+      quote,
+      hasAddress: Boolean(address),
+      luluConfigured: LULU_CONFIG.isConfigured,
+    });
+  } catch (e: any) {
+    debug.error(`Print cart fetch failed: ${e?.message}`);
+    res.status(500).json({ error: e?.message || "Failed to load cart" });
+  }
+});
+
+// DELETE /api/print/cart/:id — remove an item from the cart.
+router.delete("/cart/:id", async (req, res) => {
+  try {
+    const userId = req.userId as string;
+    const id = req.params.id as string;
+    const item = await prisma.printOrder.findUnique({ where: { id } });
+    if (!item || item.userId !== userId) {
+      return res.status(404).json({ error: "Cart item not found" });
+    }
+    if (item.status !== PRINT_ORDER_STATUS.cart) {
+      return res.status(400).json({ error: "Item is no longer in cart" });
+    }
+    await prisma.printOrder.delete({ where: { id } });
+    res.json({ ok: true });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || "Failed to remove cart item" });
+  }
+});
+
+// POST /api/print/cart/checkout — turn the user's cart into a
+// pending_payment batch and start a Stripe Checkout session.
+router.post("/cart/checkout", async (req, res) => {
   try {
     if (!LULU_CONFIG.isConfigured) {
       return res.status(503).json({ error: "Print is not configured." });
@@ -211,182 +262,335 @@ router.post("/checkout", async (req, res) => {
     if (!stripe) {
       return res.status(503).json({ error: "Billing is not configured." });
     }
-    const { storyId, shippingAddress, quantity } = req.body || {};
-    if (!storyId || typeof storyId !== "string") {
-      return res.status(400).json({ error: "storyId is required" });
-    }
-    let address: ShippingAddress;
-    try {
-      address = validateShippingAddress(shippingAddress);
-    } catch (e: any) {
-      return res.status(400).json({ error: e.message });
-    }
-    const qty = Math.max(1, Math.min(20, Number(quantity) || 1));
-
     const userId = req.userId as string;
-    const story = await prisma.story.findUnique({
-      where: { id: storyId },
-      include: {
-        scenes: { orderBy: { sceneNumber: "asc" } },
-        universe: { select: { userId: true } },
-      },
-    });
-    if (!story) return res.status(404).json({ error: "Story not found" });
-
-    const requester = await prisma.user.findUnique({ where: { id: userId } });
-    const isAdmin = requester?.role === "admin";
-    if (!isAdmin && story.universe.userId !== userId && story.createdById !== userId) {
-      return res.status(403).json({ error: "Access denied" });
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ error: "User not found" });
+    const address = parseStoredAddress(user.shippingAddress);
+    if (!address) {
+      return res
+        .status(400)
+        .json({ error: "Add a shipping address in your account before checking out." });
     }
-    if (story.scenes.length === 0) {
-      return res.status(400).json({ error: "This story doesn't have any pages yet." });
+
+    const items = await prisma.printOrder.findMany({
+      where: { userId, status: PRINT_ORDER_STATUS.cart },
+      include: {
+        story: {
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            scenes: { orderBy: { sceneNumber: "asc" } },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+    if (items.length === 0) {
+      return res.status(400).json({ error: "Your print list is empty." });
     }
 
     const podPackageId = LULU_CONFIG.defaultPodPackageId;
     if (!podPackageId) {
-      return res.status(503).json({
-        error: "LULU_DEFAULT_POD_PACKAGE_ID is not set.",
-      });
+      return res.status(503).json({ error: "LULU_DEFAULT_POD_PACKAGE_ID is not set." });
     }
 
-    // Pre-fetch each scene's illustration (parallel) — same shape as
-    // the admin endpoint so the PDF builder stays sync-call-friendly.
-    const sceneImages = await Promise.all(
-      story.scenes.map((s) => (s.imageUrl ? readImage(s.imageUrl) : Promise.resolve(null)))
+    // Build PDFs for every cart item in parallel. The PDF builder is
+    // already async-safe and the font loader is single-flighted, so
+    // this just kicks off N image-fetches and N PDF assemblies.
+    const builds = await Promise.all(
+      items.map(async (item) => {
+        const sceneImages = await Promise.all(
+          item.story.scenes.map((s) =>
+            s.imageUrl ? readImage(s.imageUrl) : Promise.resolve(null)
+          )
+        );
+        const built = await buildPrintPdfBytes({
+          story: {
+            id: item.story.id,
+            title: item.story.title,
+            scenes: item.story.scenes.map((s, i) => ({
+              sceneNumber: s.sceneNumber,
+              content: s.content,
+              image: sceneImages[i] || undefined,
+            })),
+          },
+          podPackageId,
+        });
+        const pdfs = await storePrintPdfBytes(built);
+        return { itemId: item.id, pageCount: built.pageCount, pdfs };
+      })
     );
 
-    const built = await buildPrintPdfBytes({
-      story: {
-        id: story.id,
-        title: story.title,
-        scenes: story.scenes.map((s, i) => ({
-          sceneNumber: s.sceneNumber,
-          content: s.content,
-          image: sceneImages[i] || undefined,
-        })),
-      },
-      podPackageId,
+    // Single combined Lulu quote — the Stripe customer pays one total.
+    const quote = await calculatePrintJobCost({
+      pageCount: builds[0].pageCount, // ignored when lineItems is provided
+      quantity: 1,
+      shippingAddress: address,
+      lineItems: builds.map((b) => ({
+        page_count: b.pageCount,
+        pod_package_id: podPackageId,
+        quantity: 1,
+      })),
     });
+    const customerTotalCents =
+      Math.round(quote.printCostCents * PRINT_MARKUP) + quote.shippingCostCents;
 
-    // Run the (slow) PDF uploads in parallel with the (slow) Lulu
-    // quote — they're independent. The quote is re-run here at the
-    // exact page count we built, so it can't drift from the price the
-    // user saw on /quote.
-    const [pdfs, quote] = await Promise.all([
-      storePrintPdfBytes(built),
-      calculatePrintJobCost({
-        pageCount: built.pageCount,
-        quantity: qty,
-        shippingAddress: address,
-      }),
-    ]);
-    const customerPriceCents = totalCustomerPriceCents({
-      printCostCents: quote.printCostCents,
-      shippingCostCents: quote.shippingCostCents,
-    });
+    // Promote the cart rows into a batch. printBatchId groups every
+    // PrintOrder for the user's checkout into one Lulu print-job and
+    // one Stripe payment. customerPriceCents per row holds that book's
+    // share of the markup'd print cost (no shipping); luluShippingCostCents
+    // is duplicated across rows so a single-row read can recover it.
+    const totalPageCount = builds.reduce((acc, b) => acc + b.pageCount, 0);
+    const batchId = crypto.randomUUID();
+    await Promise.all(
+      builds.map((b) => {
+        const itemPrintShareCents = Math.round(
+          (quote.printCostCents * b.pageCount) / totalPageCount
+        );
+        return prisma.printOrder.update({
+          where: { id: b.itemId },
+          data: {
+            printBatchId: batchId,
+            status: PRINT_ORDER_STATUS.pending_payment,
+            shippingAddress: JSON.stringify(address),
+            coverPdfUrl: b.pdfs.coverPdfUrl,
+            interiorPdfUrl: b.pdfs.interiorPdfUrl,
+            luluPrintCostCents: itemPrintShareCents,
+            luluShippingCostCents: quote.shippingCostCents,
+            customerPriceCents: Math.round(itemPrintShareCents * PRINT_MARKUP),
+          },
+        });
+      })
+    );
 
-    const order = await prisma.printOrder.create({
-      data: {
-        userId,
-        storyId: story.id,
-        status: PRINT_ORDER_STATUS.pending_payment,
-        luluPrintCostCents: quote.printCostCents,
-        luluShippingCostCents: quote.shippingCostCents,
-        customerPriceCents,
-        shippingAddress: JSON.stringify(address),
-        coverPdfUrl: pdfs.coverPdfUrl,
-        interiorPdfUrl: pdfs.interiorPdfUrl,
-      },
-    });
-
-    // Reuse the user's Stripe customer if they're already a premium
-    // subscriber, otherwise let Stripe Checkout create one inline.
+    // One Stripe line item — printing N books shows up as a single
+    // "Printed books" charge with the batch total. Per-book breakdown
+    // is on our /print/cart and /orders pages, not Stripe's UI.
+    const description =
+      items.length === 1
+        ? items[0].story.title
+        : `${items.length} books — including "${items[0].story.title}"`;
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      customer: requester?.stripeCustomerId || undefined,
-      customer_email: requester?.stripeCustomerId ? undefined : requester?.email,
+      customer: user.stripeCustomerId || undefined,
+      customer_email: user.stripeCustomerId ? undefined : user.email,
       line_items: [
         {
           price_data: {
             currency: "usd",
             product_data: {
-              name: `Printed book: ${story.title}`,
-              description: `Hardcover-quality print, shipped to ${address.city}, ${address.country_code}`,
+              name: items.length === 1 ? `Printed book: ${items[0].story.title}` : "Printed books",
+              description,
             },
-            unit_amount: customerPriceCents,
+            unit_amount: customerTotalCents,
           },
           quantity: 1,
         },
       ],
-      success_url: `${APP_URL}/print/orders/${order.id}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${APP_URL}/reading/${story.id}?checkout=cancelled`,
+      success_url: `${APP_URL}/print/orders/${batchId}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${APP_URL}/print/cart?checkout=cancelled`,
       metadata: {
         kind: "print",
-        orderId: order.id,
+        batchId,
         userId,
       },
     });
 
-    await prisma.printOrder.update({
-      where: { id: order.id },
+    await prisma.printOrder.updateMany({
+      where: { printBatchId: batchId },
       data: { stripeSessionId: session.id },
     });
 
-    debug.story("Print checkout session created", {
-      orderId: order.id,
+    debug.story("Print batch checkout session created", {
+      batchId,
       sessionId: session.id,
-      customerPriceCents,
+      itemCount: items.length,
+      customerTotalCents,
     });
 
-    res.json({ url: session.url, orderId: order.id });
+    res.json({ url: session.url, batchId });
   } catch (e: any) {
     debug.error(`Print checkout failed: ${e?.message}`);
     res.status(500).json({ error: e?.message || "Failed to start checkout" });
   }
 });
 
-// GET /api/print/orders — list current user's print orders.
+// ─── Orders ────────────────────────────────────────────────────
+
+// GET /api/print/orders — current user's print batches.
+// Groups PrintOrder rows by printBatchId. Legacy single-book orders
+// (printBatchId is null, predates the cart flow) each form their own
+// batch keyed by the order id so the UI shape is uniform.
 router.get("/orders", async (req, res) => {
   try {
+    const userId = req.userId as string;
     const orders = await prisma.printOrder.findMany({
-      where: { userId: req.userId as string },
-      orderBy: { createdAt: "desc" },
+      where: {
+        userId,
+        // The cart isn't an "order" — exclude.
+        NOT: { status: PRINT_ORDER_STATUS.cart },
+      },
       include: { story: { select: { id: true, title: true } } },
+      orderBy: { createdAt: "desc" },
     });
-    res.json({
-      items: orders.map((o) => ({
-        id: o.id,
-        status: o.status,
-        storyId: o.storyId,
-        storyTitle: o.story?.title || "(deleted)",
-        customerPriceCents: o.customerPriceCents,
-        luluTrackingUrl: o.luluTrackingUrl,
-        rejectionReason: o.rejectionReason,
-        createdAt: o.createdAt,
-        updatedAt: o.updatedAt,
-      })),
-    });
+
+    const batches = new Map<
+      string,
+      {
+        batchId: string;
+        status: string;
+        items: { id: string; storyId: string; storyTitle: string }[];
+        customerTotalCents: number;
+        luluTrackingUrl: string | null;
+        rejectionReason: string;
+        createdAt: Date;
+      }
+    >();
+    for (const o of orders) {
+      const key = o.printBatchId || o.id;
+      const existing = batches.get(key);
+      if (existing) {
+        existing.items.push({
+          id: o.id,
+          storyId: o.storyId,
+          storyTitle: o.story?.title || "(deleted)",
+        });
+        existing.customerTotalCents += o.customerPriceCents || 0;
+        // tracking + rejection: pick the first non-empty across rows
+        if (!existing.luluTrackingUrl && o.luluTrackingUrl) {
+          existing.luluTrackingUrl = o.luluTrackingUrl;
+        }
+        if (!existing.rejectionReason && o.rejectionReason) {
+          existing.rejectionReason = o.rejectionReason;
+        }
+      } else {
+        batches.set(key, {
+          batchId: key,
+          status: o.status,
+          items: [
+            { id: o.id, storyId: o.storyId, storyTitle: o.story?.title || "(deleted)" },
+          ],
+          // Add shipping once; same value duplicated across rows.
+          customerTotalCents: (o.customerPriceCents || 0) + (o.luluShippingCostCents || 0),
+          luluTrackingUrl: o.luluTrackingUrl,
+          rejectionReason: o.rejectionReason,
+          createdAt: o.createdAt,
+        });
+      }
+    }
+    // Re-sort by most recent createdAt across each batch.
+    const items = Array.from(batches.values()).sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
+    res.json({ items });
   } catch (e: any) {
     debug.error(`Failed to list print orders: ${e?.message}`);
     res.status(500).json({ error: "Failed to list orders" });
   }
 });
 
-// POST /api/print/test-order — admin end-to-end sandbox test
-// Body: { storyId, shippingAddress?, dryRun? }
+// GET /api/print/orders/:batchId — batch detail. Accepts either a real
+// printBatchId or a legacy single-row id (for orders that predate the
+// cart flow).
+router.get("/orders/:batchId", async (req, res) => {
+  try {
+    const userId = req.userId as string;
+    const requester = await prisma.user.findUnique({ where: { id: userId } });
+    const isAdmin = requester?.role === "admin";
+    const key = req.params.batchId as string;
+
+    // Find rows by printBatchId first; if none match, fall back to the
+    // single-row legacy path where the URL param is a row id.
+    let rows = await prisma.printOrder.findMany({
+      where: { printBatchId: key },
+      include: { story: { select: { id: true, title: true } } },
+      orderBy: { createdAt: "asc" },
+    });
+    if (rows.length === 0) {
+      const legacy = await prisma.printOrder.findUnique({
+        where: { id: key },
+        include: { story: { select: { id: true, title: true } } },
+      });
+      if (legacy) rows = [legacy];
+    }
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+    const ownerId = rows[0].userId;
+    if (!isAdmin && ownerId !== userId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const lead = rows[0];
+    let address: ShippingAddress | null = null;
+    try {
+      address = JSON.parse(lead.shippingAddress) as ShippingAddress;
+    } catch {
+      address = null;
+    }
+
+    let luluStatus: any = null;
+    let luluLineItems: any = null;
+    if (lead.luluPrintJobId) {
+      try {
+        const job = await getPrintJob(lead.luluPrintJobId);
+        luluStatus = job.status || null;
+        luluLineItems = job.line_items?.map((li) => ({
+          id: li.id,
+          status: li.status,
+          tracking_urls: li.tracking_urls,
+        })) ?? null;
+      } catch (e: any) {
+        luluStatus = { name: "lookup_failed", messages: [e?.message || ""] };
+      }
+    }
+
+    const customerSubtotalCents = rows.reduce(
+      (acc, r) => acc + (r.customerPriceCents || 0),
+      0
+    );
+    const shippingCents = lead.luluShippingCostCents || 0;
+    const customerTotalCents = customerSubtotalCents + shippingCents;
+
+    res.json({
+      batchId: lead.printBatchId || lead.id,
+      status: lead.status,
+      items: rows.map((r) => ({
+        id: r.id,
+        storyId: r.storyId,
+        storyTitle: r.story?.title || "(deleted)",
+        customerPriceCents: r.customerPriceCents,
+      })),
+      customerSubtotalCents,
+      shippingCents,
+      customerTotalCents,
+      shippingAddress: address,
+      luluTrackingUrl: lead.luluTrackingUrl,
+      rejectionReason: lead.rejectionReason,
+      luluPrintJobId: isAdmin ? lead.luluPrintJobId : undefined,
+      luluStatus,
+      luluLineItems: isAdmin ? luluLineItems : undefined,
+      createdAt: lead.createdAt,
+      updatedAt: lead.updatedAt,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e?.message || "Failed to fetch order" });
+  }
+});
+
+// ─── Admin sandbox test ────────────────────────────────────────
+
+// POST /api/print/test-order — admin end-to-end sandbox test (single book).
 router.post("/test-order", requireAdmin, async (req, res) => {
   try {
     if (!LULU_CONFIG.isConfigured) {
-      return res.status(503).json({
-        error: "Lulu is not configured. Set LULU_CLIENT_KEY/LULU_CLIENT_SECRET.",
-      });
+      return res.status(503).json({ error: "Lulu is not configured." });
     }
-
     const { storyId, shippingAddress, dryRun } = req.body || {};
     if (!storyId || typeof storyId !== "string") {
       return res.status(400).json({ error: "storyId is required" });
     }
-
     const story = await prisma.story.findUnique({
       where: { id: storyId },
       include: { scenes: { orderBy: { sceneNumber: "asc" } } },
@@ -398,16 +602,12 @@ router.post("/test-order", requireAdmin, async (req, res) => {
       : SAMPLE_LULU_ADDRESS;
     const podPackageId = LULU_CONFIG.defaultPodPackageId;
     if (!podPackageId) {
-      return res.status(503).json({
-        error:
-          "LULU_DEFAULT_POD_PACKAGE_ID is not set. Pick a SKU at developers.lulu.com/price-calculator and set the env var.",
-      });
+      return res.status(503).json({ error: "LULU_DEFAULT_POD_PACKAGE_ID is not set." });
     }
 
     const sceneImages = await Promise.all(
       story.scenes.map((s) => (s.imageUrl ? readImage(s.imageUrl) : Promise.resolve(null)))
     );
-
     const built = await buildPrintPdfBytes({
       story: {
         id: story.id,
@@ -428,19 +628,20 @@ router.post("/test-order", requireAdmin, async (req, res) => {
         shippingAddress: address,
       }),
     ]);
-    const customerPriceCents = totalCustomerPriceCents({
-      printCostCents: quote.printCostCents,
-      shippingCostCents: quote.shippingCostCents,
-    });
+    const customerPriceCents =
+      Math.round(quote.printCostCents * PRINT_MARKUP) + quote.shippingCostCents;
 
+    // Admin test orders run as a single-row batch.
+    const batchId = crypto.randomUUID();
     const order = await prisma.printOrder.create({
       data: {
         userId: req.userId as string,
         storyId: story.id,
-        status: PRINT_ORDER_STATUS.draft,
+        printBatchId: batchId,
+        status: dryRun ? PRINT_ORDER_STATUS.draft : PRINT_ORDER_STATUS.draft,
         luluPrintCostCents: quote.printCostCents,
         luluShippingCostCents: quote.shippingCostCents,
-        customerPriceCents,
+        customerPriceCents: Math.round(quote.printCostCents * PRINT_MARKUP),
         shippingAddress: JSON.stringify(address),
         coverPdfUrl: pdfs.coverPdfUrl,
         interiorPdfUrl: pdfs.interiorPdfUrl,
@@ -451,6 +652,7 @@ router.post("/test-order", requireAdmin, async (req, res) => {
       debug.story("Lulu dry-run order created", { orderId: order.id });
       return res.json({
         orderId: order.id,
+        batchId,
         quote,
         customerPriceCents,
         pdfs,
@@ -458,10 +660,11 @@ router.post("/test-order", requireAdmin, async (req, res) => {
       });
     }
 
-    const submission = await submitOrderToLulu(order.id);
+    const submission = await submitBatchToLulu(batchId);
 
     res.json({
       orderId: order.id,
+      batchId,
       luluJobId: submission.luluPrintJobId,
       luluStatus: submission.luluStatusName,
       quote,
@@ -472,63 +675,6 @@ router.post("/test-order", requireAdmin, async (req, res) => {
     const msg = e?.message || "Test order failed";
     debug.error(`Lulu test order failed: ${msg}`);
     res.status(500).json({ error: msg });
-  }
-});
-
-// GET /api/print/orders/:id — order detail (user-scoped, admin can see any).
-router.get("/orders/:id", async (req, res) => {
-  try {
-    const userId = req.userId as string;
-    const requester = await prisma.user.findUnique({ where: { id: userId } });
-    const isAdmin = requester?.role === "admin";
-
-    const order = await prisma.printOrder.findUnique({
-      where: { id: req.params.id as string },
-      include: { story: { select: { id: true, title: true } } },
-    });
-    if (!order) return res.status(404).json({ error: "Order not found" });
-    if (!isAdmin && order.userId !== userId) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    let luluStatus: any = null;
-    let luluLineItems: any = null;
-    if (order.luluPrintJobId) {
-      try {
-        const job = await getPrintJob(order.luluPrintJobId);
-        luluStatus = job.status || null;
-        luluLineItems = job.line_items?.map((li) => ({
-          id: li.id,
-          status: li.status,
-          tracking_urls: li.tracking_urls,
-        })) ?? null;
-      } catch (e: any) {
-        luluStatus = { name: "lookup_failed", messages: [e?.message || ""] };
-      }
-    }
-    res.json({
-      order: {
-        id: order.id,
-        status: order.status,
-        storyId: order.storyId,
-        storyTitle: order.story?.title || "(deleted)",
-        customerPriceCents: order.customerPriceCents,
-        luluPrintCostCents: isAdmin ? order.luluPrintCostCents : undefined,
-        luluShippingCostCents: order.luluShippingCostCents,
-        luluPrintJobId: order.luluPrintJobId,
-        luluTrackingUrl: order.luluTrackingUrl,
-        rejectionReason: order.rejectionReason,
-        coverPdfUrl: isAdmin ? order.coverPdfUrl : undefined,
-        interiorPdfUrl: isAdmin ? order.interiorPdfUrl : undefined,
-        shippingAddress: order.shippingAddress,
-        createdAt: order.createdAt,
-        updatedAt: order.updatedAt,
-      },
-      luluStatus,
-      luluLineItems: isAdmin ? luluLineItems : undefined,
-    });
-  } catch (e: any) {
-    res.status(500).json({ error: e?.message || "Failed to fetch order" });
   }
 });
 

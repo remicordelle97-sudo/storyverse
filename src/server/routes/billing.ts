@@ -4,7 +4,7 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { authMiddleware } from "../middleware/auth.js";
 import {
-  submitOrderToLulu,
+  submitBatchToLulu,
   PRINT_ORDER_STATUS,
 } from "../services/printSubmit.js";
 
@@ -111,47 +111,57 @@ router.post(
         // metadata disambiguates them; legacy subscription sessions
         // don't set it, so the absence-of-kind fallback handles them.
         if (kind === "print") {
-          const orderId = session.metadata?.orderId;
-          if (!orderId) {
-            debug.error("Stripe print session.completed missing orderId metadata");
+          // The cart-checkout flow stamps every PrintOrder in the
+          // batch with the same printBatchId, and each Stripe session
+          // covers exactly one batch. Find rows by batchId and flip
+          // them all to "paid" before kicking off Lulu submission.
+          const batchId = session.metadata?.batchId;
+          if (!batchId) {
+            debug.error("Stripe print session.completed missing batchId metadata");
             break;
           }
-          // Idempotency: if the order is already past pending_payment
-          // (e.g. webhook is being retried), don't re-submit. The
-          // submitOrderToLulu helper is itself idempotent via
-          // luluPrintJobId, but skipping here avoids re-querying Lulu.
-          const order = await prisma.printOrder.findUnique({ where: { id: orderId } });
-          if (!order) {
-            debug.error(`Stripe webhook: print order ${orderId} not found`);
+          const rows = await prisma.printOrder.findMany({
+            where: { printBatchId: batchId },
+          });
+          if (rows.length === 0) {
+            debug.error(`Stripe webhook: print batch ${batchId} not found`);
             break;
           }
-          if (order.status !== PRINT_ORDER_STATUS.pending_payment) {
+          // Idempotency: skip if the batch has already moved past
+          // pending_payment (webhook retries, late deliveries, etc).
+          // submitBatchToLulu is itself idempotent via luluPrintJobId,
+          // but skipping here avoids the extra Lulu round-trip.
+          const stillPending = rows.every(
+            (r) => r.status === PRINT_ORDER_STATUS.pending_payment
+          );
+          if (!stillPending) {
             debug.story(
-              `Stripe webhook: print order ${orderId} already past pending_payment (${order.status}), skipping`
+              `Stripe webhook: print batch ${batchId} already past pending_payment, skipping`
             );
             break;
           }
-          await prisma.printOrder.update({
-            where: { id: orderId },
+          const stripePaymentId =
+            typeof session.payment_intent === "string"
+              ? session.payment_intent
+              : session.payment_intent?.id ?? null;
+          await prisma.printOrder.updateMany({
+            where: { printBatchId: batchId },
             data: {
               status: PRINT_ORDER_STATUS.paid,
-              stripePaymentId:
-                typeof session.payment_intent === "string"
-                  ? session.payment_intent
-                  : session.payment_intent?.id ?? null,
+              stripePaymentId,
             },
           });
-          debug.story(`Print order ${orderId} marked paid; submitting to Lulu`);
+          debug.story(`Print batch ${batchId} marked paid; submitting to Lulu`);
           try {
-            await submitOrderToLulu(orderId);
+            await submitBatchToLulu(batchId);
           } catch (e: any) {
-            // submitOrderToLulu already flips the order to "failed"
-            // and stores the rejectionReason. We log here so the
-            // webhook still 200s — Stripe will keep retrying
-            // otherwise, and the user-facing remediation is via the
-            // failed status, not by reprocessing the payment.
+            // submitBatchToLulu already flips the batch's rows to
+            // "failed" and stores the rejection reason. Log here so
+            // the webhook still 200s — otherwise Stripe keeps
+            // retrying. User remediation is via the failed status,
+            // not by reprocessing the payment.
             debug.error(
-              `Lulu submission failed for paid order ${orderId}: ${e?.message}`
+              `Lulu submission failed for paid batch ${batchId}: ${e?.message}`
             );
           }
           break;

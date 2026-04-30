@@ -323,41 +323,73 @@ status endpoint via `react-query`'s `refetchInterval`:
 
 ### Print on Demand (Lulu) — Phase 2, sandbox-only
 
-Wired against Lulu's sandbox API end-to-end: from the user clicking
-"Print book" in the reader, through Stripe Checkout, to Lulu print
-job submission and shipment-status callbacks.
+Cart-based print flow. The user adds books to a "waiting to print"
+list, then checks out the whole list as a single Stripe payment and
+a single Lulu print-job with multiple line items. Saved shipping
+address lives on `User.shippingAddress`, captured during onboarding
+(skippable) and editable from `/account`.
 
 **User flow:**
-1. `ReadingMode` shows a "Print book" control once the story is
-   `published`. Clicking it opens `PrintModal` (`src/client/components/PrintModal.tsx`).
-2. The modal collects a shipping address and calls
-   `POST /api/print/quote`. The route forwards to Lulu's
-   `/print-job-cost-calculations/`, applies the markup formula,
-   and returns the price the user will see at checkout. No DB
-   write — quote endpoint is read-only.
-3. The user confirms; the modal calls `POST /api/print/checkout`,
-   which builds the cover + interior PDFs, persists a `PrintOrder`
-   row at `status="pending_payment"`, creates a Stripe Checkout
-   session in `mode: "payment"`, and returns the redirect URL.
-4. Stripe redirects back to `/print/orders/:orderId?session_id=...`.
-   That page (`PrintOrderDetail`) polls `GET /api/print/orders/:id`
-   every 3s while the order is in any non-terminal status.
-5. Stripe fires `checkout.session.completed`, handled in
-   `routes/billing.ts`. `metadata.kind === "print"` dispatches to
-   `submitOrderToLulu(orderId)`, which calls Lulu's `/print-jobs/`
-   and flips status to `submitted` (or `failed` if Lulu rejects).
-6. Lulu fires status-change webhooks at `POST /api/print/lulu-webhook`
-   as the job moves through `IN_PRODUCTION → SHIPPED → ...`.
-   `mapLuluStatusToOrderStatus` translates to our vocabulary and
-   captures the first tracking URL when shipped. Signature is
-   HMAC-SHA256 of the raw body using `LULU_WEBHOOK_SECRET`.
+1. **Onboarding** — first-time users hit a "Want printed copies
+   later?" step right after the plan picker. They can fill in a
+   shipping address (saved via `PUT /api/account/address`) or skip
+   it. The onboarded universe build proceeds either way.
+2. **Account** — `/account` lets users edit or clear the saved
+   shipping address (`GET/PUT/DELETE /api/account[/address]`).
+3. **Add to print list** — `ReadingMode` shows an "Add to print
+   list" control once the story is `published`. It calls
+   `POST /api/print/cart` which creates a `PrintOrder` row at
+   `status="cart"` (no PDFs, no Lulu calls). A toast confirms.
+4. **Cart** — `/print/cart` lists every cart row, shows the saved
+   shipping address (with a link to edit), and pulls a single
+   batch quote from Lulu via `GET /api/print/cart`. The quote
+   includes per-item print cost (proportional to page count) plus
+   one shared shipping fee for the batch.
+5. **Checkout** — `POST /api/print/cart/checkout` builds PDFs for
+   every cart item in parallel, stamps them all with the same
+   `printBatchId`, snapshots their pricing + shipping address, and
+   creates one Stripe Checkout session in `mode: "payment"` for the
+   batch total. Cart rows flip to `status="pending_payment"`.
+6. **Stripe success** — Stripe redirects to
+   `/print/orders/:batchId?session_id=...`. That page polls
+   `GET /api/print/orders/:batchId` every 3s while the batch is in
+   any non-terminal state. Stripe fires
+   `checkout.session.completed`; `routes/billing.ts` keys off
+   `metadata.kind === "print"` + `metadata.batchId`, marks every row
+   `paid`, and calls `submitBatchToLulu(batchId)`.
+7. **Lulu submission** — `submitBatchToLulu` builds one
+   `createPrintJob` request with N line items (one per book in the
+   batch), and stamps every batch row with the same `luluPrintJobId`.
+8. **Lulu webhooks** — `POST /api/print/lulu-webhook` receives
+   status-change events. `mapLuluStatusToOrderStatus` translates to
+   our vocabulary; `updateMany` applies the new status (and the
+   first tracking URL) to every row sharing the `luluPrintJobId`.
+   Signature is HMAC-SHA256 of the raw body using
+   `LULU_WEBHOOK_SECRET`.
 
-**Order lifecycle vocabulary** (`PRINT_ORDER_STATUS` in `services/printSubmit.ts`):
+**Order lifecycle vocabulary** (`PRINT_ORDER_STATUS` in
+`services/printSubmit.ts`):
+`cart` (in cart, not checked out) |
 `draft` (admin test path) | `pending_payment` | `paid` |
 `submitted` | `in_production` | `shipped` | `delivered` |
-`cancelled` | `failed` | `refunded`. The user-facing pages map
-each to plain-English copy in `PrintOrderDetail.tsx` /
-`PrintOrders.tsx`.
+`cancelled` | `failed` | `refunded`. Per-row state moves in lockstep
+across a batch — every row in the same `printBatchId` shares its
+status, `luluPrintJobId`, and tracking URL.
+
+**Pricing snapshot per row:**
+- `luluPrintCostCents` — that row's print cost (proportional to
+  the row's page count over total batch page count).
+- `luluShippingCostCents` — full batch shipping, duplicated on
+  every row (single source of truth — read from any row).
+- `customerPriceCents` — `luluPrintCostCents * 1.5`. The batch
+  total is `sum(customerPriceCents) + luluShippingCostCents`.
+
+**Schema additions:**
+- `User.shippingAddress` — JSON-encoded saved address. Empty
+  string means unset; `serializeUser` exposes a derived
+  `hasShippingAddress: boolean` to the client.
+- `PrintOrder.printBatchId` — groups orders into one Lulu job.
+  Null for cart rows and legacy single-book orders.
 
 **Admin smoke test:**
 `POST /api/print/test-order` is still wired in (admin-only). It
@@ -394,13 +426,13 @@ spending credit.
 Pricing: print cost × 1.5 + shipping pass-through (no separate tax
 charge to customer).
 
-**Idempotency:** `submitOrderToLulu` checks `luluPrintJobId` first
-and short-circuits if the order has already been submitted. The
-Stripe webhook also gates on `status === "pending_payment"` before
-calling submit, so a webhook retry can't double-submit. The Lulu
-webhook ignores events for unknown jobs (acks 200 so Lulu doesn't
-keep retrying) and refuses to roll backwards over terminal statuses
-(`refunded` / `cancelled`).
+**Idempotency:** `submitBatchToLulu` short-circuits if any row in
+the batch already has a `luluPrintJobId`. The Stripe webhook also
+gates on every row being `pending_payment` before calling submit,
+so a webhook retry can't double-submit. The Lulu webhook ignores
+events for unknown jobs (acks 200 so Lulu doesn't keep retrying)
+and refuses to roll backwards over terminal statuses (`refunded` /
+`cancelled` / etc).
 
 Phase 3 will flip Lulu + Stripe to live mode (production base URLs
 + live keys), add real address validation (currently the form

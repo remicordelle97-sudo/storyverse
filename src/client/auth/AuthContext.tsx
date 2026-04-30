@@ -16,6 +16,7 @@ interface User {
   role: string;
   plan: string;
   onboardedAt: string | null;
+  hasShippingAddress: boolean;
 }
 
 interface AuthState {

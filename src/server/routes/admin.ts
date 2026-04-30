@@ -202,7 +202,7 @@ router.post("/users/:userId/reset", async (req, res) => {
 
     await prisma.user.update({
       where: { id: userId },
-      data: { onboardedAt: null },
+      data: { onboardedAt: null, shippingAddress: "" },
     });
 
     debug.story("Admin reset user", {

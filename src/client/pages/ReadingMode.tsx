@@ -6,7 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
 import HTMLFlipBook from "react-pageflip";
 import StoryLoadingScreen, { STORY_IMAGE_PHRASES, STORY_TEXT_PHRASES } from "../components/StoryLoadingScreen";
-import PrintModal from "../components/PrintModal";
+import { addToPrintCart } from "../api/client";
 import { storyHexColor } from "../../shared/storyColor";
 
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
@@ -317,7 +317,11 @@ export default function ReadingMode() {
   const [regenerating, setRegenerating] = useState(false);
   const [regenProgress, setRegenProgress] = useState("");
   const [showDebug, setShowDebug] = useState(false);
-  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printToast, setPrintToast] = useState<
+    | { kind: "added" | "duplicate" | "error"; message: string }
+    | null
+  >(null);
+  const [addingToPrintList, setAddingToPrintList] = useState(false);
   const bookRef = useRef<any>(null);
 
   const queryClient = useQueryClient();
@@ -401,11 +405,10 @@ export default function ReadingMode() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Keyboard navigation. Suspended while modals are open so typing
-  // in form fields (PrintModal address inputs, etc.) doesn't flip
-  // pages or close the reader.
+  // Keyboard navigation. Suspended while modals are open so they
+  // don't flip pages or close the reader.
   useEffect(() => {
-    if (showPrintModal || showDebug) return;
+    if (showDebug) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === " ") {
         e.preventDefault();
@@ -419,7 +422,7 @@ export default function ReadingMode() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [navigate, showPrintModal, showDebug]);
+  }, [navigate, showDebug]);
 
   const handleFlip = useCallback((e: any) => {
     setCurrentPage(e.data);
@@ -601,18 +604,37 @@ export default function ReadingMode() {
             {exporting ? "Saving..." : "Save PDF"}
           </button>
           )}
-          {/* Print on Demand. Hidden until the story has finished
-              illustrating — printing a half-rendered book is wasted
-              money. Once status is "published" the button shows. */}
+          {/* Print on Demand — adds this story to the user's print
+              list. Hidden until the story has finished illustrating;
+              printing a half-rendered book is wasted money. */}
           {story?.status === "published" && (
             <button
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
-                setShowPrintModal(true);
+                if (addingToPrintList || !storyId) return;
+                setAddingToPrintList(true);
+                setPrintToast(null);
+                try {
+                  const result = await addToPrintCart(storyId);
+                  setPrintToast({
+                    kind: result.alreadyInCart ? "duplicate" : "added",
+                    message: result.alreadyInCart
+                      ? "Already in your print list."
+                      : "Added to your print list.",
+                  });
+                } catch (err: any) {
+                  setPrintToast({
+                    kind: "error",
+                    message: err?.message || "Couldn't add to your print list.",
+                  });
+                } finally {
+                  setAddingToPrintList(false);
+                }
               }}
-              className="text-white/80 hover:text-white text-sm font-semibold transition-colors"
+              disabled={addingToPrintList}
+              className="text-white/80 hover:text-white text-sm font-semibold transition-colors disabled:opacity-50"
             >
-              Print book
+              {addingToPrintList ? "Adding…" : "Add to print list"}
             </button>
           )}
           {isAdmin && (
@@ -626,13 +648,34 @@ export default function ReadingMode() {
         </div>
       </div>
 
-      {/* Print on Demand modal */}
-      {showPrintModal && story && (
-        <PrintModal
-          storyId={storyId!}
-          storyTitle={story.title}
-          onClose={() => setShowPrintModal(false)}
-        />
+      {/* Print-list toast */}
+      {printToast && (
+        <div
+          className={`fixed top-16 left-1/2 -translate-x-1/2 z-[80] px-5 py-3 rounded-xl shadow-lg text-sm font-medium flex items-center gap-3 ${
+            printToast.kind === "error"
+              ? "bg-red-100 text-red-900 border border-red-200"
+              : "bg-emerald-100 text-emerald-900 border border-emerald-200"
+          }`}
+          style={{ fontFamily: "Lexend, sans-serif" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span>{printToast.message}</span>
+          {printToast.kind !== "error" && (
+            <button
+              onClick={() => navigate("/print/cart")}
+              className="text-emerald-900 hover:text-emerald-800 underline font-semibold"
+            >
+              View list
+            </button>
+          )}
+          <button
+            onClick={() => setPrintToast(null)}
+            aria-label="Dismiss"
+            className="ml-1 text-stone-500 hover:text-stone-800"
+          >
+            &times;
+          </button>
+        </div>
       )}
 
       {/* Debug panel (admin only) */}

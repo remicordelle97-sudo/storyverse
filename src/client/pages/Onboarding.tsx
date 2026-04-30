@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   completeOnboarding,
   completeOnboardingPreset,
   getTemplateUniverses,
+  saveShippingAddress,
   skipOnboarding,
+  type PrintShippingAddress,
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import StoryLoadingScreen from "../components/StoryLoadingScreen";
 import UniverseBuilderForm, { UniverseBuilderPayload } from "../components/UniverseBuilderForm";
+import AddressForm, { type AddressFormHandle } from "../components/AddressForm";
 import { parseStringList } from "../lib/parseStringList";
 
 const ONBOARDING_PHRASES = [
@@ -21,7 +24,7 @@ const ONBOARDING_PHRASES = [
 
 const PRESET_PHRASES = ["Setting up your shelf", "Almost ready"];
 
-type Step = "plan" | "choice" | "preset" | "world";
+type Step = "plan" | "address" | "choice" | "preset" | "world";
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -30,6 +33,9 @@ export default function Onboarding() {
   const [submitting, setSubmitting] = useState(false);
   const [submittingPreset, setSubmittingPreset] = useState(false);
   const [presetError, setPresetError] = useState<string | null>(null);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const addressFormRef = useRef<AddressFormHandle | null>(null);
 
   async function handleSubmit(payload: UniverseBuilderPayload) {
     setSubmitting(true);
@@ -74,6 +80,21 @@ export default function Onboarding() {
     navigate("/login");
   }
 
+  async function handleSaveAddress() {
+    if (!addressFormRef.current?.validate()) return;
+    setAddressError(null);
+    setSavingAddress(true);
+    try {
+      await saveShippingAddress(addressFormRef.current.current() as PrintShippingAddress);
+      await refreshUser();
+      setStep("choice");
+    } catch (e: any) {
+      setAddressError(e?.message || "Couldn't save your address");
+    } finally {
+      setSavingAddress(false);
+    }
+  }
+
   return (
     <div className="min-h-screen app-bg flex items-start justify-center py-12 px-4">
       <div className={`w-full ${step === "preset" ? "max-w-6xl" : "max-w-3xl"}`}>
@@ -105,15 +126,21 @@ export default function Onboarding() {
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-2 mb-10">
+        <div className="flex items-center justify-center gap-2 mb-10 flex-wrap">
           <StepDot active={step === "plan"} done={step !== "plan"} label="Plan" />
-          <div className="w-8 h-px bg-stone-300" />
+          <div className="w-6 sm:w-8 h-px bg-stone-300" />
+          <StepDot
+            active={step === "address"}
+            done={["choice", "preset", "world"].includes(step)}
+            label="Shipping"
+          />
+          <div className="w-6 sm:w-8 h-px bg-stone-300" />
           <StepDot
             active={step === "choice"}
             done={step === "preset" || step === "world"}
             label="Start"
           />
-          <div className="w-8 h-px bg-stone-300" />
+          <div className="w-6 sm:w-8 h-px bg-stone-300" />
           <StepDot
             active={step === "preset" || step === "world"}
             done={false}
@@ -166,11 +193,58 @@ export default function Onboarding() {
 
             <div className="mt-6 flex justify-end">
               <button
-                onClick={() => setStep("choice")}
+                onClick={() => setStep("address")}
                 className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 Continue
               </button>
+            </div>
+          </div>
+        )}
+
+        {step === "address" && (
+          <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
+            <h2 className="text-lg font-semibold text-stone-800 mb-1">
+              Want printed copies later?
+            </h2>
+            <p className="text-sm text-stone-500 mb-6">
+              Save a shipping address now and we'll have it ready when you order
+              a real printed copy of one of your stories. You can skip this and
+              add one later from your account.
+            </p>
+
+            <AddressForm formRef={addressFormRef} busy={savingAddress} />
+
+            {addressError && (
+              <div className="mt-4 text-sm text-red-700 bg-red-100 border border-red-200 rounded-lg px-3 py-2">
+                {addressError}
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-wrap justify-between items-center gap-3">
+              <button
+                onClick={() => setStep("plan")}
+                className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+                disabled={savingAddress}
+              >
+                &larr; Back
+              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setStep("choice")}
+                  className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+                  disabled={savingAddress}
+                >
+                  Skip for now
+                </button>
+                <button
+                  onClick={handleSaveAddress}
+                  disabled={savingAddress}
+                  className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+                >
+                  {savingAddress ? "Saving…" : "Save & continue"}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -208,7 +282,7 @@ export default function Onboarding() {
 
             <div className="mt-6 flex justify-between items-center">
               <button
-                onClick={() => setStep("plan")}
+                onClick={() => setStep("address")}
                 className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
               >
                 &larr; Back

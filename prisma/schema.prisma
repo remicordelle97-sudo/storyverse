@@ -17,6 +17,11 @@ model User {
   stripeCustomerId String?         @unique
   picture          String          @default("")
   onboardedAt      DateTime?
+  // JSON-encoded ShippingAddress saved by the user for one-click
+  // print-on-demand checkout. Empty string means unset (the cart
+  // page prompts them to add one before checkout). Captured during
+  // onboarding (skippable) and editable from /account.
+  shippingAddress  String          @default("")
   createdAt        DateTime        @default(now())
   universes        Universe[]
   stories          Story[]
@@ -114,15 +119,37 @@ model Scene {
   story       Story  @relation(fields: [storyId], references: [id])
 }
 
-// Print-on-demand orders fulfilled via Lulu. Phase 1 lifecycle is
-// abbreviated (sandbox testing only): "draft" → "submitted" → terminal.
-// Production lifecycle adds payment + Lulu webhook states.
+// Print-on-demand orders fulfilled via Lulu.
+//
+// One PrintOrder = one printed copy of one story. Multiple PrintOrder
+// rows can share a `printBatchId` to be submitted to Lulu as a single
+// print-job with multiple line_items, paid for in a single Stripe
+// Checkout session (the cart-checkout flow). printBatchId is null
+// until the batch checkout assigns one.
+//
+// Status vocabulary:
+//   cart                — added to cart, not yet checked out (no batch yet)
+//   pending_payment     — Stripe Checkout session created, awaiting webhook
+//   paid                — Stripe webhook confirmed payment
+//   submitted           — Lulu accepted the print job
+//   in_production       — Lulu started printing
+//   shipped             — left Lulu's facility (luluTrackingUrl set)
+//   delivered           — confirmed delivery
+//   cancelled           — user/admin cancelled before submission
+//   failed              — Lulu rejected, or submission errored
+//   refunded            — payment refunded
+//   draft               — admin smoke-test path (no payment)
 model PrintOrder {
   id                    String   @id @default(uuid())
   userId                String
   storyId               String
+  // Groups orders that ship together as one Lulu print-job. Null
+  // while the order is in cart, or for legacy single-book orders
+  // that predate the cart flow.
+  printBatchId          String?
   status                String   @default("draft")
-  // Lulu API state
+  // Lulu API state. luluPrintJobId is shared across every order in
+  // the same batch (one Lulu job, many line items).
   luluPrintJobId        String?
   luluTrackingUrl       String?
   // Pricing snapshot (cents) — frozen at quote time so a later Lulu
@@ -130,10 +157,13 @@ model PrintOrder {
   luluPrintCostCents    Int?
   luluShippingCostCents Int?
   customerPriceCents    Int?
-  // Stripe wiring (Phase 2). Nullable now.
+  // Stripe wiring. Same session id is shared across every order in
+  // the same batch (one Checkout session, one payment).
   stripeSessionId       String?
   stripePaymentId       String?
-  // Shipping
+  // Shipping snapshot — taken from User.shippingAddress at checkout
+  // so a later profile edit doesn't rewrite the destination of a
+  // print-job that's already with Lulu.
   shippingAddress       String   @default("") // JSON-encoded address blob
   // Source PDFs (R2 URLs) snapshotted for re-submission and audit.
   coverPdfUrl           String   @default("")
@@ -146,6 +176,10 @@ model PrintOrder {
   story                 Story    @relation(fields: [storyId], references: [id])
 
   @@index([userId, createdAt])
+  // Batch lookup: cart endpoints group by printBatchId, webhook
+  // updates every row in a batch by luluPrintJobId.
+  @@index([printBatchId])
+  @@index([luluPrintJobId])
 }
 
 model StoryCharacter {

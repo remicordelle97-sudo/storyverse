@@ -355,10 +355,22 @@ export default function Library() {
               My universes
             </button>
             <button
+              onClick={() => { setShowMenu(false); navigate("/print/cart"); }}
+              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+            >
+              Waiting to print
+            </button>
+            <button
               onClick={() => { setShowMenu(false); navigate("/orders"); }}
               className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
             >
               My printed books
+            </button>
+            <button
+              onClick={() => { setShowMenu(false); navigate("/account"); }}
+              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+            >
+              Account
             </button>
             {isAdmin && (
               <>

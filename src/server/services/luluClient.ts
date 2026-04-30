@@ -142,10 +142,19 @@ interface LuluCostResponse {
   line_item_costs?: Array<{ cost_excl_tax: string; total_tax: string; total_cost_incl_tax: string }>;
 }
 
+export interface LuluLineItem {
+  page_count: number;
+  pod_package_id: string;
+  quantity: number;
+}
+
 /**
  * Calculate the price Lulu would charge for printing N copies of a
- * given book at a given address. We default the shipping level to
- * MAIL (cheapest) for now — pluggable later.
+ * given book at a given address. Pass `lineItems` for cart/batch
+ * quotes (multiple distinct books in one shipment); otherwise the
+ * single-book convenience path uses `pageCount` / `quantity` /
+ * `podPackageId`. Defaults the shipping level to MAIL (cheapest) —
+ * pluggable later.
  */
 export async function calculatePrintJobCost(args: {
   pageCount: number;
@@ -153,6 +162,7 @@ export async function calculatePrintJobCost(args: {
   shippingAddress: ShippingAddress;
   podPackageId?: string;
   shippingLevel?: string;
+  lineItems?: LuluLineItem[];
 }): Promise<CostBreakdown> {
   const podPackageId = args.podPackageId || LULU_DEFAULT_POD_PACKAGE_ID;
   if (!podPackageId) {
@@ -161,21 +171,25 @@ export async function calculatePrintJobCost(args: {
     );
   }
   const shippingLevel = args.shippingLevel || "MAIL";
+  const lineItems: LuluLineItem[] =
+    args.lineItems && args.lineItems.length > 0
+      ? args.lineItems
+      : [
+          {
+            page_count: args.pageCount,
+            pod_package_id: podPackageId,
+            quantity: args.quantity,
+          },
+        ];
   const body = {
-    line_items: [
-      {
-        page_count: args.pageCount,
-        pod_package_id: podPackageId,
-        quantity: args.quantity,
-      },
-    ],
+    line_items: lineItems,
     shipping_address: args.shippingAddress,
     shipping_option: shippingLevel,
   };
   debug.story("Lulu cost calc", {
     podPackageId,
-    pageCount: args.pageCount,
-    quantity: args.quantity,
+    lineItemCount: lineItems.length,
+    totalPages: lineItems.reduce((acc, l) => acc + l.page_count * l.quantity, 0),
     country: args.shippingAddress.country_code,
   });
   const data = await luluFetch<LuluCostResponse>(
@@ -201,16 +215,29 @@ export async function calculatePrintJobCost(args: {
   };
 }
 
+export interface CreatePrintJobLineItem {
+  externalId: string;
+  title: string;
+  coverPdfUrl: string;
+  interiorPdfUrl: string;
+  podPackageId?: string;
+  quantity?: number;
+}
+
 export interface CreatePrintJobInput {
   externalId: string;
   contactEmail: string;
   shippingAddress: ShippingAddress;
   shippingLevel: string;
-  coverPdfUrl: string;
-  interiorPdfUrl: string;
-  title: string;
+  // Single-line convenience (admin test path) — pass coverPdfUrl /
+  // interiorPdfUrl / title at the top level. For batch print jobs
+  // (cart checkout) pass `lineItems` with one entry per book.
+  coverPdfUrl?: string;
+  interiorPdfUrl?: string;
+  title?: string;
   podPackageId?: string;
   quantity?: number;
+  lineItems?: CreatePrintJobLineItem[];
 }
 
 export interface LuluLineItemStatus {
@@ -237,28 +264,40 @@ export interface LuluPrintJob {
 export async function createPrintJob(
   input: CreatePrintJobInput
 ): Promise<LuluPrintJob> {
-  const podPackageId = input.podPackageId || LULU_DEFAULT_POD_PACKAGE_ID;
-  if (!podPackageId) {
+  const fallbackPodPackageId = input.podPackageId || LULU_DEFAULT_POD_PACKAGE_ID;
+  if (!fallbackPodPackageId) {
     throw new Error(
       "LULU_DEFAULT_POD_PACKAGE_ID is not set. Pick a SKU at developers.lulu.com/price-calculator and set the env var."
     );
   }
-  const quantity = input.quantity || 1;
+  // Accept either the single-line shape (admin smoke test) or the
+  // multi-line cart-checkout shape. Internally we always send Lulu a
+  // line_items array.
+  const lineItems = input.lineItems
+    ? input.lineItems
+    : [
+        {
+          externalId: `${input.externalId}-1`,
+          title: input.title || "",
+          coverPdfUrl: input.coverPdfUrl || "",
+          interiorPdfUrl: input.interiorPdfUrl || "",
+          podPackageId: fallbackPodPackageId,
+          quantity: input.quantity || 1,
+        },
+      ];
   const body = {
     external_id: input.externalId,
     contact_email: input.contactEmail,
-    line_items: [
-      {
-        external_id: `${input.externalId}-1`,
-        printable_normalization: {
-          cover: { source_url: input.coverPdfUrl },
-          interior: { source_url: input.interiorPdfUrl },
-          pod_package_id: podPackageId,
-        },
-        quantity,
-        title: input.title,
+    line_items: lineItems.map((li) => ({
+      external_id: li.externalId,
+      printable_normalization: {
+        cover: { source_url: li.coverPdfUrl },
+        interior: { source_url: li.interiorPdfUrl },
+        pod_package_id: li.podPackageId || fallbackPodPackageId,
       },
-    ],
+      quantity: li.quantity || 1,
+      title: li.title,
+    })),
     shipping_address: input.shippingAddress,
     shipping_level: input.shippingLevel,
   };

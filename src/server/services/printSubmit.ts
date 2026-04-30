@@ -1,11 +1,14 @@
 /**
- * Submit a PrintOrder to Lulu.
+ * Submit a PrintOrder batch to Lulu.
  *
- * Shared by the admin /test-order endpoint (Phase 1, no payment) and
- * the Stripe webhook handler (Phase 2, after the user pays). Idempotent:
- * if the order already has a luluPrintJobId, returns it without
- * re-submitting. On failure flips the order to status="failed" and
- * stores the rejection reason for the support flow.
+ * A "batch" is one or more PrintOrder rows that share a `printBatchId`.
+ * The cart-checkout flow groups every book in a single Stripe payment
+ * into one batch and one Lulu print-job (with multiple line_items),
+ * so a single luluPrintJobId covers every order in the batch.
+ *
+ * Idempotent: if the batch already has a luluPrintJobId, return it
+ * without re-submitting. On Lulu rejection, every row in the batch is
+ * marked failed with the same rejection reason.
  */
 
 import prisma from "../lib/prisma.js";
@@ -17,17 +20,20 @@ import {
 } from "./luluClient.js";
 
 export const PRINT_ORDER_STATUS = {
-  // Pre-payment lifecycle (Phase 2 user flow)
+  // Pre-checkout: book has been added to the cart.
+  cart: "cart",
+  // Stripe Checkout session created, awaiting webhook.
   pending_payment: "pending_payment",
-  // Phase 1 admin path (no payment) starts here.
+  // Phase-1 admin smoke-test path (no payment).
   draft: "draft",
+  // Stripe webhook fired; about to call Lulu.
   paid: "paid",
-  // Lulu-side states
+  // Lulu accepted the print job.
   submitted: "submitted",
   in_production: "in_production",
   shipped: "shipped",
   delivered: "delivered",
-  // Terminal states
+  // Terminal states.
   cancelled: "cancelled",
   failed: "failed",
   refunded: "refunded",
@@ -57,76 +63,86 @@ export interface SubmitToLuluResult {
 }
 
 /**
- * Submit an existing PrintOrder to Lulu. Expects coverPdfUrl,
- * interiorPdfUrl, and shippingAddress to already be populated (the
- * order was created by either the admin test endpoint or the
- * /api/print/checkout flow).
+ * Submit every PrintOrder row for the given batchId as a single Lulu
+ * print-job with N line items. Expects every row to have its
+ * coverPdfUrl, interiorPdfUrl, and shippingAddress populated (the
+ * cart-checkout endpoint and the admin test path both ensure this
+ * before flipping to pending_payment / draft).
  */
-export async function submitOrderToLulu(orderId: string): Promise<SubmitToLuluResult> {
-  const order = await prisma.printOrder.findUnique({
-    where: { id: orderId },
+export async function submitBatchToLulu(batchId: string): Promise<SubmitToLuluResult> {
+  const rows = await prisma.printOrder.findMany({
+    where: { printBatchId: batchId },
     include: {
       story: { select: { title: true } },
       user: { select: { email: true } },
     },
+    orderBy: { createdAt: "asc" },
   });
-  if (!order) throw new Error(`PrintOrder ${orderId} not found`);
+  if (rows.length === 0) {
+    throw new Error(`PrintOrder batch ${batchId} not found`);
+  }
 
-  // Idempotency: if a previous submission already landed, just return
-  // the existing Lulu id. The Stripe webhook can re-fire on retry, and
-  // the admin path can be replayed by mistake.
-  if (order.luluPrintJobId) {
-    debug.story(`PrintOrder ${orderId} already submitted to Lulu (${order.luluPrintJobId})`);
+  // Idempotency: any row carrying a luluPrintJobId means we already
+  // submitted this batch (Stripe webhook retry, etc).
+  const alreadySubmitted = rows.find((r) => r.luluPrintJobId);
+  if (alreadySubmitted) {
+    debug.story(`PrintOrder batch ${batchId} already submitted (Lulu ${alreadySubmitted.luluPrintJobId})`);
     return {
-      luluPrintJobId: Number(order.luluPrintJobId),
-      luluStatusName: order.status,
+      luluPrintJobId: Number(alreadySubmitted.luluPrintJobId),
+      luluStatusName: alreadySubmitted.status,
     };
   }
 
-  if (!order.coverPdfUrl || !order.interiorPdfUrl) {
-    throw new Error(`PrintOrder ${orderId} is missing PDFs — cannot submit to Lulu`);
+  for (const r of rows) {
+    if (!r.coverPdfUrl || !r.interiorPdfUrl) {
+      throw new Error(`PrintOrder ${r.id} (batch ${batchId}) is missing PDFs`);
+    }
   }
 
   let address: ShippingAddress;
   try {
-    address = JSON.parse(order.shippingAddress) as ShippingAddress;
+    address = JSON.parse(rows[0].shippingAddress) as ShippingAddress;
   } catch {
-    throw new Error(`PrintOrder ${orderId} has invalid shippingAddress JSON`);
+    throw new Error(`PrintOrder batch ${batchId} has invalid shippingAddress JSON`);
   }
+  const contactEmail = rows[0].user.email || "support@mystoryverse.app";
 
   let luluJob: LuluPrintJob;
   try {
     luluJob = await createPrintJob({
-      externalId: order.id,
-      contactEmail: order.user.email || "support@mystoryverse.app",
+      externalId: batchId,
+      contactEmail,
       shippingAddress: address,
-      // We froze the cheapest level at quote time — keep using it.
+      // Cheapest level frozen at quote time.
       shippingLevel: "MAIL",
-      coverPdfUrl: externalizePdfUrl(order.coverPdfUrl),
-      interiorPdfUrl: externalizePdfUrl(order.interiorPdfUrl),
-      title: order.story.title,
+      lineItems: rows.map((r, i) => ({
+        externalId: `${batchId}-${i + 1}`,
+        title: r.story.title,
+        coverPdfUrl: externalizePdfUrl(r.coverPdfUrl),
+        interiorPdfUrl: externalizePdfUrl(r.interiorPdfUrl),
+        quantity: 1,
+      })),
     });
   } catch (e: any) {
-    await prisma.printOrder.update({
-      where: { id: order.id },
-      data: {
-        status: PRINT_ORDER_STATUS.failed,
-        rejectionReason: (e?.message || "createPrintJob failed").slice(0, 500),
-      },
+    const reason = (e?.message || "createPrintJob failed").slice(0, 500);
+    await prisma.printOrder.updateMany({
+      where: { printBatchId: batchId },
+      data: { status: PRINT_ORDER_STATUS.failed, rejectionReason: reason },
     });
     throw e;
   }
 
-  await prisma.printOrder.update({
-    where: { id: order.id },
+  await prisma.printOrder.updateMany({
+    where: { printBatchId: batchId },
     data: {
       status: PRINT_ORDER_STATUS.submitted,
       luluPrintJobId: String(luluJob.id),
     },
   });
 
-  debug.story("PrintOrder submitted to Lulu", {
-    orderId: order.id,
+  debug.story("PrintOrder batch submitted to Lulu", {
+    batchId,
+    rowCount: rows.length,
     luluJobId: luluJob.id,
     status: luluJob.status?.name,
   });
@@ -137,14 +153,13 @@ export async function submitOrderToLulu(orderId: string): Promise<SubmitToLuluRe
 /**
  * Map a Lulu print-job status name to our internal PrintOrder.status
  * vocabulary. Lulu uses SHOUTY_SNAKE_CASE; we use lowercase. Returns
- * null for statuses that shouldn't move our state (anything pre-CREATED
- * or unrecognized — we leave the existing status alone).
+ * null for statuses that shouldn't move our state.
  *
- * Lulu's full status taxonomy:
+ * Lulu's status taxonomy:
  *   CREATED, UNPAID, PAYMENT_IN_PROGRESS, PRODUCTION_DELAYED,
  *   PRODUCTION_READY, IN_PRODUCTION, SHIPPED, REJECTED, CANCELED, ERROR.
- * Lulu pays themselves at job creation (we have a credit account), so
- * UNPAID/PAYMENT_IN_PROGRESS shouldn't appear in practice.
+ * We pay Lulu out of credit, so UNPAID/PAYMENT_IN_PROGRESS shouldn't
+ * happen in practice.
  */
 export function mapLuluStatusToOrderStatus(
   luluStatus: string | undefined

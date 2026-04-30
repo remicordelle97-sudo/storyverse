@@ -88,18 +88,21 @@ router.post(
       return res.status(400).json({ error: "Missing data.id" });
     }
 
-    const order = await prisma.printOrder.findFirst({
+    // A single Lulu print-job can cover multiple PrintOrder rows
+    // (cart batch). All of them share the same luluPrintJobId and
+    // need the same status update.
+    const orders = await prisma.printOrder.findMany({
       where: { luluPrintJobId: String(luluJobId) },
     });
-    if (!order) {
-      // Could be an order that was deleted on our side, or for a job
-      // we never created. Acknowledge so Lulu doesn't keep retrying.
+    if (orders.length === 0) {
+      // Order(s) deleted on our side, or for a job we never created.
+      // Acknowledge so Lulu doesn't keep retrying.
       debug.story(`Lulu webhook for unknown job ${luluJobId} — ignoring`);
       return res.json({ received: true });
     }
 
     const mapped = mapLuluStatusToOrderStatus(statusName);
-    // Pull the first available tracking URL, if Lulu shipped it.
+    // First available tracking URL across all line items.
     const trackingUrl =
       payload.data?.line_items?.flatMap((li) => li.tracking_urls || [])?.[0] || undefined;
 
@@ -109,28 +112,40 @@ router.post(
       PRINT_ORDER_STATUS.refunded,
       PRINT_ORDER_STATUS.cancelled,
     ];
-    if (terminal.includes(order.status)) {
-      debug.story(`Lulu webhook: order ${order.id} is ${order.status}, ignoring ${statusName}`);
+    const allTerminal = orders.every((o) => terminal.includes(o.status));
+    if (allTerminal) {
+      debug.story(
+        `Lulu webhook: batch ${luluJobId} all terminal, ignoring ${statusName}`
+      );
       return res.json({ received: true });
     }
 
     const update: Record<string, unknown> = {};
     if (mapped) update.status = mapped;
-    if (trackingUrl && !order.luluTrackingUrl) update.luluTrackingUrl = trackingUrl;
-
+    if (trackingUrl && !orders.some((o) => o.luluTrackingUrl)) {
+      update.luluTrackingUrl = trackingUrl;
+    }
     if (Object.keys(update).length === 0) {
       debug.story(
-        `Lulu webhook: no-op for order ${order.id} (lulu status ${statusName})`
+        `Lulu webhook: no-op for batch ${luluJobId} (lulu status ${statusName})`
       );
       return res.json({ received: true });
     }
 
-    await prisma.printOrder.update({ where: { id: order.id }, data: update });
+    // Skip rows already in a terminal state (refunded/cancelled) so a
+    // late shipping event doesn't un-cancel an order.
+    await prisma.printOrder.updateMany({
+      where: {
+        luluPrintJobId: String(luluJobId),
+        status: { notIn: terminal },
+      },
+      data: update,
+    });
     debug.story("Lulu webhook applied", {
-      orderId: order.id,
       luluJobId,
       luluStatus: statusName,
       newStatus: update.status,
+      rowCount: orders.length,
       trackingUrl: update.luluTrackingUrl,
     });
 

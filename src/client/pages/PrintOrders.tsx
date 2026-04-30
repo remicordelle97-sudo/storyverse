@@ -26,12 +26,14 @@ function statusBadge(status: string): { label: string; className: string } {
       return { label: "Cancelled", className: "bg-stone-200 text-stone-700" };
     case "refunded":
       return { label: "Refunded", className: "bg-stone-200 text-stone-700" };
+    case "draft":
+      return { label: "Draft (admin)", className: "bg-stone-200 text-stone-700" };
     default:
       return { label: status, className: "bg-stone-200 text-stone-700" };
   }
 }
 
-const NON_TERMINAL_STATUSES = new Set([
+const NON_TERMINAL = new Set([
   "pending_payment",
   "paid",
   "submitted",
@@ -45,7 +47,7 @@ export default function PrintOrders() {
     queryFn: () => listPrintOrders(),
     refetchInterval: (query) => {
       const items = query.state.data?.items ?? [];
-      return items.some((o) => NON_TERMINAL_STATUSES.has(o.status)) ? 5000 : false;
+      return items.some((b) => NON_TERMINAL.has(b.status)) ? 5000 : false;
     },
   });
 
@@ -68,37 +70,44 @@ export default function PrintOrders() {
         {isLoading ? (
           <p className="text-stone-500 text-center py-12">Loading…</p>
         ) : !data || data.items.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-10 text-center">
-            <p className="text-stone-700 mb-2">No orders yet.</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-10 text-center space-y-2">
+            <p className="text-stone-700">No orders yet.</p>
             <p className="text-sm text-stone-500">
-              Open a story and tap "Print book" to order a real, printed copy.
+              Open a story and tap "Add to print list" to queue it for a printed copy.
             </p>
           </div>
         ) : (
           <ul className="space-y-3">
-            {data.items.map((order) => {
-              const badge = statusBadge(order.status);
+            {data.items.map((batch) => {
+              const badge = statusBadge(batch.status);
+              const titles = batch.items.map((i) => i.storyTitle);
+              const summary =
+                titles.length === 1
+                  ? titles[0]
+                  : `${titles[0]} + ${titles.length - 1} more`;
               return (
                 <li
-                  key={order.id}
+                  key={batch.batchId}
                   className="bg-white rounded-xl shadow-sm border border-stone-200 p-4 cursor-pointer hover:border-stone-300 transition-colors"
-                  onClick={() => navigate(`/print/orders/${order.id}`)}
+                  onClick={() => navigate(`/print/orders/${batch.batchId}`)}
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-stone-900">{order.storyTitle}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-stone-900 truncate">{summary}</p>
                       <p className="text-xs text-stone-500 mt-0.5">
-                        Ordered {new Date(order.createdAt).toLocaleDateString()}
+                        {batch.items.length}
+                        {batch.items.length === 1 ? " book · " : " books · "}
+                        ordered {new Date(batch.createdAt).toLocaleDateString()}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 shrink-0">
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${badge.className}`}
                       >
                         {badge.label}
                       </span>
                       <span className="text-sm font-semibold text-stone-700">
-                        {formatCents(order.customerPriceCents)}
+                        {formatCents(batch.customerTotalCents)}
                       </span>
                     </div>
                   </div>

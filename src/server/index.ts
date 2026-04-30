@@ -10,6 +10,7 @@ import adminRouter from "./routes/admin.js";
 import printRouter from "./routes/print.js";
 import luluWebhookRouter from "./routes/luluWebhook.js";
 import uploadsRouter from "./routes/uploads.js";
+import accountRouter from "./routes/account.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { httpLatencyMiddleware } from "./middleware/httpLatency.js";
 import { bootWorkers } from "./worker.js";
@@ -56,6 +57,7 @@ app.use("/api/stories", authMiddleware, storiesRouter);
 app.use("/api/admin", authMiddleware, adminRouter);
 app.use("/api/print", authMiddleware, printRouter);
 app.use("/api/uploads", authMiddleware, uploadsRouter);
+app.use("/api/account", authMiddleware, accountRouter);
 
 // In production, serve the built React app
 const clientDist = path.resolve("dist/client");

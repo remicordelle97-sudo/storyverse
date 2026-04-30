@@ -11,6 +11,8 @@ import StoryBuilder from "./pages/StoryBuilder";
 import ReadingMode from "./pages/ReadingMode";
 import PrintOrders from "./pages/PrintOrders";
 import PrintOrderDetail from "./pages/PrintOrderDetail";
+import PrintCart from "./pages/PrintCart";
+import Account from "./pages/Account";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isImpersonating } = useAuth();
@@ -119,6 +121,14 @@ function AppRoutes() {
       <Route
         path="/print/orders/:orderId"
         element={<ProtectedRoute><PrintOrderDetail /></ProtectedRoute>}
+      />
+      <Route
+        path="/print/cart"
+        element={<ProtectedRoute><PrintCart /></ProtectedRoute>}
+      />
+      <Route
+        path="/account"
+        element={<ProtectedRoute><Account /></ProtectedRoute>}
       />
       <Route
         path="/"
