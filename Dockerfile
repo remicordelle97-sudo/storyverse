@@ -36,6 +36,8 @@ COPY --from=builder /app/dist ./dist
 
 # Copy static assets (login background, etc)
 COPY public ./public
+# Print PDF builder reads Inter TTFs from assets/fonts at runtime.
+COPY assets ./assets
 
 # Create images directory
 RUN mkdir -p public/images
