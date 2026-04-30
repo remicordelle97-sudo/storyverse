@@ -15,8 +15,6 @@
  */
 
 import { jsPDF } from "jspdf";
-import fs from "fs";
-import path from "path";
 import { saveImage } from "../lib/storage.js";
 import { storyRgbColor } from "../../shared/storyColor.js";
 import { debug } from "../lib/debug.js";
@@ -33,22 +31,43 @@ const BLEED_INCHES = 0.125;
 // pipeline rejects PDFs with non-embedded fonts.
 const FONT_FAMILY = "Inter";
 
+// @fontsource v5 only ships woff/woff2 in node_modules — no TTFs. jsPDF
+// needs TTF, so we fetch Inter's TTF from a stable CDN once per
+// container lifetime and cache the bytes in memory. v4.5.15 is pinned
+// because that's the last @fontsource release that bundled .ttf.
+const FONT_URL_REGULAR =
+  "https://cdn.jsdelivr.net/npm/@fontsource/inter@4.5.15/files/inter-latin-400-normal.ttf";
+const FONT_URL_BOLD =
+  "https://cdn.jsdelivr.net/npm/@fontsource/inter@4.5.15/files/inter-latin-700-normal.ttf";
+
 let cachedFontData: { regular: string; bold: string } | null = null;
-function loadFontData(): { regular: string; bold: string } {
+let pendingFontLoad: Promise<{ regular: string; bold: string }> | null = null;
+async function loadFontData(): Promise<{ regular: string; bold: string }> {
   if (cachedFontData) return cachedFontData;
-  const fontDir = path.resolve("node_modules/@fontsource/inter/files");
-  const regular = fs
-    .readFileSync(path.join(fontDir, "inter-latin-400-normal.ttf"))
-    .toString("base64");
-  const bold = fs
-    .readFileSync(path.join(fontDir, "inter-latin-700-normal.ttf"))
-    .toString("base64");
-  cachedFontData = { regular, bold };
-  return cachedFontData;
+  if (pendingFontLoad) return pendingFontLoad;
+  pendingFontLoad = (async () => {
+    const fetchTtf = async (url: string): Promise<string> => {
+      const res = await fetch(url);
+      if (!res.ok) {
+        throw new Error(`Font download failed (${res.status}): ${url}`);
+      }
+      return Buffer.from(await res.arrayBuffer()).toString("base64");
+    };
+    const [regular, bold] = await Promise.all([
+      fetchTtf(FONT_URL_REGULAR),
+      fetchTtf(FONT_URL_BOLD),
+    ]);
+    cachedFontData = { regular, bold };
+    debug.story("Print: Inter TTFs cached");
+    return cachedFontData;
+  })().finally(() => {
+    pendingFontLoad = null;
+  });
+  return pendingFontLoad;
 }
 
-function registerFonts(pdf: jsPDF) {
-  const { regular, bold } = loadFontData();
+async function registerFonts(pdf: jsPDF) {
+  const { regular, bold } = await loadFontData();
   pdf.addFileToVFS("Inter-Regular.ttf", regular);
   pdf.addFont("Inter-Regular.ttf", FONT_FAMILY, "normal");
   pdf.addFileToVFS("Inter-Bold.ttf", bold);
@@ -99,7 +118,7 @@ export interface BuiltBytes {
   pageCount: number;
 }
 
-function newDoc(widthPt: number, heightPt: number, orientation: "p" | "l" = "p"): jsPDF {
+async function newDoc(widthPt: number, heightPt: number, orientation: "p" | "l" = "p"): Promise<jsPDF> {
   // Compress streams (smaller PDF) and target a modern PDF version —
   // Lulu's normalizer prefers PDF 1.5+. jsPDF defaults to 1.3 in some
   // builds.
@@ -110,7 +129,7 @@ function newDoc(widthPt: number, heightPt: number, orientation: "p" | "l" = "p")
     compress: true,
     putOnlyUsedFonts: false,
   });
-  registerFonts(pdf);
+  await registerFonts(pdf);
   return pdf;
 }
 
@@ -130,11 +149,11 @@ function paintPaper(pdf: jsPDF, pagePt: number) {
   pdf.rect(0, 0, pagePt, pagePt, "F");
 }
 
-function buildInteriorPdf(
+async function buildInteriorPdf(
   input: BuildInput,
   pagePt: number
-): { bytes: ArrayBuffer; pageCount: number } {
-  const pdf = newDoc(pagePt, pagePt);
+): Promise<{ bytes: ArrayBuffer; pageCount: number }> {
+  const pdf = await newDoc(pagePt, pagePt);
   const margin = 54; // 0.75"
   const usableWidth = pagePt - margin * 2;
 
@@ -197,7 +216,7 @@ function buildInteriorPdf(
   return { bytes: pdf.output("arraybuffer"), pageCount };
 }
 
-function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
+async function buildCoverPdf(input: BuildInput, trimInches: number): Promise<ArrayBuffer> {
   // Lulu wants the cover as a wraparound: back-cover + spine + front-cover,
   // each with bleed on the outer edges. For saddle-stitch (SS binding)
   // the spine is zero — the book is stapled, no spine width to account
@@ -212,7 +231,7 @@ function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
   // Cover is wider than tall (back + spine + front + bleed). Pass
   // landscape so jsPDF doesn't normalize the [w, h] format array
   // back to portrait and swap our dimensions.
-  const pdf = newDoc(widthPt, heightPt, "l");
+  const pdf = await newDoc(widthPt, heightPt, "l");
   const { r, g, b } = storyRgbColor(input.story.id);
   // Fill the entire wrap with the story color (back, spine area, front).
   pdf.setFillColor(r, g, b);
@@ -234,14 +253,18 @@ function buildCoverPdf(input: BuildInput, trimInches: number): ArrayBuffer {
   return pdf.output("arraybuffer");
 }
 
-export function buildPrintPdfBytes(input: BuildInput): BuiltBytes {
+export async function buildPrintPdfBytes(input: BuildInput): Promise<BuiltBytes> {
   const trim = trimInchesFromSku(input.podPackageId);
   // Interior pages include 0.125" bleed on each edge so the beige paper
   // fill extends past the visible trim. Without bleed, the printer's
   // trim cut can leave a thin white sliver on the edge of every page.
   const pagePt = (trim.width + 2 * BLEED_INCHES) * POINTS_PER_INCH;
-  const interior = buildInteriorPdf(input, pagePt);
-  const coverBytes = buildCoverPdf(input, trim.width);
+  // Both PDFs need the cached fonts; running them concurrently means we
+  // share the single font fetch (single-flighted in loadFontData).
+  const [interior, coverBytes] = await Promise.all([
+    buildInteriorPdf(input, pagePt),
+    buildCoverPdf(input, trim.width),
+  ]);
   return { coverBytes, interiorBytes: interior.bytes, pageCount: interior.pageCount };
 }
 
@@ -264,7 +287,7 @@ export async function buildAndStorePrintPdfs(input: BuildInput): Promise<BuildRe
   debug.story(`Building print PDFs for "${input.story.title}"`, {
     sceneCount: input.story.scenes.length,
   });
-  const built = buildPrintPdfBytes(input);
+  const built = await buildPrintPdfBytes(input);
   const result = await storePrintPdfBytes(built);
   debug.story("Print PDFs uploaded", { pageCount: result.pageCount });
   return result;
