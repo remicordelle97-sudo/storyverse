@@ -401,8 +401,11 @@ export default function ReadingMode() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Keyboard navigation
+  // Keyboard navigation. Suspended while modals are open so typing
+  // in form fields (PrintModal address inputs, etc.) doesn't flip
+  // pages or close the reader.
   useEffect(() => {
+    if (showPrintModal || showDebug) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" || e.key === " ") {
         e.preventDefault();
@@ -416,7 +419,7 @@ export default function ReadingMode() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [navigate]);
+  }, [navigate, showPrintModal, showDebug]);
 
   const handleFlip = useCallback((e: any) => {
     setCurrentPage(e.data);

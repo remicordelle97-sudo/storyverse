@@ -23,68 +23,144 @@ const EMPTY_ADDRESS: PrintShippingAddress = {
   phone_number: "",
 };
 
-function formatCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+// Fields whose presence we require. street2 is intentionally optional.
+const REQUIRED_FIELDS = new Set<keyof PrintShippingAddress>([
+  "name",
+  "street1",
+  "city",
+  "state_code",
+  "country_code",
+  "postcode",
+  "phone_number",
+]);
+
+const FIELD_LABEL: Record<keyof PrintShippingAddress, string> = {
+  name: "Full name",
+  street1: "Street address",
+  street2: "Apartment / unit",
+  city: "City",
+  state_code: "State / region",
+  country_code: "Country",
+  postcode: "Postal code",
+  phone_number: "Phone",
+};
+
+// Per-field validation. Returns an error string for the first rule
+// that fails, or null if the field is valid. Validation is forgiving:
+// non-empty + format hint where helpful (postcode, phone, country).
+// Lulu does its own definitive validation server-side at quote time.
+function validateField(
+  field: keyof PrintShippingAddress,
+  value: string
+): string | null {
+  const v = value.trim();
+  if (REQUIRED_FIELDS.has(field) && !v) {
+    return `${FIELD_LABEL[field]} is required`;
+  }
+  if (!v) return null;
+  switch (field) {
+    case "country_code":
+      if (!/^[A-Z]{2}$/.test(v)) return "Use a 2-letter country code (e.g. US)";
+      break;
+    case "state_code":
+      // Lulu wants ISO subdivision codes for US/CA (e.g. CA, NY, ON).
+      // For other countries the format varies wildly — accept anything
+      // non-empty and let Lulu validate.
+      if (v.length > 6) return "State / region looks too long";
+      break;
+    case "postcode":
+      if (!/^[A-Za-z0-9 \-]{2,12}$/.test(v)) return "Postal code looks invalid";
+      break;
+    case "phone_number":
+      // Strip allowed separators; require 7+ digits. Lulu accepts most
+      // formats so we stay permissive.
+      if ((v.match(/\d/g)?.length ?? 0) < 7) return "Phone number looks too short";
+      break;
+    case "name":
+      if (v.length < 2) return "Name looks too short";
+      break;
+  }
+  return null;
 }
 
-function isAddressComplete(address: PrintShippingAddress): boolean {
-  return Boolean(
-    address.name.trim() &&
-      address.street1.trim() &&
-      address.city.trim() &&
-      address.state_code.trim() &&
-      address.country_code.trim() &&
-      address.postcode.trim() &&
-      address.phone_number.trim()
-  );
+function formatCents(cents: number): string {
+  return `$${(cents / 100).toFixed(2)}`;
 }
 
 /**
  * Print-on-demand modal.
  *
- * Two-step flow:
- *   1. User enters shipping address; clicks "Get quote" → calls
- *      /api/print/quote and shows the price breakdown.
- *   2. User confirms; clicks "Pay & order" → calls /api/print/checkout
- *      and is redirected to Stripe Checkout. The Stripe success_url
- *      lands on /print/orders/:id which polls the order until Lulu
- *      accepts.
+ * Two-step flow: collect address → /quote → confirm → /checkout →
+ * Stripe redirect. The Stripe success_url lands on /print/orders/:id
+ * which polls the order until Lulu accepts.
+ *
+ * Validation runs per-field on blur (so users aren't yelled at while
+ * typing) and a final pass on submit. Server-level errors (Lulu
+ * rejecting a region, etc.) surface in a single banner above the
+ * actions.
  */
 export default function PrintModal({ storyId, storyTitle, onClose }: PrintModalProps) {
   const [address, setAddress] = useState<PrintShippingAddress>(EMPTY_ADDRESS);
+  const [touched, setTouched] = useState<Partial<Record<keyof PrintShippingAddress, boolean>>>({});
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<keyof PrintShippingAddress, string>>
+  >({});
   const [quote, setQuote] = useState<PrintQuote | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [serverError, setServerError] = useState<string | null>(null);
 
   function update<K extends keyof PrintShippingAddress>(
     key: K,
     value: PrintShippingAddress[K]
   ) {
     setAddress((prev) => ({ ...prev, [key]: value }));
-    // Address change invalidates the existing quote — force the user
-    // to re-quote so the price they pay matches what we got from Lulu.
+    // As the user fixes a field that already showed an error, clear it
+    // immediately — don't make them blur to be told they fixed it.
+    if (fieldErrors[key]) {
+      const error = validateField(key, value as string);
+      setFieldErrors((prev) => ({ ...prev, [key]: error || undefined }));
+    }
+    // Address change invalidates the existing quote.
     if (quote) setQuote(null);
   }
 
-  async function handleQuote() {
-    if (!isAddressComplete(address)) {
-      setError("Please fill in every shipping field.");
-      return;
+  function handleBlur<K extends keyof PrintShippingAddress>(key: K) {
+    setTouched((prev) => ({ ...prev, [key]: true }));
+    const error = validateField(key, (address[key] || "") as string);
+    setFieldErrors((prev) => ({ ...prev, [key]: error || undefined }));
+  }
+
+  function validateAll(): boolean {
+    const errors: Partial<Record<keyof PrintShippingAddress, string>> = {};
+    for (const key of Object.keys(FIELD_LABEL) as (keyof PrintShippingAddress)[]) {
+      const error = validateField(key, (address[key] || "") as string);
+      if (error) errors[key] = error;
     }
-    setError(null);
+    setFieldErrors(errors);
+    // Mark every field as touched so all errors render at once on submit.
+    const allTouched = Object.fromEntries(
+      Object.keys(FIELD_LABEL).map((k) => [k, true])
+    ) as Record<keyof PrintShippingAddress, boolean>;
+    setTouched(allTouched);
+    return Object.keys(errors).length === 0;
+  }
+
+  async function handleQuote() {
+    setServerError(null);
+    if (!validateAll()) return;
     setLoading(true);
     try {
       const result = await getPrintQuote({ storyId, shippingAddress: address });
       setQuote(result);
     } catch (e: any) {
-      setError(e?.message || "Failed to get quote");
+      setServerError(e?.message || "We couldn't get a quote for this address.");
     } finally {
       setLoading(false);
     }
   }
 
   async function handleCheckout() {
-    setError(null);
+    setServerError(null);
     setLoading(true);
     try {
       const result = await startPrintCheckout({
@@ -94,7 +170,7 @@ export default function PrintModal({ storyId, storyTitle, onClose }: PrintModalP
       // Hard nav — Stripe owns the next page.
       window.location.assign(result.url);
     } catch (e: any) {
-      setError(e?.message || "Failed to start checkout");
+      setServerError(e?.message || "Failed to start checkout");
       setLoading(false);
     }
   }
@@ -106,6 +182,14 @@ export default function PrintModal({ storyId, storyTitle, onClose }: PrintModalP
         <div
           className="bg-[#F5ECD7] text-stone-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto pointer-events-auto"
           style={{ fontFamily: "Lexend, sans-serif" }}
+          onKeyDownCapture={(e) => {
+            // Stop the reader's global Arrow/Space/Esc handler from
+            // hijacking keystrokes while the user types in the form.
+            // (The reader-level handler already opts out via showPrintModal,
+            // but capturing here is belt-and-suspenders against future
+            // additions.)
+            e.stopPropagation();
+          }}
         >
           <div className="flex items-center justify-between px-6 py-4 border-b border-stone-300">
             <div>
@@ -125,70 +209,91 @@ export default function PrintModal({ storyId, storyTitle, onClose }: PrintModalP
 
           <div className="px-6 py-5 space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2">
-                <Label>Full name</Label>
-                <Input
-                  value={address.name}
-                  onChange={(v) => update("name", v)}
-                  placeholder="Jane Doe"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label>Street address</Label>
-                <Input
-                  value={address.street1}
-                  onChange={(v) => update("street1", v)}
-                  placeholder="123 Main St"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label>Apartment / unit (optional)</Label>
-                <Input
-                  value={address.street2 || ""}
-                  onChange={(v) => update("street2", v)}
-                  placeholder="Apt 4B"
-                />
-              </div>
-              <div>
-                <Label>City</Label>
-                <Input value={address.city} onChange={(v) => update("city", v)} />
-              </div>
-              <div>
-                <Label>State / region</Label>
-                <Input
-                  value={address.state_code}
-                  onChange={(v) => update("state_code", v.toUpperCase().slice(0, 4))}
-                  placeholder="CA"
-                />
-              </div>
-              <div>
-                <Label>Postal code</Label>
-                <Input
-                  value={address.postcode}
-                  onChange={(v) => update("postcode", v)}
-                />
-              </div>
-              <div>
-                <Label>Country</Label>
-                <Input
-                  value={address.country_code}
-                  onChange={(v) => update("country_code", v.toUpperCase().slice(0, 2))}
-                  placeholder="US"
-                />
-              </div>
-              <div className="col-span-2">
-                <Label>Phone</Label>
-                <Input
-                  value={address.phone_number}
-                  onChange={(v) => update("phone_number", v)}
-                  placeholder="555-555-1234"
-                />
-              </div>
+              <Field
+                className="col-span-2"
+                field="name"
+                value={address.name}
+                onChange={(v) => update("name", v)}
+                onBlur={() => handleBlur("name")}
+                error={touched.name ? fieldErrors.name : undefined}
+                placeholder="Jane Doe"
+                required
+                autoComplete="name"
+              />
+              <Field
+                className="col-span-2"
+                field="street1"
+                value={address.street1}
+                onChange={(v) => update("street1", v)}
+                onBlur={() => handleBlur("street1")}
+                error={touched.street1 ? fieldErrors.street1 : undefined}
+                placeholder="123 Main St"
+                required
+                autoComplete="address-line1"
+              />
+              <Field
+                className="col-span-2"
+                field="street2"
+                value={address.street2 || ""}
+                onChange={(v) => update("street2", v)}
+                onBlur={() => handleBlur("street2")}
+                placeholder="Apt 4B (optional)"
+                autoComplete="address-line2"
+              />
+              <Field
+                field="city"
+                value={address.city}
+                onChange={(v) => update("city", v)}
+                onBlur={() => handleBlur("city")}
+                error={touched.city ? fieldErrors.city : undefined}
+                required
+                autoComplete="address-level2"
+              />
+              <Field
+                field="state_code"
+                value={address.state_code}
+                onChange={(v) => update("state_code", v.toUpperCase().slice(0, 6))}
+                onBlur={() => handleBlur("state_code")}
+                error={touched.state_code ? fieldErrors.state_code : undefined}
+                placeholder="CA"
+                required
+                autoComplete="address-level1"
+              />
+              <Field
+                field="postcode"
+                value={address.postcode}
+                onChange={(v) => update("postcode", v)}
+                onBlur={() => handleBlur("postcode")}
+                error={touched.postcode ? fieldErrors.postcode : undefined}
+                required
+                autoComplete="postal-code"
+              />
+              <Field
+                field="country_code"
+                value={address.country_code}
+                onChange={(v) => update("country_code", v.toUpperCase().slice(0, 2))}
+                onBlur={() => handleBlur("country_code")}
+                error={touched.country_code ? fieldErrors.country_code : undefined}
+                placeholder="US"
+                required
+                autoComplete="country"
+              />
+              <Field
+                className="col-span-2"
+                field="phone_number"
+                value={address.phone_number}
+                onChange={(v) => update("phone_number", v)}
+                onBlur={() => handleBlur("phone_number")}
+                error={touched.phone_number ? fieldErrors.phone_number : undefined}
+                placeholder="555-555-1234"
+                required
+                autoComplete="tel"
+              />
             </div>
 
-            {error && (
+            {serverError && (
               <div className="text-sm text-red-700 bg-red-100 border border-red-200 rounded-lg px-3 py-2">
-                {error}
+                {serverError}
               </div>
             )}
 
@@ -208,8 +313,8 @@ export default function PrintModal({ storyId, storyTitle, onClose }: PrintModalP
                   />
                 </div>
                 <p className="text-[11px] text-stone-500 mt-2">
-                  Tax (if any) collected at checkout. Shipping arrives in ~10–14
-                  days for standard mail.
+                  Tax (if any) collected at checkout. Standard mail arrives in
+                  ~10–14 days.
                 </p>
               </div>
             )}
@@ -247,31 +352,64 @@ export default function PrintModal({ storyId, storyTitle, onClose }: PrintModalP
   );
 }
 
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <label className="block text-xs font-medium text-stone-600 mb-0.5">
-      {children}
-    </label>
-  );
+interface FieldProps {
+  field: keyof PrintShippingAddress;
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  error?: string;
+  placeholder?: string;
+  required?: boolean;
+  autoComplete?: string;
+  className?: string;
 }
 
-function Input({
+function Field({
+  field,
   value,
   onChange,
+  onBlur,
+  error,
   placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-}) {
+  required,
+  autoComplete,
+  className,
+}: FieldProps) {
+  const hasError = Boolean(error);
   return (
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="w-full px-3 py-2 rounded-lg border border-stone-300 bg-white text-stone-800 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
-    />
+    <div className={className}>
+      <label
+        className="block text-xs font-medium text-stone-600 mb-0.5"
+        htmlFor={`print-field-${field}`}
+      >
+        {FIELD_LABEL[field]}
+        {required && <span className="text-red-600 ml-0.5">*</span>}
+      </label>
+      <input
+        id={`print-field-${field}`}
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+        aria-invalid={hasError}
+        aria-describedby={hasError ? `print-field-${field}-error` : undefined}
+        className={`w-full px-3 py-2 rounded-lg border bg-white text-stone-800 text-sm focus:outline-none focus:ring-2 transition-colors ${
+          hasError
+            ? "border-red-400 focus:ring-red-400"
+            : "border-stone-300 focus:ring-amber-500"
+        }`}
+      />
+      {hasError && (
+        <p
+          id={`print-field-${field}-error`}
+          className="mt-1 text-[11px] text-red-700"
+        >
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -297,3 +435,4 @@ function PriceRow({
     </div>
   );
 }
+
