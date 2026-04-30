@@ -15,6 +15,8 @@
  */
 
 import { jsPDF } from "jspdf";
+import fs from "fs";
+import path from "path";
 import { saveImage } from "../lib/storage.js";
 import { storyRgbColor } from "../../shared/storyColor.js";
 import { debug } from "../lib/debug.js";
@@ -31,43 +33,29 @@ const BLEED_INCHES = 0.125;
 // pipeline rejects PDFs with non-embedded fonts.
 const FONT_FAMILY = "Inter";
 
-// @fontsource v5 only ships woff/woff2 in node_modules — no TTFs. jsPDF
-// needs TTF, so we fetch Inter's TTF from a stable CDN once per
-// container lifetime and cache the bytes in memory. v4.5.15 is pinned
-// because that's the last @fontsource release that bundled .ttf.
-const FONT_URL_REGULAR =
-  "https://cdn.jsdelivr.net/npm/@fontsource/inter@4.5.15/files/inter-latin-400-normal.ttf";
-const FONT_URL_BOLD =
-  "https://cdn.jsdelivr.net/npm/@fontsource/inter@4.5.15/files/inter-latin-700-normal.ttf";
+// jsPDF needs TTF (not woff/woff2) to embed glyph data via addFileToVFS,
+// and Lulu rejects PDFs whose fonts aren't embedded. @fontsource v5
+// dropped TTFs entirely, so we ship our own copy of Inter Regular/Bold
+// from rsms/inter under assets/fonts/. Resolved against process.cwd()
+// (project root) so it works in both `tsx watch` and the Railway
+// container; assets/ is checked into git and present at runtime.
+const FONT_DIR = path.resolve(process.cwd(), "assets/fonts");
 
 let cachedFontData: { regular: string; bold: string } | null = null;
-let pendingFontLoad: Promise<{ regular: string; bold: string }> | null = null;
-async function loadFontData(): Promise<{ regular: string; bold: string }> {
+function loadFontData(): { regular: string; bold: string } {
   if (cachedFontData) return cachedFontData;
-  if (pendingFontLoad) return pendingFontLoad;
-  pendingFontLoad = (async () => {
-    const fetchTtf = async (url: string): Promise<string> => {
-      const res = await fetch(url);
-      if (!res.ok) {
-        throw new Error(`Font download failed (${res.status}): ${url}`);
-      }
-      return Buffer.from(await res.arrayBuffer()).toString("base64");
-    };
-    const [regular, bold] = await Promise.all([
-      fetchTtf(FONT_URL_REGULAR),
-      fetchTtf(FONT_URL_BOLD),
-    ]);
-    cachedFontData = { regular, bold };
-    debug.story("Print: Inter TTFs cached");
-    return cachedFontData;
-  })().finally(() => {
-    pendingFontLoad = null;
-  });
-  return pendingFontLoad;
+  const regular = fs
+    .readFileSync(path.join(FONT_DIR, "Inter-Regular.ttf"))
+    .toString("base64");
+  const bold = fs
+    .readFileSync(path.join(FONT_DIR, "Inter-Bold.ttf"))
+    .toString("base64");
+  cachedFontData = { regular, bold };
+  return cachedFontData;
 }
 
-async function registerFonts(pdf: jsPDF) {
-  const { regular, bold } = await loadFontData();
+function registerFonts(pdf: jsPDF) {
+  const { regular, bold } = loadFontData();
   pdf.addFileToVFS("Inter-Regular.ttf", regular);
   pdf.addFont("Inter-Regular.ttf", FONT_FAMILY, "normal");
   pdf.addFileToVFS("Inter-Bold.ttf", bold);
