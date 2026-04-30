@@ -59,20 +59,21 @@ export async function createJob(input: CreateJobInput) {
   return row;
 }
 
-/** Atomically claim a queued/running job for this worker. Returns the
- * updated row, or null if another worker already claimed it. Used by
- * resume on startup and by the per-job processor wrapper. */
+/** Atomically claim a queued job for this worker. Returns the
+ * updated row, or null if the job was no longer queued (already
+ * claimed, completed, or failed).
+ *
+ * Strict by design: ONLY status='queued' is accepted. A "running"
+ * job is owned by some other worker — even if its lockedAt is old.
+ * The caller (resume sweep) is responsible for resetting an
+ * abandoned-running row back to queued FIRST and then claiming it
+ * here. Without this discipline two workers could race on the same
+ * BullMQ delivery and double-execute. */
 export async function claimJob(jobId: string, workerId: string) {
   const result = await prisma.generationJob.updateMany({
     where: {
       id: jobId,
-      OR: [
-        { status: "queued" },
-        // Allow re-claim of a stale running job (lock holder is gone).
-        // The caller decides whether the lock is stale before invoking
-        // this with a "running" job.
-        { status: "running" },
-      ],
+      status: "queued",
     },
     data: {
       status: "running",
@@ -125,17 +126,30 @@ export async function markJobFailed(jobId: string, error: string) {
   });
 }
 
-/** Find jobs that are queued or appear to have a stale lock. Used by
- * worker startup to resume work after a restart. `staleLockMs` is the
- * threshold beyond which a `running` job is considered abandoned. */
-export async function findResumableJobs(staleLockMs: number) {
+/** Find jobs the worker should reclaim. `staleLockMs` is the threshold
+ * beyond which a `running` job is considered abandoned.
+ *
+ * - With `includeQueued: true` (default, no-Redis poll path), returns
+ *   queued rows AND stale-running rows. The poller picks up new work
+ *   plus recovers crashed work.
+ * - With `includeQueued: false` (BullMQ-backed boot path), returns
+ *   only stale-running rows. Healthy queued rows are BullMQ's
+ *   responsibility — re-enqueueing them is wasteful and, combined with
+ *   any race in the claim path, risks duplicate execution. */
+export async function findResumableJobs(
+  staleLockMs: number,
+  opts: { includeQueued?: boolean } = {},
+) {
   const staleBefore = new Date(Date.now() - staleLockMs);
+  const includeQueued = opts.includeQueued ?? true;
   return prisma.generationJob.findMany({
     where: {
-      OR: [
-        { status: "queued" },
-        { status: "running", lockedAt: { lt: staleBefore } },
-      ],
+      OR: includeQueued
+        ? [
+            { status: "queued" },
+            { status: "running", lockedAt: { lt: staleBefore } },
+          ]
+        : [{ status: "running", lockedAt: { lt: staleBefore } }],
     },
     orderBy: { createdAt: "asc" },
   });

@@ -5,7 +5,7 @@ import { getStory, getStoryStatus, getStoryDebug, regenerateStoryImages } from "
 import { useAuth } from "../auth/AuthContext";
 import { jsPDF } from "jspdf";
 import HTMLFlipBook from "react-pageflip";
-import StoryLoadingScreen, { STORY_IMAGE_PHRASES } from "../components/StoryLoadingScreen";
+import StoryLoadingScreen, { STORY_IMAGE_PHRASES, STORY_TEXT_PHRASES } from "../components/StoryLoadingScreen";
 import { storyHexColor } from "../../shared/storyColor";
 
 async function loadImageAsDataUrl(url: string): Promise<string | null> {
@@ -333,21 +333,37 @@ export default function ReadingMode() {
     enabled: !!storyId && isAdmin && showDebug,
   });
 
-  // Poll for image generation status when story is illustrating
-  const isIllustrating = story?.status === "illustrating";
+  // Async pipeline status vocabulary. We poll while the story is in
+  // any non-terminal state (queued / generating_text / illustrating)
+  // and stop polling once it's published or failed.
+  const isInProgress =
+    story?.status === "queued" ||
+    story?.status === "generating_text" ||
+    story?.status === "illustrating";
+  const isFailed =
+    story?.status === "failed_text" || story?.status === "failed_illustration";
+
   const { data: storyStatus } = useQuery({
     queryKey: ["story-status", storyId],
     queryFn: () => getStoryStatus(storyId!),
-    enabled: !!storyId && isIllustrating,
-    refetchInterval: isIllustrating ? 5000 : false,
+    enabled: !!storyId && isInProgress,
+    refetchInterval: isInProgress ? 3000 : false,
   });
 
-  // When status changes to published, refetch the full story to get image URLs
+  // Whenever the polled status is ahead of the cached story (text just
+  // landed, or images just finished) refetch the full story so the
+  // page-flip view picks up the new content.
   useEffect(() => {
-    if (storyStatus?.status === "published" && isIllustrating) {
+    if (!storyStatus || !story) return;
+    const advanced =
+      (story.status === "queued" || story.status === "generating_text") &&
+      storyStatus.status !== "queued" &&
+      storyStatus.status !== "generating_text";
+    const finished = storyStatus.status === "published" && story.status !== "published";
+    if (advanced || finished) {
       queryClient.invalidateQueries({ queryKey: ["story", storyId] });
     }
-  }, [storyStatus?.status, isIllustrating, storyId, queryClient]);
+  }, [storyStatus?.status, story?.status, storyId, queryClient]);
 
   const scenes = story?.scenes || [];
   const totalScenes = scenes.length;
@@ -428,14 +444,53 @@ export default function ReadingMode() {
     );
   }
 
-  if (isIllustrating) {
-    const imagesReady = storyStatus?.imagesReady || 0;
-    const totalImages = storyStatus?.totalPages || 0;
-    const percent = totalImages > 0 ? (imagesReady / totalImages) * 100 : 0;
+  if (isFailed) {
+    const message =
+      story.status === "failed_text"
+        ? "We couldn't write this story. Try again from the library."
+        : "We couldn't illustrate this story. Try regenerating from the library.";
+    return (
+      <div className="min-h-screen bg-[#1a1a2e] flex flex-col items-center justify-center gap-4 px-4">
+        <p className="text-stone-300 text-center" style={{ fontFamily: "Lexend, sans-serif" }}>
+          {message}
+        </p>
+        {storyStatus?.job?.lastError && isAdmin && (
+          <p className="text-stone-500 text-xs max-w-md text-center font-mono">
+            {storyStatus.job.lastError}
+          </p>
+        )}
+        <button
+          onClick={() => navigate("/library")}
+          className="text-stone-400 hover:text-white text-sm transition-colors"
+        >
+          Back to Library
+        </button>
+      </div>
+    );
+  }
+
+  if (isInProgress) {
+    // Pick copy based on which phase we're in. Text-phase steps come
+    // out of storyGenerator's onProgress; image-phase progress comes
+    // from the per-page save callback.
+    const inTextPhase = story.status === "queued" || story.status === "generating_text";
+    const phrases = inTextPhase ? STORY_TEXT_PHRASES : STORY_IMAGE_PHRASES;
+
+    let percent: number;
+    if (inTextPhase) {
+      // Text job: the worker writes a 0–95 ramp into the job row.
+      percent = storyStatus?.job?.progressPercent ?? 0;
+    } else {
+      // Image job: derive from scenes saved.
+      const imagesReady = storyStatus?.imagesReady ?? 0;
+      const totalImages = storyStatus?.totalPages ?? 0;
+      percent = totalImages > 0 ? (imagesReady / totalImages) * 100 : 0;
+    }
+
     return (
       <StoryLoadingScreen
-        phrases={STORY_IMAGE_PHRASES}
-        title={story.title}
+        phrases={phrases}
+        title={story.title || undefined}
         progressPercent={percent}
       />
     );
@@ -499,12 +554,17 @@ export default function ReadingMode() {
                 e.stopPropagation();
                 if (regenerating || !storyId) return;
                 setRegenerating(true);
-                setRegenProgress("Starting...");
+                setRegenProgress("Queueing...");
                 try {
-                  await regenerateStoryImages(storyId, (_step, detail) => {
-                    setRegenProgress(detail || "Generating...");
-                  });
-                  window.location.reload();
+                  // Async now: returns 202 + { jobId }, the worker
+                  // flips status back to "illustrating" and the
+                  // existing poll above shows progress.
+                  await regenerateStoryImages(storyId);
+                  // Refetch the story so its status reflects
+                  // "illustrating", which kicks the loading view in.
+                  await queryClient.invalidateQueries({ queryKey: ["story", storyId] });
+                  setRegenProgress("");
+                  setRegenerating(false);
                 } catch (err) {
                   console.error("Regeneration failed:", err);
                   setRegenProgress("");

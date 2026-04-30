@@ -21,8 +21,11 @@ export async function checkUniverseQuota(userId: string): Promise<QuotaStatus> {
 
   // Preset (template-cloned) universes don't count: a free user can pick
   // a preset during onboarding AND still build their one custom universe.
+  // Failed universes don't count either: an aborted onboarding build
+  // shouldn't lock a free user out of retrying — they'll typically
+  // delete the failed placeholder and create a new one.
   const used = await prisma.universe.count({
-    where: { userId, fromPreset: false },
+    where: { userId, fromPreset: false, status: { not: "failed" } },
   });
   const remaining = Math.max(0, limit - used);
 

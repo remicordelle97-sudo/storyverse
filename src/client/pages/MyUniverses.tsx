@@ -1,18 +1,30 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { getUniverses, getUniverseQuota } from "../api/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { getMyUniverses, getUniverseQuota, deleteUniverse } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { parseStringList } from "../lib/parseStringList";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 
 export default function MyUniverses() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
 
-  const { data: universes = [], isLoading } = useQuery({
-    queryKey: ["universes"],
-    queryFn: getUniverses,
+  // Infinite scroll on the universe sidebar so a user with >100
+  // universes can still reach all of them. Polling is page-1-only —
+  // any universe that's mid-build will be on page 1 (newest-first
+  // ordering), so refetching pages 2..N every tick would be pointless.
+  const universesList = useInfiniteList({
+    queryKey: ["universes-my"],
+    fetchPage: (cursor) => getMyUniverses(cursor),
+    shouldPoll: (firstPageItems) =>
+      firstPageItems.some(
+        (u: any) => u.status !== "ready" && u.status !== "failed",
+      ),
   });
+  const universes = universesList.items;
+  const isLoading = universesList.isLoading;
 
   const { data: quota } = useQuery({
     queryKey: ["universe-quota"],
@@ -96,6 +108,15 @@ export default function MyUniverses() {
                 </p>
               </button>
             ))}
+            {/* Infinite-scroll sentinel: when the bottom of the
+                sidebar comes into view, fetch the next page. Hidden
+                once we've reached the end. */}
+            {universesList.hasNextPage && (
+              <div ref={universesList.sentinelRef} className="h-2" />
+            )}
+            {universesList.isFetchingNextPage && (
+              <p className="text-[11px] text-stone-400 text-center py-2">Loading more…</p>
+            )}
           </div>
 
           {/* Detail panel */}
@@ -110,11 +131,19 @@ export default function MyUniverses() {
                 <div className="bg-white rounded-xl border border-stone-200 p-5">
                   <div className="flex items-center gap-3 mb-3">
                     <h2 className="text-lg font-bold text-stone-800">{selected.name}</h2>
-                    {!selected.styleReferenceUrl && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
-                        Generating images...
-                      </span>
-                    )}
+                    <UniverseStatusBadge universe={selected} />
+                    <div className="ml-auto">
+                      <DeleteUniverseButton
+                        universe={selected}
+                        onDeleted={() => {
+                          // Drop selection and let the auto-select pick the
+                          // next one (or land on the empty state).
+                          setSelectedId(null);
+                          queryClient.invalidateQueries({ queryKey: ["universes-my"] });
+                          queryClient.invalidateQueries({ queryKey: ["universe-quota"] });
+                        }}
+                      />
+                    </div>
                   </div>
                   {themes.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-3">
@@ -168,6 +197,80 @@ export default function MyUniverses() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Badge showing where a universe is in the async creation pipeline.
+ * Renders nothing once status === "ready" — the card itself is the
+ * affirmative signal at that point. */
+function UniverseStatusBadge({ universe }: { universe: any }) {
+  const status: string = universe.status || "ready";
+  if (status === "ready") return null;
+  if (status === "failed") {
+    return (
+      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-700 font-medium">
+        Failed
+      </span>
+    );
+  }
+  const label =
+    status === "queued"
+      ? "Queued..."
+      : status === "building"
+        ? "Building..."
+        : status === "illustrating_assets"
+          ? "Generating images..."
+          : "Working...";
+  return (
+    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+      {label}
+    </span>
+  );
+}
+
+/** Delete button for an owned universe. Shown for every state — failed
+ * universes especially need this since they count toward the
+ * non-preset quota until removed (a free user with one failed build
+ * would otherwise be locked out of creating any custom universe).
+ * For non-failed universes the confirmation copy is sterner since
+ * delete cascades to every story in the universe. */
+function DeleteUniverseButton({ universe, onDeleted }: { universe: any; onDeleted: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isFailed = universe.status === "failed";
+  const label = isFailed ? "Delete failed universe" : "Delete";
+  const confirmText = isFailed
+    ? `Delete "${universe.name}"? It didn't finish building, so removing it is safe.`
+    : `Delete "${universe.name}"? This also deletes every story in this universe and cannot be undone.`;
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        onClick={async () => {
+          if (busy) return;
+          if (!confirm(confirmText)) return;
+          setBusy(true);
+          setError(null);
+          try {
+            await deleteUniverse(universe.id);
+            onDeleted();
+          } catch (e: any) {
+            setError(e?.message || "Delete failed");
+            setBusy(false);
+          }
+        }}
+        disabled={busy}
+        className={`text-[11px] px-2 py-1 rounded font-medium transition-colors disabled:opacity-50 ${
+          isFailed
+            ? "bg-red-100 text-red-700 hover:bg-red-200"
+            : "text-stone-400 hover:text-red-600"
+        }`}
+      >
+        {busy ? "Deleting..." : label}
+      </button>
+      {error && <p className="text-[10px] text-red-500">{error}</p>}
     </div>
   );
 }

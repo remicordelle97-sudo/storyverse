@@ -5,11 +5,80 @@ import { requireAdmin } from "../middleware/auth.js";
 import { debug } from "../lib/debug.js";
 import { deleteUniversesCascade } from "../lib/cascade.js";
 import { serializeUser } from "../lib/serializeUser.js";
+import { snapshotLatency } from "../middleware/httpLatency.js";
+import { claudeQueue, geminiQueue } from "../lib/queues.js";
 
 const router = Router();
 
 // All routes require admin
 router.use(requireAdmin);
+
+// GET /api/admin/metrics — operational visibility for the async
+// pipeline. Combines BullMQ queue counts (live), GenerationJob row
+// stats (durable), and HTTP latency from the in-memory ring buffer.
+router.get("/metrics", async (_req, res) => {
+  try {
+    // BullMQ counts. Returns null entries if no Redis is configured.
+    const [claudeCounts, geminiCounts] = await Promise.all([
+      claudeQueue?.getJobCounts("waiting", "active", "completed", "failed", "delayed").catch(() => null),
+      geminiQueue?.getJobCounts("waiting", "active", "completed", "failed", "delayed").catch(() => null),
+    ]);
+
+    // GenerationJob aggregates: status × kind counts, recent-failure
+    // count (last 24h), and average runtime per kind for completed
+    // jobs (also last 24h to keep the average representative).
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [statusKindCounts, recentCompleted, recentFailed] = await Promise.all([
+      prisma.generationJob.groupBy({
+        by: ["status", "kind"],
+        _count: true,
+      }),
+      prisma.generationJob.findMany({
+        where: { status: "completed", finishedAt: { gte: since }, startedAt: { not: null } },
+        select: { kind: true, startedAt: true, finishedAt: true },
+      }),
+      prisma.generationJob.count({
+        where: { status: "failed", finishedAt: { gte: since } },
+      }),
+    ]);
+
+    // Avg runtime per kind. Skip rows missing either timestamp (shouldn't
+    // happen for completed but defensive).
+    const runtimes = new Map<string, number[]>();
+    for (const j of recentCompleted) {
+      if (!j.startedAt || !j.finishedAt) continue;
+      const ms = j.finishedAt.getTime() - j.startedAt.getTime();
+      const arr = runtimes.get(j.kind) ?? [];
+      arr.push(ms);
+      runtimes.set(j.kind, arr);
+    }
+    const avgRuntimeMs: Record<string, { count: number; avgMs: number }> = {};
+    for (const [kind, samples] of runtimes) {
+      const sum = samples.reduce((a, b) => a + b, 0);
+      avgRuntimeMs[kind] = {
+        count: samples.length,
+        avgMs: Math.round(sum / samples.length),
+      };
+    }
+
+    res.json({
+      queues: {
+        claudeTasks: claudeCounts,
+        geminiTasks: geminiCounts,
+        redisAvailable: claudeCounts !== null,
+      },
+      jobs: {
+        byStatusAndKind: statusKindCounts,
+        avgRuntimeLast24hMs: avgRuntimeMs,
+        failedLast24h: recentFailed,
+      },
+      http: snapshotLatency(),
+    });
+  } catch (e: any) {
+    debug.error(`admin metrics failed: ${e.message}`);
+    res.status(500).json({ error: "Failed to compute metrics" });
+  }
+});
 
 // GET /api/admin/users — list all users with universe/story counts
 router.get("/users", async (_req, res) => {

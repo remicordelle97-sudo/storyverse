@@ -3,7 +3,14 @@ import { OAuth2Client } from "google-auth-library";
 import prisma from "../lib/prisma.js";
 import { signAccessToken, signRefreshToken, verifyToken } from "../lib/jwt.js";
 import { authMiddleware } from "../middleware/auth.js";
-import { buildCustomUniverse, clonePresetUniverse, startUniverseImageGeneration } from "../services/universeBuilder.js";
+import { clonePresetUniverse } from "../services/universeBuilder.js";
+import {
+  validateUniverseInput,
+  createUniversePlaceholder,
+  type UniverseBuildJobPayload,
+} from "../services/universePipeline.js";
+import { createJob } from "../lib/jobs.js";
+import { JOB_KINDS } from "../lib/queues.js";
 import { serializeUser } from "../lib/serializeUser.js";
 
 const router = Router();
@@ -89,13 +96,15 @@ router.post("/google", async (req, res) => {
   }
 });
 
-// Complete onboarding: build a custom universe from the user's choices.
-// Synchronous: generate the setting description + every character's
-// appearance/outfit via Claude, then create the DB rows and mark the
-// user as onboarded so they can leave the loading screen.
-// Background: generate the style reference + character sheets via
-// Gemini. The library polls and shows a notification when the
-// universe is fully ready.
+// Complete onboarding: kick off an async custom universe build.
+// Validates the request, creates a placeholder Universe row with
+// status='queued', marks the user onboarded immediately (so a refresh
+// during the build doesn't loop them through the wizard again), and
+// enqueues a universe_build job. Returns 202 with { universeId, jobId };
+// the client navigates to the library and polls the universe's status
+// until it's "ready" (or "failed" if the build aborts). The actual
+// Claude + Gemini work happens in the worker — see
+// services/universePipeline.ts.
 router.post("/onboard", authMiddleware, async (req, res) => {
   try {
     const user = await prisma.user.findUniqueOrThrow({ where: { id: req.userId as string } });
@@ -103,24 +112,41 @@ router.post("/onboard", authMiddleware, async (req, res) => {
       return res.status(400).json({ error: "Already onboarded" });
     }
 
-    const built = await buildCustomUniverse(user.id, req.body || {});
+    // Validate up front so a bad payload returns 400 cleanly instead
+    // of trickling into the worker as a job failure.
+    let validated;
+    try {
+      validated = validateUniverseInput(req.body || {});
+    } catch (e: any) {
+      return res.status(400).json({ error: e.message });
+    }
 
+    const universe = await createUniversePlaceholder({
+      userId: user.id,
+      universeName: validated.universeName,
+      themes: validated.themes,
+    });
+
+    // Mark the user onboarded as soon as the placeholder exists so a
+    // page refresh during the build doesn't loop them back to
+    // onboarding. Failures surface in the library as a "failed"
+    // universe placeholder.
     await prisma.user.update({
       where: { id: user.id },
       data: { onboardedAt: new Date() },
     });
 
-    res.json({ universeId: built.id });
+    const job = await createJob({
+      kind: JOB_KINDS.universeBuild,
+      ownerId: user.id,
+      universeId: universe.id,
+      payload: { input: req.body } satisfies UniverseBuildJobPayload as any,
+    });
 
-    startUniverseImageGeneration(built.id, built.name);
+    res.status(202).json({ universeId: universe.id, jobId: job.id });
   } catch (e: any) {
-    const msg = e?.message || "Failed to complete onboarding";
     console.error("Onboarding failed:", e);
-    // Surface validation errors as 400 so the client can show them; everything
-    // else is 500.
-    const isValidation =
-      typeof msg === "string" && /required/i.test(msg);
-    res.status(isValidation ? 400 : 500).json({ error: msg });
+    res.status(500).json({ error: e?.message || "Failed to start onboarding" });
   }
 });
 

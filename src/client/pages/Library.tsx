@@ -1,14 +1,36 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getStories, getUniverses, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
+import { getMyStories, getFeaturedStories, getMyUniverses, toggleStoryPublic, deleteStory, createCheckoutSession, createPortalSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { storyTailwindColor } from "../../shared/storyColor";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 
 
 function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { story: any; onClick: () => void; isAdmin?: boolean; onTogglePublic?: () => void; onDelete?: () => void }) {
   const color = storyTailwindColor(story.id);
   const universeName = story.universe?.name || "";
+
+  // Status vocabulary from the async pipeline (PR 4):
+  //   queued | generating_text | illustrating | published
+  //   | failed_text | failed_illustration
+  // Show a friendly stand-in for the not-yet-finalized cases so the
+  // user doesn't see an empty-title book.
+  const statusLabel = (() => {
+    if (story.status === "queued" || story.status === "generating_text") {
+      return "Generating...";
+    }
+    if (story.status === "illustrating") return "Adding illustrations...";
+    if (story.status === "failed_text") return "Failed";
+    if (story.status === "failed_illustration") return "Illustrations failed";
+    return null;
+  })();
+  const isPending =
+    story.status === "queued" ||
+    story.status === "generating_text" ||
+    story.status === "illustrating";
+  const displayTitle =
+    story.title || (isPending ? "Generating story..." : "Untitled");
 
   return (
     <div className="relative" style={{ width: "160px" }}>
@@ -36,17 +58,21 @@ function BookCover({ story, onClick, isAdmin, onTogglePublic, onDelete }: { stor
             </p>
           )}
 
-          {/* Empty story indicator */}
-          {!story.scenesCount && (
+          {/* Status / unavailable indicator */}
+          {statusLabel ? (
+            <p className="text-white/60 text-[8px] uppercase tracking-wider">
+              {statusLabel}
+            </p>
+          ) : !story.scenesCount ? (
             <p className="text-white/30 text-[8px] uppercase tracking-wider">
               Story unavailable
             </p>
-          )}
+          ) : null}
 
           {/* Title */}
           <div className="flex-1 flex items-center">
             <h3 className="text-white font-bold text-sm leading-snug">
-              {story.title}
+              {displayTitle}
             </h3>
           </div>
         </div>
@@ -120,31 +146,46 @@ export default function Library() {
   const [showMenu, setShowMenu] = useState(false);
   const [showFaq, setShowFaq] = useState(false);
 
-  const { data: stories = [], isLoading } = useQuery({
-    queryKey: ["stories-all"],
-    queryFn: () => getStories(),
+  // Library shows two shelves: the user's own stories (infinite scroll
+  // via useInfiniteList) and the admin-curated featured shelf (single
+  // page — admin curation makes growth bounded). Polling is scoped to
+  // the first page only; in-progress stories always land at the top of
+  // a newest-first list, so older pages don't need refetching.
+  const myStoriesList = useInfiniteList({
+    queryKey: ["stories-my"],
+    fetchPage: (cursor) => getMyStories(cursor),
+    shouldPoll: (firstPageItems) =>
+      firstPageItems.some(
+        (s: any) =>
+          s.status === "queued" ||
+          s.status === "generating_text" ||
+          s.status === "illustrating",
+      ),
   });
+  const stories = myStoriesList.items;
+  const isLoading = myStoriesList.isLoading;
 
-  // Detect universes that haven't finished generating their style reference
-  // and character sheets so we can poll until they're ready and notify
-  // the user.
-  const isUniverseReady = (u: any) => {
-    if (!u.styleReferenceUrl) return false;
-    const chars = u.characters || [];
-    if (chars.length === 0) return false;
-    return chars.every((c: any) => !!c.referenceImageUrl);
-  };
-
-  const { data: universes = [] } = useQuery({
-    queryKey: ["universes"],
-    queryFn: getUniverses,
-    // Poll every 5s while any universe is still generating images.
-    refetchInterval: (query) => {
-      const data = (query.state.data as any[]) || [];
-      const anyPending = data.some((u: any) => !isUniverseReady(u));
-      return anyPending ? 5000 : false;
-    },
+  const { data: featuredStoriesPage } = useQuery({
+    queryKey: ["stories-featured"],
+    queryFn: () => getFeaturedStories(),
   });
+  const featuredStories = featuredStoriesPage?.items ?? [];
+
+  // Universe lifecycle states (PR 5 added the explicit status column):
+  //   queued | building | illustrating_assets | ready | failed
+  // Treat status="ready" as the only success terminal. status="failed"
+  // is a terminal we should stop polling on (otherwise a failed build
+  // would keep the library refetching forever).
+  const isUniverseReady = (u: any) => u.status === "ready";
+  const isUniverseFailed = (u: any) => u.status === "failed";
+
+  const universesList = useInfiniteList({
+    queryKey: ["universes-my"],
+    fetchPage: (cursor) => getMyUniverses(cursor),
+    shouldPoll: (firstPageItems) =>
+      firstPageItems.some((u: any) => !isUniverseReady(u) && !isUniverseFailed(u)),
+  });
+  const universes = universesList.items;
 
   // Track "newly-ready" transitions so we can show a toast when background
   // image generation completes.
@@ -201,10 +242,15 @@ export default function Library() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const shelves: any[][] = [];
-  for (let i = 0; i < stories.length; i += perShelf) {
-    shelves.push(stories.slice(i, i + perShelf));
+  function chunkIntoShelves(books: any[]): any[][] {
+    const out: any[][] = [];
+    for (let i = 0; i < books.length; i += perShelf) {
+      out.push(books.slice(i, i + perShelf));
+    }
+    return out;
   }
+  const shelves = chunkIntoShelves(stories);
+  const featuredShelves = chunkIntoShelves(featuredStories);
 
   return (
     <div className="min-h-screen app-bg">
@@ -369,17 +415,36 @@ export default function Library() {
                     isAdmin={isAdmin}
                     onTogglePublic={async () => {
                       await toggleStoryPublic(story.id);
-                      queryClient.invalidateQueries({ queryKey: ["stories-all"] });
+                      // Invalidate both shelves: toggling isPublic moves
+                      // the story between the "my" and "featured" sets.
+                      queryClient.invalidateQueries({ queryKey: ["stories-my"] });
+                      queryClient.invalidateQueries({ queryKey: ["stories-featured"] });
                     }}
                     onDelete={async () => {
                       if (!confirm(`Delete "${story.title}"? This cannot be undone.`)) return;
                       await deleteStory(story.id);
-                      queryClient.invalidateQueries({ queryKey: ["stories-all"] });
+                      queryClient.invalidateQueries({ queryKey: ["stories-my"] });
+                      queryClient.invalidateQueries({ queryKey: ["stories-featured"] });
                     }}
                   />
                 ))}
               </Shelf>
             ))}
+            {/* Infinite-scroll sentinel: when this enters the viewport
+                useInfiniteList fires fetchNextPage. Sized small + with
+                a 300px rootMargin so the next page starts loading
+                slightly before the user scrolls all the way down. */}
+            {myStoriesList.hasNextPage && (
+              <div ref={myStoriesList.sentinelRef} className="h-4" />
+            )}
+            {myStoriesList.isFetchingNextPage && (
+              <p
+                className="text-stone-400 text-sm text-center py-4"
+                style={{ fontFamily: "Georgia, serif" }}
+              >
+                Loading more...
+              </p>
+            )}
           </div>
         ) : (
           <div className="py-2">
@@ -390,15 +455,47 @@ export default function Library() {
                     Your bookshelf is empty
                   </p>
                   <button
-                    onClick={() => navigate("/new-universe")}
+                    onClick={handleNewStory}
                     className="px-6 py-3 bg-amber-800 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors"
                     style={{ fontFamily: "Georgia, serif" }}
                   >
-                    Create your first universe
+                    {universes.length === 0 ? "Create your first universe" : "Create your first story"}
                   </button>
                 </div>
               </div>
             </Shelf>
+          </div>
+        )}
+
+        {featuredShelves.length > 0 && (
+          <div className="pt-2 pb-2">
+            <h2
+              className="text-stone-400 text-sm uppercase tracking-wider mb-4 px-3 sm:px-8"
+              style={{ fontFamily: "Georgia, serif" }}
+            >
+              Featured
+            </h2>
+            {featuredShelves.map((shelf, i) => (
+              <Shelf key={`featured-${i}`}>
+                {shelf.map((story: any) => (
+                  <BookCover
+                    key={story.id}
+                    story={story}
+                    onClick={() => navigate(`/reading/${story.id}`)}
+                    isAdmin={isAdmin}
+                    onTogglePublic={
+                      isAdmin
+                        ? async () => {
+                            await toggleStoryPublic(story.id);
+                            queryClient.invalidateQueries({ queryKey: ["stories-my"] });
+                            queryClient.invalidateQueries({ queryKey: ["stories-featured"] });
+                          }
+                        : undefined
+                    }
+                  />
+                ))}
+              </Shelf>
+            ))}
           </div>
         )}
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { getUniverses, generateStory, getStoryQuota, createCheckoutSession } from "../api/client";
+import { getMyUniverses, generateStory, getStoryQuota, createCheckoutSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
 import StoryLoadingScreen, { STORY_TEXT_PHRASES } from "../components/StoryLoadingScreen";
@@ -14,10 +14,18 @@ export default function StoryBuilder() {
   const { isAdmin } = useAuth();
   const storedUniverseId = localStorage.getItem("universeId") || "";
 
-  const { data: universes = [] } = useQuery({
-    queryKey: ["universes"],
-    queryFn: getUniverses,
+  const { data: universesPage } = useQuery({
+    queryKey: ["universes-my"],
+    queryFn: () => getMyUniverses(),
   });
+  // Only ready universes can be used for story generation. A universe
+  // mid-build doesn't have its hero yet (pickStoryParameters would
+  // throw "Universe has no main character"), and a failed universe
+  // is broken — the user should delete it from MyUniverses, not pick
+  // it here.
+  const universes = (universesPage?.items ?? []).filter(
+    (u: any) => u.status === "ready",
+  );
 
   const { data: quota } = useQuery({
     queryKey: ["story-quota"],
@@ -49,14 +57,17 @@ export default function StoryBuilder() {
     setError("");
 
     try {
-      const result = await generateStory({
+      // POST /stories/generate now returns 202 + { storyId, jobId } and
+      // the worker handles text + image generation in the background.
+      // ReadingMode polls /stories/:id/status to drive its loading UI.
+      const { storyId } = await generateStory({
         universeId,
         language: "en",
         ageGroup,
         structure: isAdmin ? structure : undefined,
         generateImages,
       });
-      navigate(`/reading/${result.story.id}`);
+      navigate(`/reading/${storyId}`);
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.");
       setLoading(false);
@@ -80,6 +91,18 @@ export default function StoryBuilder() {
         Create a new story
       </h1>
 
+      {universes.length === 0 ? (
+        <div className="bg-white rounded-xl border border-stone-200 p-6 text-sm text-stone-500">
+          You don't have any universes ready for stories yet.{" "}
+          <button
+            onClick={() => navigate("/my-universes")}
+            className="text-primary hover:text-primary/80 font-medium underline"
+          >
+            Open My universes
+          </button>{" "}
+          to build a new one or remove a failed one.
+        </div>
+      ) : (
       <>
           {/* Universe selector (if multiple) */}
           {universes.length > 1 && (
@@ -202,6 +225,7 @@ export default function StoryBuilder() {
               : "Create story"}
           </button>
       </>
+      )}
     </div>
   );
 }

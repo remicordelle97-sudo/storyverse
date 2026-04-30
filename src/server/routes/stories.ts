@@ -3,14 +3,19 @@ import prisma from "../lib/prisma.js";
 import { debug } from "../lib/debug.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { checkStoryQuota } from "../lib/quota.js";
-import { buildPrompt, buildSystemPrompt } from "../services/promptBuilder.js";
-import { generateStory, PLANNER_SYSTEM_PROMPT } from "../services/storyGenerator.js";
-import { MOODS } from "../lib/config.js";
-import { generateStoryImages } from "../services/geminiGenerator.js";
-import { enqueueImageGeneration } from "../lib/imageQueue.js";
+import { buildSystemPrompt } from "../services/promptBuilder.js";
+import { PLANNER_SYSTEM_PROMPT } from "../services/storyGenerator.js";
 import { verifyUniverseOwnership, verifyUniverseAccess } from "../lib/ownership.js";
 import { deleteStoriesCascade } from "../lib/cascade.js";
-import { STRUCTURE_IDS, isStructureId } from "../../shared/structures.js";
+import { createJob } from "../lib/jobs.js";
+import { JOB_KINDS } from "../lib/queues.js";
+import { parseLimit, paginate } from "../lib/pagination.js";
+import {
+  pickStoryParameters,
+  createStoryPlaceholder,
+  type StoryTextJobPayload,
+  type StoryImagesJobPayload,
+} from "../services/storyPipeline.js";
 
 const router = Router();
 
@@ -28,62 +33,126 @@ router.get("/quota", async (req, res) => {
   }
 });
 
+// Slim shape for the library/story-list views: just the metadata
+// needed to render covers and badges. Full story data (scenes,
+// characters, universe) is served by GET /:id. Avoids shipping
+// every page's prose and image URLs on the home shelf.
+const STORY_SUMMARY_SELECT = {
+  id: true,
+  title: true,
+  isPublic: true,
+  hasIllustrations: true,
+  status: true,
+  createdAt: true,
+  universe: { select: { id: true, name: true } },
+  _count: { select: { scenes: true } },
+} as const;
+
+function flattenStorySummary(s: {
+  id: string;
+  title: string;
+  isPublic: boolean;
+  hasIllustrations: boolean;
+  status: string;
+  createdAt: Date;
+  universe: { id: string; name: string };
+  _count: { scenes: number };
+}) {
+  return {
+    id: s.id,
+    title: s.title,
+    isPublic: s.isPublic,
+    hasIllustrations: s.hasIllustrations,
+    status: s.status,
+    createdAt: s.createdAt,
+    universe: s.universe,
+    scenesCount: s._count.scenes,
+  };
+}
+
+// Pagination helpers (DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, parseLimit,
+// paginate) live in src/server/lib/pagination.ts so stories.ts and
+// universes.ts share one source of truth.
+
+// GET /api/stories/my — paginated list of stories the user created
+// (directly via createdById) or that live in a universe they own.
+// Excludes other users' public stories, which live on /featured.
+router.get("/my", async (req, res) => {
+  try {
+    const limit = parseLimit(req.query.limit);
+    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+
+    const rows = await prisma.story.findMany({
+      where: {
+        OR: [
+          { createdById: req.userId as string },
+          { createdById: null, universe: { userId: req.userId as string } },
+        ],
+      },
+      select: STORY_SUMMARY_SELECT,
+      // `id` as a tiebreaker keeps cursor + skip:1 stable when two rows
+      // share the same createdAt (timestamps are millisecond-precise so
+      // bursts of bulk-generated content easily collide).
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    });
+
+    const { items, nextCursor } = paginate(rows, limit);
+    res.json({ items: items.map(flattenStorySummary), nextCursor });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to fetch your stories" });
+  }
+});
+
+// GET /api/stories/featured — paginated list of public stories
+// (admin-curated). Used for the "featured" shelf in the library.
+router.get("/featured", async (req, res) => {
+  try {
+    const limit = parseLimit(req.query.limit);
+    const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+
+    const rows = await prisma.story.findMany({
+      where: { isPublic: true },
+      select: STORY_SUMMARY_SELECT,
+      // `id` as a tiebreaker keeps cursor + skip:1 stable when two rows
+      // share the same createdAt (timestamps are millisecond-precise so
+      // bursts of bulk-generated content easily collide).
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit + 1,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+    });
+
+    const { items, nextCursor } = paginate(rows, limit);
+    res.json({ items: items.map(flattenStorySummary), nextCursor });
+  } catch (e) {
+    res.status(500).json({ error: "Failed to fetch featured stories" });
+  }
+});
+
+// GET /api/stories?universeId=... — list stories in a specific
+// universe. Used by the universe-detail and story-builder pages where
+// the count is bounded by per-universe story growth (small in practice
+// — a universe rarely accumulates more than a few dozen stories).
+// Not paginated for the same reason; if this ever grows we can swap to
+// the cursor pattern above.
 router.get("/", async (req, res) => {
   console.log("[stories] GET / hit", { universeId: req.query.universeId, userId: req.userId });
   try {
     const { universeId } = req.query;
-
-    // Slim shape for the library/story-list views: just the metadata
-    // needed to render covers and badges. Full story data (scenes,
-    // characters, universe) is served by GET /:id. Avoids shipping
-    // every page's prose and image URLs on the home shelf.
-    const slimSelect = {
-      id: true,
-      title: true,
-      isPublic: true,
-      hasIllustrations: true,
-      status: true,
-      createdAt: true,
-      universe: { select: { id: true, name: true } },
-      _count: { select: { scenes: true } },
-    } as const;
-
-    const where = universeId && typeof universeId === "string"
-      ? (await verifyUniverseOwnership(universeId, req.userId as string)
-          ? { universeId }
-          : null)
-      : {
-          OR: [
-            { createdById: req.userId as string },
-            { createdById: null, universe: { userId: req.userId as string } },
-            { isPublic: true },
-          ],
-        };
-
-    if (where === null) {
+    if (!universeId || typeof universeId !== "string") {
+      return res.status(400).json({ error: "universeId is required" });
+    }
+    if (!await verifyUniverseOwnership(universeId, req.userId as string)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
     const rows = await prisma.story.findMany({
-      where,
-      select: slimSelect,
+      where: { universeId },
+      select: STORY_SUMMARY_SELECT,
       orderBy: { createdAt: "desc" },
     });
-
-    // Flatten the _count.scenes into a top-level scenesCount field so
-    // clients don't have to know about the Prisma _count shape.
-    const stories = rows.map((s) => ({
-      id: s.id,
-      title: s.title,
-      isPublic: s.isPublic,
-      hasIllustrations: s.hasIllustrations,
-      status: s.status,
-      createdAt: s.createdAt,
-      universe: s.universe,
-      scenesCount: s._count.scenes,
-    }));
-
-    res.json(stories);
+    res.json(rows.map(flattenStorySummary));
   } catch (e) {
     res.status(500).json({ error: "Failed to fetch stories" });
   }
@@ -117,11 +186,22 @@ router.get("/:id/status", async (req, res) => {
     const imagesReady = story.scenes.filter((s) => s.imageUrl).length;
     const totalPages = story.scenes.length;
 
+    // Surface the most recent GenerationJob so the polling client can
+    // show step / progress / error. We pick the latest by createdAt
+    // because a story can have multiple jobs over its lifetime
+    // (story_text → story_images, or a regenerate-images run).
+    const latestJob = await prisma.generationJob.findFirst({
+      where: { storyId: story.id },
+      orderBy: { createdAt: "desc" },
+      select: { kind: true, status: true, step: true, progressPercent: true, lastError: true },
+    });
+
     res.json({
       status: story.status,
       hasIllustrations: story.hasIllustrations,
       imagesReady,
       totalPages,
+      job: latestJob ?? null,
     });
   } catch {
     res.status(500).json({ error: "Failed to check status" });
@@ -154,41 +234,12 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Trigger AI generation with SSE progress
+// Kick off async story generation. Validates quota/access, creates a
+// placeholder Story row, enqueues a story_text job, and returns 202
+// with { storyId, jobId } so the client can immediately navigate to
+// /reading/:id and poll /api/stories/:id/status. The text job will
+// (optionally) chain a story_images job; no HTTP request stays open.
 router.post("/generate", async (req, res) => {
-  // Set up SSE headers
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders();
-
-  // Send heartbeat every 30s to prevent proxy/Railway timeout
-  const heartbeat = setInterval(() => {
-    res.write(`: heartbeat\n\n`);
-  }, 30000);
-
-  function sendProgress(step: string, detail?: string) {
-    const data = JSON.stringify({ type: "progress", step, detail });
-    res.write(`data: ${data}\n\n`);
-  }
-
-  function sendError(message: string) {
-    clearInterval(heartbeat);
-    const data = JSON.stringify({ type: "error", error: message });
-    res.write(`data: ${data}\n\n`);
-    res.end();
-  }
-
-  function sendComplete(story: any) {
-    clearInterval(heartbeat);
-    const data = JSON.stringify({ type: "complete", story });
-    res.write(`data: ${data}\n\n`);
-    res.end();
-  }
-
-  // Clean up heartbeat if client disconnects
-  res.on("close", () => clearInterval(heartbeat));
-
   try {
     const {
       universeId,
@@ -200,185 +251,79 @@ router.post("/generate", async (req, res) => {
       generateImages,
     } = req.body;
 
-    // Use requested structure, or pick randomly if not provided. The
-    // allowlist comes from the shared STRUCTURE_IDS constant so the
-    // client picker, the server validator, and the prompt-body table
-    // never drift apart.
-    const structure = isStructureId(requestedStructure)
-      ? requestedStructure
-      : STRUCTURE_IDS[Math.floor(Math.random() * STRUCTURE_IDS.length)];
-
-    // Pick mood randomly for each story
-    const mood = MOODS[Math.floor(Math.random() * MOODS.length)];
-
     if (!universeId || !ageGroup) {
-      return sendError("universeId and ageGroup are required");
+      return res.status(400).json({ error: "universeId and ageGroup are required" });
     }
 
-    // Check story quota for the right bucket (illustrated vs text-only)
     const quota = await checkStoryQuota(req.userId as string, !!generateImages);
     if (!quota.allowed) {
       const kind = generateImages ? "illustrated stories" : "text-only stories";
-      return sendError(`You've reached your limit of ${quota.limit} ${kind} this month. Upgrade to premium for more.`);
+      return res.status(403).json({
+        error: `You've reached your limit of ${quota.limit} ${kind} this month. Upgrade to premium for more.`,
+      });
     }
 
     if (!await verifyUniverseAccess(universeId, req.userId as string)) {
-      return sendError("Access denied");
+      return res.status(403).json({ error: "Access denied" });
     }
 
-    // Resolve character cast. If the client provides an explicit list (admin
-    // workflow), honor it. Otherwise pick randomly: hero is always included,
-    // then a uniformly-random number of supporting characters (0, 1, or 2)
-    // is added so each story has 1-3 characters total.
+    let structure: string;
+    let mood: string;
     let characterIds: string[];
-    if (Array.isArray(requestedCharacterIds) && requestedCharacterIds.length > 0) {
-      characterIds = requestedCharacterIds;
-    } else {
-      const universeCharacters = await prisma.character.findMany({
-        where: { universeId },
+    try {
+      const picked = await pickStoryParameters({
+        universeId,
+        requestedStructure,
+        requestedCharacterIds,
       });
-      const hero = universeCharacters.find((c) => c.role === "main");
-      if (!hero) {
-        return sendError("Universe has no main character");
-      }
-      const supporting = universeCharacters.filter((c) => c.role !== "main");
-      // Pick total character count uniformly from {1, 2, 3} then derive how
-      // many supporting characters that means. Cap by what's actually
-      // available in the universe.
-      const totalTarget = Math.floor(Math.random() * 3) + 1;
-      const supportingTarget = Math.min(totalTarget - 1, supporting.length);
-      // Fisher-Yates shuffle on a copy so each story gets a fresh random pick.
-      const shuffled = [...supporting];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      }
-      characterIds = [hero.id, ...shuffled.slice(0, supportingTarget).map((c) => c.id)];
+      structure = picked.structure;
+      mood = picked.mood;
+      characterIds = picked.characterIds;
+    } catch (e: any) {
+      return res.status(400).json({ error: e.message });
     }
 
-    debug.story("=== STORY GENERATION START ===");
-    debug.story("Parameters", {
+    const story = await createStoryPlaceholder({
       universeId,
-      characters: characterIds.length,
-      mood,
+      createdById: req.userId as string,
       ageGroup,
+      language: language || "en",
+      mood,
       structure,
+      characterIds,
       generateImages: !!generateImages,
     });
 
-    // Step 1: Build prompt
-    sendProgress("building", "Building your story world...");
-    debug.prompt("Building prompt...");
-    const promptStart = Date.now();
-
-    const { planMessage, writeMessage, ageGroup: resolvedAgeGroup } = await buildPrompt({
+    const payload: StoryTextJobPayload = {
       universeId,
       characterIds,
-      mood: mood,
       language: language || "en",
       ageGroup,
       structure,
-      length: "short",
+      mood,
       parentPrompt: parentPrompt || "",
+      generateImages: !!generateImages,
+    };
+
+    const job = await createJob({
+      kind: JOB_KINDS.storyText,
+      ownerId: req.userId as string,
+      storyId: story.id,
+      payload: payload as any,
     });
 
-    debug.prompt(`Prompt built in ${Date.now() - promptStart}ms`, {
-      planLength: planMessage.length,
-      writeLength: writeMessage.length,
-      ageGroup: resolvedAgeGroup,
+    debug.story("Story enqueued", {
+      storyId: story.id,
+      jobId: job.id,
+      structure,
+      mood,
+      generateImages: !!generateImages,
     });
 
-    // Step 2: Generate story text (plan + write)
-    debug.story("Calling Claude for story generation...");
-    const storyStart = Date.now();
-
-    if (res.closed) {
-      debug.story("Client disconnected before story generation");
-      return;
-    }
-
-    const generated = await generateStory(
-      planMessage,
-      writeMessage,
-      resolvedAgeGroup,
-      {
-        generateImages: !!generateImages,
-        onProgress: (step, detail) => sendProgress(step, detail),
-      },
-    );
-
-    debug.story(`Story generated in ${Date.now() - storyStart}ms`, {
-      title: generated.title,
-      pages: generated.pages.length,
-    });
-
-    // Step 3: Save story with text (images pending)
-    sendProgress("saving", `"${generated.title}" — saving...`);
-
-    const story = await prisma.story.create({
-      data: {
-        universeId,
-        createdById: req.userId as string,
-        title: generated.title,
-        mood: mood,
-        language: language || "en",
-        ageGroup,
-        status: generateImages ? "illustrating" : "published",
-        // Record intent at creation so quota counts stay stable while a
-        // story is mid-illustration. imageQueue still flips this to true
-        // on success (idempotent).
-        hasIllustrations: !!generateImages,
-        debugPlanPrompt: planMessage,
-        debugWritePrompt: writeMessage,
-        debugPlan: JSON.stringify(generated.plan || {}),
-        debugStructure: structure,
-        scenes: {
-          create: generated.pages.map((page) => ({
-            sceneNumber: page.page_number,
-            content: page.content,
-            imagePrompt: page.image_prompt || "",
-            imageUrl: "",
-          })),
-        },
-        characters: {
-          create: characterIds.map((charId: string) => ({
-            characterId: charId,
-            roleInStory: "featured",
-          })),
-        },
-      },
-      include: {
-        scenes: { orderBy: { sceneNumber: "asc" } },
-        characters: { include: { character: true } },
-      },
-    });
-
-    debug.story("Story text saved", { storyId: story.id, title: story.title });
-
-    // Return story ID to client — client will poll for completion
-    sendComplete(story);
-
-    // Step 4: Queue image generation (runs in background via BullMQ or in-process fallback)
-    if (generateImages) {
-      const sceneMap: Record<number, string> = {};
-      for (const scene of story.scenes) {
-        sceneMap[scene.sceneNumber] = scene.id;
-      }
-      enqueueImageGeneration({
-        storyId: story.id,
-        universeId,
-        characterIds,
-        pages: generated.pages.map((p) => ({
-          page_number: p.page_number,
-          image_prompt: p.image_prompt,
-          characters_in_scene: p.characters_in_scene,
-        })),
-        sceneMap,
-      });
-    }
+    res.status(202).json({ storyId: story.id, jobId: job.id });
   } catch (e: any) {
-    debug.error(`Story generation failed: ${e.message}`);
-    sendError("Story generation failed. Please try again.");
+    debug.error(`Story enqueue failed: ${e.message}`);
+    res.status(500).json({ error: "Failed to start story generation" });
   }
 });
 
@@ -423,90 +368,50 @@ router.get("/:id/debug", requireAdmin, async (req, res) => {
   });
 });
 
-// Regenerate images for an existing story
+// Regenerate ALL scene images for an existing story (admin only).
+// Async: creates a story_images job with regenerateAll=true, flips
+// the story back to "illustrating", and returns 202. Client polls
+// /status the same way it does for first-time generation.
 router.post("/:id/regenerate-images", requireAdmin, async (req, res) => {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders();
-
-  const heartbeat = setInterval(() => {
-    res.write(`: heartbeat\n\n`);
-  }, 30000);
-
-  function sendProgress(step: string, detail?: string) {
-    res.write(`data: ${JSON.stringify({ type: "progress", step, detail })}\n\n`);
-  }
-  function sendError(message: string) {
-    clearInterval(heartbeat);
-    res.write(`data: ${JSON.stringify({ type: "error", error: message })}\n\n`);
-    res.end();
-  }
-  function sendComplete(story: any) {
-    clearInterval(heartbeat);
-    res.write(`data: ${JSON.stringify({ type: "complete", story })}\n\n`);
-    res.end();
-  }
-
-  res.on("close", () => clearInterval(heartbeat));
-
   try {
     const story = await prisma.story.findUnique({
       where: { id: req.params.id as string },
-      include: {
-        scenes: { orderBy: { sceneNumber: "asc" } },
-        characters: { include: { character: true } },
-        universe: true,
-      },
+      select: { id: true, universeId: true, createdById: true, scenes: { select: { id: true } } },
     });
 
-    if (!story) return sendError("Story not found");
+    if (!story) return res.status(404).json({ error: "Story not found" });
     if (!await verifyUniverseOwnership(story.universeId, req.userId as string)) {
-      return sendError("Access denied");
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (story.scenes.length === 0) {
+      return res.status(400).json({ error: "Story has no scenes to illustrate" });
     }
 
-    const characterIds = story.characters.map((sc: any) => sc.characterId);
-    const pages = story.scenes.map((s: any) => ({
-      page_number: s.sceneNumber,
-      image_prompt: s.imagePrompt,
-    }));
-
-    sendProgress("illustrating", `Regenerating ${pages.length} illustrations...`);
-
-    const imageMap = await generateStoryImages(
-      story.universeId,
-      characterIds,
-      pages,
-      (pageNum, total, _imageUrl) => {
-        sendProgress("illustrating", `Created illustration ${pageNum} of ${total}...`);
-      }
-    );
-
-    // Update scenes with new images
-    for (const scene of story.scenes) {
-      const newUrl = imageMap.get(scene.sceneNumber);
-      if (newUrl) {
-        await prisma.scene.update({
-          where: { id: scene.id },
-          data: {
-            imageUrl: newUrl,
-          },
-        });
-      }
-    }
-
-    const fullStory = await prisma.story.findUnique({
+    // Flip status so the polling client sees "illustrating" right
+    // away. The job processor will flip it to "published" or
+    // "failed_illustration" when done.
+    await prisma.story.update({
       where: { id: story.id },
-      include: {
-        scenes: { orderBy: { sceneNumber: "asc" } },
-        characters: { include: { character: true } },
-      },
+      data: { status: "illustrating" },
     });
 
-    sendComplete(fullStory);
+    const payload: StoryImagesJobPayload = {
+      storyId: story.id,
+      regenerateAll: true,
+    };
+
+    const job = await createJob({
+      kind: JOB_KINDS.storyImages,
+      ownerId: (story.createdById ?? req.userId) as string,
+      storyId: story.id,
+      payload: payload as any,
+    });
+
+    debug.story("Image regeneration enqueued", { storyId: story.id, jobId: job.id });
+    res.status(202).json({ storyId: story.id, jobId: job.id });
   } catch (e: any) {
-    debug.error(`Image regeneration failed: ${e.message}`);
-    sendError("Image regeneration failed. Please try again.");
+    debug.error(`Image regeneration enqueue failed: ${e.message}`);
+    res.status(500).json({ error: "Failed to start image regeneration" });
   }
 });
 
