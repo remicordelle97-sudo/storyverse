@@ -15,6 +15,7 @@ import {
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { parseStringList } from "../lib/parseStringList";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 
 function ActionButton({
   onClick,
@@ -60,11 +61,14 @@ export default function UniverseManager() {
   const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
 
-  const { data: universesPage, isLoading } = useQuery({
+  // Same infinite-scroll pattern as MyUniverses; admin manager often
+  // sees more universes than a regular user (preset clones + own).
+  const universesList = useInfiniteList({
     queryKey: ["universes-my"],
-    queryFn: () => getMyUniverses(),
+    fetchPage: (cursor) => getMyUniverses(cursor),
   });
-  const universes = universesPage?.items ?? [];
+  const universes = universesList.items;
+  const isLoading = universesList.isLoading;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sheetPreview, setSheetPreview] = useState<string | null>(null);
@@ -114,20 +118,28 @@ export default function UniverseManager() {
           {isLoading ? (
             <p className="text-stone-400 text-sm">Loading...</p>
           ) : (
-            universes.map((u: any) => (
-              <button
-                key={u.id}
-                onClick={() => setSelectedId(u.id)}
-                className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
-                  selectedId === u.id
-                    ? "border-primary bg-primary/5 text-stone-800"
-                    : "border-stone-200 bg-white text-stone-600 hover:border-primary/30"
-                }`}
-              >
-                <p className="font-medium">{u.name}</p>
-                <p className="text-[11px] text-stone-400">{u.characters?.length || 0} chars</p>
-              </button>
-            ))
+            <>
+              {universes.map((u: any) => (
+                <button
+                  key={u.id}
+                  onClick={() => setSelectedId(u.id)}
+                  className={`w-full text-left px-3 py-2.5 rounded-lg border text-sm transition-colors ${
+                    selectedId === u.id
+                      ? "border-primary bg-primary/5 text-stone-800"
+                      : "border-stone-200 bg-white text-stone-600 hover:border-primary/30"
+                  }`}
+                >
+                  <p className="font-medium">{u.name}</p>
+                  <p className="text-[11px] text-stone-400">{u.characters?.length || 0} chars</p>
+                </button>
+              ))}
+              {universesList.hasNextPage && (
+                <div ref={universesList.sentinelRef} className="h-2" />
+              )}
+              {universesList.isFetchingNextPage && (
+                <p className="text-[11px] text-stone-400 text-center py-2">Loading more…</p>
+              )}
+            </>
           )}
         </div>
 
@@ -183,7 +195,7 @@ export default function UniverseManager() {
                         onClick={async () => {
                           if (!confirm(`Delete "${universe.name}" and all its stories and characters? This cannot be undone.`)) return;
                           await deleteUniverse(universe.id);
-                          queryClient.invalidateQueries({ queryKey: ["universes"] });
+                          queryClient.invalidateQueries({ queryKey: ["universes-my"] });
                           setSelectedId(null);
                         }}
                         className="text-[10px] px-2.5 py-1 rounded-full font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"

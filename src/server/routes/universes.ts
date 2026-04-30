@@ -10,6 +10,7 @@ import {
 } from "../services/universePipeline.js";
 import { createJob } from "../lib/jobs.js";
 import { JOB_KINDS } from "../lib/queues.js";
+import { parseLimit, paginate } from "../lib/pagination.js";
 import { verifyUniverseOwnership } from "../lib/ownership.js";
 import { deleteUniversesCascade } from "../lib/cascade.js";
 
@@ -51,15 +52,6 @@ router.get("/quota", async (req, res) => {
   }
 });
 
-// Cursor pagination (mirrors stories.ts).
-const DEFAULT_PAGE_LIMIT = 50;
-const MAX_PAGE_LIMIT = 100;
-function parseLimit(raw: unknown): number {
-  const n = typeof raw === "string" ? parseInt(raw, 10) : NaN;
-  if (!Number.isFinite(n) || n <= 0) return DEFAULT_PAGE_LIMIT;
-  return Math.min(n, MAX_PAGE_LIMIT);
-}
-
 // GET /api/universes/my — paginated list of the user's own universes.
 // Includes characters because every consumer (Library shelf,
 // MyUniverses detail, StoryBuilder picker, admin manager) needs them.
@@ -71,16 +63,15 @@ router.get("/my", async (req, res) => {
     const rows = await prisma.universe.findMany({
       where: { userId: req.userId as string },
       include: { characters: true },
-      orderBy: { createdAt: "desc" },
+      // `id` as a tiebreaker keeps cursor + skip:1 stable when two rows
+      // share the same createdAt — see comment on stories.ts.
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: limit + 1,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
     });
 
-    if (rows.length > limit) {
-      const items = rows.slice(0, limit);
-      return res.json({ items, nextCursor: items[items.length - 1].id });
-    }
-    res.json({ items: rows, nextCursor: null });
+    const { items, nextCursor } = paginate(rows, limit);
+    res.json({ items, nextCursor });
   } catch (e) {
     res.status(500).json({ error: "Failed to fetch your universes" });
   }

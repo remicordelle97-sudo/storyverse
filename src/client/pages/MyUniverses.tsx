@@ -4,26 +4,27 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMyUniverses, getUniverseQuota, deleteUniverse } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { parseStringList } from "../lib/parseStringList";
+import { useInfiniteList } from "../hooks/useInfiniteList";
 
 export default function MyUniverses() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: universesPage, isLoading } = useQuery({
+  // Infinite scroll on the universe sidebar so a user with >100
+  // universes can still reach all of them. Polling is page-1-only —
+  // any universe that's mid-build will be on page 1 (newest-first
+  // ordering), so refetching pages 2..N every tick would be pointless.
+  const universesList = useInfiniteList({
     queryKey: ["universes-my"],
-    queryFn: () => getMyUniverses(),
-    // Poll while any universe is mid-build/illustrating; stop once
-    // every universe is either ready or terminally failed.
-    refetchInterval: (query) => {
-      const items = ((query.state.data as any)?.items as any[]) || [];
-      const pending = items.some(
+    fetchPage: (cursor) => getMyUniverses(cursor),
+    shouldPoll: (firstPageItems) =>
+      firstPageItems.some(
         (u: any) => u.status !== "ready" && u.status !== "failed",
-      );
-      return pending ? 5000 : false;
-    },
+      ),
   });
-  const universes = universesPage?.items ?? [];
+  const universes = universesList.items;
+  const isLoading = universesList.isLoading;
 
   const { data: quota } = useQuery({
     queryKey: ["universe-quota"],
@@ -107,6 +108,15 @@ export default function MyUniverses() {
                 </p>
               </button>
             ))}
+            {/* Infinite-scroll sentinel: when the bottom of the
+                sidebar comes into view, fetch the next page. Hidden
+                once we've reached the end. */}
+            {universesList.hasNextPage && (
+              <div ref={universesList.sentinelRef} className="h-2" />
+            )}
+            {universesList.isFetchingNextPage && (
+              <p className="text-[11px] text-stone-400 text-center py-2">Loading more…</p>
+            )}
           </div>
 
           {/* Detail panel */}

@@ -21,7 +21,7 @@ export default function NewUniverse() {
     setSubmitting(true);
     try {
       const { universeId } = await createCustomUniverse(payload);
-      queryClient.invalidateQueries({ queryKey: ["universes"] });
+      queryClient.invalidateQueries({ queryKey: ["universes-my"] });
       queryClient.invalidateQueries({ queryKey: ["universe-quota"] });
       localStorage.setItem("universeId", universeId);
       navigate("/my-universes");
