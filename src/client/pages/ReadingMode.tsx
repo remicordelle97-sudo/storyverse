@@ -429,7 +429,11 @@ export default function ReadingMode() {
   }, []);
 
   const handleReadAgain = useCallback(() => {
-    bookRef.current?.pageFlip()?.flip(0);
+    // `flip(0)` only animates one spread at a time and on the last
+    // page often does nothing — react-pageflip treats it as "you're
+    // already past page 0." `turnToPage(0)` jumps without animation
+    // and reliably lands on the front cover.
+    bookRef.current?.pageFlip()?.turnToPage(0);
   }, []);
 
   if (isLoading) {

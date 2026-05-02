@@ -16,15 +16,19 @@ const UNIVERSE_IN_FLIGHT = new Set(["queued", "building", "illustrating_assets"]
 const HIDDEN_PREFIXES = ["/reading", "/login", "/onboarding"];
 
 function storyStatusPhrase(status: string): string {
+  // Story titles aren't available until the planner finishes (the row
+  // has empty string title while queued / generating_text), and the
+  // banner mostly fires while the title doesn't exist yet. Keep these
+  // generic so we never render "Untitled".
   switch (status) {
     case "queued":
-      return "Queued for writing";
+      return "Your new story is queued…";
     case "generating_text":
-      return "Writing";
+      return "Writing your new story…";
     case "illustrating":
-      return "Illustrating";
+      return "Illustrating your new story…";
     default:
-      return "Working";
+      return "Working on your new story…";
   }
 }
 
@@ -100,7 +104,7 @@ export default function ProgressBanner() {
         {stories.map((s) => (
           <Item
             key={`s-${s.id}`}
-            label={`${storyStatusPhrase(s.status)} "${s.title || "Untitled"}"…`}
+            label={storyStatusPhrase(s.status)}
             onClick={() => navigate(`/reading/${s.id}`)}
           />
         ))}

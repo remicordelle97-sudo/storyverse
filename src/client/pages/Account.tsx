@@ -89,6 +89,31 @@ export default function Account() {
               </div>
             </section>
 
+            {/* Print-related shortcuts. The library nav menu used to
+                expose these directly; consolidating them under
+                /account keeps the top-level nav tidier. */}
+            <section className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 space-y-2">
+              <h2 className="font-semibold text-stone-900 mb-2">Printed books</h2>
+              <button
+                onClick={() => navigate("/print/cart")}
+                className="w-full text-left px-4 py-3 rounded-lg border border-stone-200 hover:border-stone-300 hover:bg-stone-50 transition-colors"
+              >
+                <p className="text-sm font-medium text-stone-800">Waiting to print</p>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Books you've added to your print list.
+                </p>
+              </button>
+              <button
+                onClick={() => navigate("/orders")}
+                className="w-full text-left px-4 py-3 rounded-lg border border-stone-200 hover:border-stone-300 hover:bg-stone-50 transition-colors"
+              >
+                <p className="text-sm font-medium text-stone-800">My printed books</p>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Past and pending print orders.
+                </p>
+              </button>
+            </section>
+
             <section className="bg-white rounded-2xl shadow-sm border border-stone-200 p-6 space-y-4">
               <div>
                 <h2 className="font-semibold text-stone-900">Shipping address</h2>

@@ -300,25 +300,14 @@ export default function Library() {
             >
               FAQ
             </button>
-            <div className="flex items-center gap-3">
-              {user?.picture && (
-                <img
-                  src={user.picture}
-                  alt=""
-                  className="w-8 h-8 rounded-full"
-                  referrerPolicy="no-referrer"
-                />
-              )}
-              <button
-                onClick={async () => {
-                  await logout();
-                  navigate("/login");
-                }}
-                className="text-sm text-stone-400 hover:text-stone-600 transition-colors"
-              >
-                Sign out
-              </button>
-            </div>
+            {user?.picture && (
+              <img
+                src={user.picture}
+                alt=""
+                className="w-8 h-8 rounded-full"
+                referrerPolicy="no-referrer"
+              />
+            )}
             <button
               onClick={() => setShowMenu(!showMenu)}
               className="w-10 h-10 bg-amber-800 text-white rounded-full flex items-center justify-center hover:bg-amber-700 transition-colors shadow-sm text-xl font-light"
@@ -368,19 +357,23 @@ export default function Library() {
               onClick={() => { setShowMenu(false); navigate("/my-universes"); }}
               className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
             >
-              My universes
-            </button>
-            <button
-              onClick={() => { setShowMenu(false); navigate("/print/cart"); }}
-              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-            >
-              Waiting to print
+              My Universes
             </button>
             <button
               onClick={() => { setShowMenu(false); navigate("/account"); }}
               className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
             >
               Account
+            </button>
+            <button
+              onClick={async () => {
+                setShowMenu(false);
+                await logout();
+                navigate("/login");
+              }}
+              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+            >
+              Sign Out
             </button>
             {isAdmin && (
               <>

@@ -85,8 +85,10 @@ export default function StoryBuilder() {
           trimmedStoryIdea.length >= STORY_IDEA_MIN ? trimmedStoryIdea : undefined,
       });
       // Refresh the library + banner queries so the new placeholder
-      // shows up immediately on the next page.
-      queryClient.invalidateQueries({ queryKey: ["my-stories"] });
+      // shows up immediately on the next page. The library shelf uses
+      // ["stories-my"] (see Library.tsx) — make sure this matches or
+      // the user lands on stale data.
+      queryClient.invalidateQueries({ queryKey: ["stories-my"] });
       queryClient.invalidateQueries({ queryKey: ["progress-banner-stories"] });
       queryClient.invalidateQueries({ queryKey: ["story-quota"] });
       navigate("/library");
