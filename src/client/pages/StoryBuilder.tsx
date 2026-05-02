@@ -44,8 +44,18 @@ export default function StoryBuilder() {
   const [ageGroup, setAgeGroup] = useState("4-5");
   const [structure, setStructure] = useState<(typeof STRUCTURE_LIST)[number]["id"]>("problem-solution");
   const [generateImages, setGenerateImages] = useState(true);
+  const [storyIdea, setStoryIdea] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Optional parent-supplied story idea. Cap matches the server-side
+  // limit; keep it loose enough for "Lily learns to share with her
+  // brother", strict enough that users can't dump a synopsis that
+  // confuses the planner. Trimmed and dropped if too short.
+  const STORY_IDEA_MAX = 500;
+  const STORY_IDEA_MIN = 3;
+  const trimmedStoryIdea = storyIdea.trim();
+  const storyIdeaTooLong = trimmedStoryIdea.length > STORY_IDEA_MAX;
 
   // Active quota depends on which flavor of story the user is creating
   const activeQuota = generateImages ? quota?.illustrated : quota?.text;
@@ -68,6 +78,11 @@ export default function StoryBuilder() {
         ageGroup,
         structure: isAdmin ? structure : undefined,
         generateImages,
+        // Drop very short / whitespace-only inputs entirely — they're
+        // typed by accident and an empty parentPrompt confuses the
+        // planner more than helps.
+        parentPrompt:
+          trimmedStoryIdea.length >= STORY_IDEA_MIN ? trimmedStoryIdea : undefined,
       });
       // Refresh the library + banner queries so the new placeholder
       // shows up immediately on the next page.
@@ -82,10 +97,15 @@ export default function StoryBuilder() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
+    <div className="max-w-2xl mx-auto px-4 pt-12 pb-8 relative">
+      {/* `relative z-50` keeps this above the centered ProgressBanner —
+          on narrow screens the floating banner overlaps the top of the
+          page, and without an explicit z-index the button used to
+          swallow clicks behind the banner pill. */}
       <button
+        type="button"
         onClick={() => navigate("/library")}
-        className="text-sm text-stone-500 hover:text-stone-700 mb-6 block"
+        className="relative z-50 inline-flex items-center text-sm text-stone-500 hover:text-stone-800 mb-6 px-2 py-1 -ml-2 rounded transition-colors"
       >
         &larr; Back to library
       </button>
@@ -135,6 +155,45 @@ export default function StoryBuilder() {
               {AGE_GROUPS.map((g) => (
                 <Chip key={g} label={g} selected={ageGroup === g} onClick={() => setAgeGroup(g)} />
               ))}
+            </div>
+          </section>
+
+          {/* Optional story idea */}
+          <section className="mb-8">
+            <label
+              htmlFor="story-idea"
+              className="block text-sm font-medium text-stone-700 mb-1"
+            >
+              Story idea <span className="text-stone-400 font-normal">(optional)</span>
+            </label>
+            <p className="text-xs text-stone-400 mb-2">
+              A sentence or two of inspiration. Examples: "Lily learns to share
+              her toys" or "An adventure to find the missing necklace."
+            </p>
+            <textarea
+              id="story-idea"
+              value={storyIdea}
+              onChange={(e) => setStoryIdea(e.target.value)}
+              maxLength={STORY_IDEA_MAX + 50}
+              rows={3}
+              placeholder="What's this story about?"
+              className={`w-full px-3 py-2 rounded-lg border bg-white text-stone-800 text-sm focus:outline-none focus:ring-2 transition-colors resize-none ${
+                storyIdeaTooLong
+                  ? "border-red-400 focus:ring-red-400"
+                  : "border-stone-200 focus:ring-primary"
+              }`}
+            />
+            <div className="flex justify-between items-center mt-1">
+              <p className="text-[11px] text-stone-400">
+                Inappropriate content is ignored — your story stays kid-safe.
+              </p>
+              <p
+                className={`text-[11px] ${
+                  storyIdeaTooLong ? "text-red-600" : "text-stone-400"
+                }`}
+              >
+                {trimmedStoryIdea.length}/{STORY_IDEA_MAX}
+              </p>
             </div>
           </section>
 
@@ -220,7 +279,7 @@ export default function StoryBuilder() {
           {/* Generate */}
           <button
             onClick={handleGenerate}
-            disabled={loading || !universeId || (activeQuota && !activeQuota.allowed)}
+            disabled={loading || !universeId || storyIdeaTooLong || (activeQuota && !activeQuota.allowed)}
             className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {loading

@@ -297,8 +297,15 @@ Characters are complex — don't try to demonstrate every personality trait in a
 Reading level: ${input.ageGroup}
 Language: ${input.language}
 Mood: ${input.mood}
-Total pages: ${pageCount}
-Parent's request: "${input.parentPrompt}"`;
+Total pages: ${pageCount}`;
+
+  // Only render the parent's request when it's non-empty. An empty
+  // string here would render as `Parent's request: ""` which Claude
+  // sometimes interprets as a constraint rather than ignoring.
+  const trimmedRequest = input.parentPrompt?.trim() || "";
+  if (trimmedRequest.length > 0) {
+    planPrompt += `\nParent's story idea (treat as INSPIRATION, not a contract): "${trimmedRequest}"`;
+  }
 
   // === WRITE PROMPT: sentence count + output format only (plan is prepended by storyGenerator) ===
   const sentenceRule: Record<string, string> = {

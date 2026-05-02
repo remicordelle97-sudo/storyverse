@@ -212,15 +212,25 @@ export default function Library() {
 
   const handleNewStory = () => {
     setShowMenu(false);
+    // Story creation requires at least one universe in `ready` state —
+    // a universe still building has no hero yet so the story builder
+    // would land on an empty state. Send the user to a useful place
+    // instead.
+    const ready = universes.filter((u: any) => u.status === "ready");
     if (universes.length === 0) {
       navigate("/new-universe");
-    } else if (universes.length === 1) {
-      localStorage.setItem("universeId", universes[0].id);
+    } else if (ready.length === 0) {
+      // They have universes but none are ready (still building / failed).
+      navigate("/my-universes");
+    } else if (ready.length === 1) {
+      localStorage.setItem("universeId", ready[0].id);
       navigate("/story-builder");
     } else {
       navigate("/story-builder");
     }
   };
+
+  const hasReadyUniverse = universes.some((u: any) => u.status === "ready");
 
   // Books per shelf — recomputed from viewport width so wider screens get
   // more books per row instead of the previous hardcoded 5.
@@ -344,7 +354,13 @@ export default function Library() {
           <div className="fixed top-16 right-4 z-50 bg-white rounded-xl shadow-lg border border-stone-200 py-2 w-48">
             <button
               onClick={handleNewStory}
-              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
+              disabled={universes.length > 0 && !hasReadyUniverse}
+              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                universes.length > 0 && !hasReadyUniverse
+                  ? "Wait for your universe to finish before creating a story"
+                  : undefined
+              }
             >
               New Story
             </button>
@@ -359,12 +375,6 @@ export default function Library() {
               className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
             >
               Waiting to print
-            </button>
-            <button
-              onClick={() => { setShowMenu(false); navigate("/orders"); }}
-              className="w-full text-left px-4 py-2.5 text-sm text-stone-700 hover:bg-stone-50 transition-colors"
-            >
-              My printed books
             </button>
             <button
               onClick={() => { setShowMenu(false); navigate("/account"); }}
@@ -474,10 +484,15 @@ export default function Library() {
                   </p>
                   <button
                     onClick={handleNewStory}
-                    className="px-6 py-3 bg-amber-800 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors"
+                    disabled={universes.length > 0 && !hasReadyUniverse}
+                    className="px-6 py-3 bg-amber-800 text-white rounded-lg font-medium hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ fontFamily: "Georgia, serif" }}
                   >
-                    {universes.length === 0 ? "Create your first universe" : "Create your first story"}
+                    {universes.length === 0
+                      ? "Create your first universe"
+                      : !hasReadyUniverse
+                        ? "Universe still building…"
+                        : "Create your first story"}
                   </button>
                 </div>
               </div>

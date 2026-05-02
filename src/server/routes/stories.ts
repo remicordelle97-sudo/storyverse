@@ -255,6 +255,19 @@ router.post("/generate", async (req, res) => {
       return res.status(400).json({ error: "universeId and ageGroup are required" });
     }
 
+    // Optional parent-supplied story idea. Strip and bound — keep the
+    // server limit a touch above the client's 500 so a copy-paste with
+    // trailing whitespace doesn't 400 unexpectedly. The planner's
+    // system prompt is fortified to ignore unsuitable content; here we
+    // just make sure the input fits in the prompt budget.
+    const PARENT_PROMPT_MAX = 600;
+    const trimmedParentPrompt = typeof parentPrompt === "string" ? parentPrompt.trim() : "";
+    if (trimmedParentPrompt.length > PARENT_PROMPT_MAX) {
+      return res.status(400).json({
+        error: `Story idea is too long (max ${PARENT_PROMPT_MAX} characters).`,
+      });
+    }
+
     const quota = await checkStoryQuota(req.userId as string, !!generateImages);
     if (!quota.allowed) {
       const kind = generateImages ? "illustrated stories" : "text-only stories";
@@ -301,7 +314,7 @@ router.post("/generate", async (req, res) => {
       ageGroup,
       structure,
       mood,
-      parentPrompt: parentPrompt || "",
+      parentPrompt: trimmedParentPrompt,
       generateImages: !!generateImages,
     };
 
