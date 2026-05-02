@@ -5,6 +5,11 @@ import { requireAdmin } from "../middleware/auth.js";
 import { checkStoryQuota } from "../lib/quota.js";
 import { buildSystemPrompt } from "../services/promptBuilder.js";
 import { PLANNER_SYSTEM_PROMPT } from "../services/storyGenerator.js";
+import {
+  buildImageSetupSystemPrompt,
+  buildImagePagePrompt,
+} from "../services/geminiGenerator.js";
+import { buildImageStyleGuide } from "../services/imageStyleGuide.js";
 import { verifyUniverseOwnership, verifyUniverseAccess } from "../lib/ownership.js";
 import { deleteStoriesCascade } from "../lib/cascade.js";
 import { createJob } from "../lib/jobs.js";
@@ -360,14 +365,58 @@ router.get("/:id/debug", requireAdmin, async (req, res) => {
       debugWritePrompt: true,
       debugPlan: true,
       debugStructure: true,
+      universeId: true,
+      universe: {
+        select: { id: true, styleReferenceUrl: true },
+      },
       scenes: {
         select: { sceneNumber: true, imagePrompt: true, imageUrl: true },
         orderBy: { sceneNumber: "asc" },
+      },
+      characters: {
+        include: {
+          character: { select: { id: true, name: true, speciesOrType: true } },
+        },
       },
     },
   });
 
   if (!story) return res.status(404).json({ error: "Story not found" });
+
+  // Reconstruct what Gemini sees during the story-images chat. The
+  // setup message is rebuilt with the same helpers the generator
+  // uses, so this stays accurate as the prompt evolves.
+  const characters = story.characters.map((sc) => sc.character);
+  const charList = characters.map((c) => `${c.name} (${c.speciesOrType})`).join(", ");
+  const styleGuide = buildImageStyleGuide();
+  const hasStyleRef = !!story.universe.styleReferenceUrl;
+  const imageSetupSystemPrompt = buildImageSetupSystemPrompt({
+    charList,
+    styleGuide,
+    hasStyleRef,
+  });
+
+  // Per-page wrapper text — what the generator sends after the setup
+  // for each scene. The plan's `characters` per page is the best
+  // stored proxy for `characters_in_scene` (the Scene row only stores
+  // the unwrapped image prompt). If the plan is missing or pageless,
+  // fall back to the full character list so the wrapper still
+  // renders meaningfully.
+  let plan: any = null;
+  try {
+    plan = story.debugPlan ? JSON.parse(story.debugPlan) : null;
+  } catch {
+    plan = null;
+  }
+  const planPageMap = new Map<number, string[]>();
+  if (plan?.pages) {
+    for (const p of plan.pages) {
+      if (typeof p?.page === "number" && Array.isArray(p?.characters)) {
+        planPageMap.set(p.page, p.characters);
+      }
+    }
+  }
+  const allCharacterNames = characters.map((c) => c.name);
 
   res.json({
     id: story.id,
@@ -379,12 +428,38 @@ router.get("/:id/debug", requireAdmin, async (req, res) => {
     writerSystemPrompt: buildSystemPrompt(story.ageGroup),
     planPrompt: story.debugPlanPrompt,
     writePrompt: story.debugWritePrompt,
-    plan: story.debugPlan ? JSON.parse(story.debugPlan) : null,
-    imagePrompts: story.scenes.map((s) => ({
-      page: s.sceneNumber,
-      prompt: s.imagePrompt,
-      imageUrl: s.imageUrl,
-    })),
+    plan,
+    // Gemini (image generation) inputs.
+    image: {
+      setupSystemPrompt: imageSetupSystemPrompt,
+      hasStyleRef,
+      styleReferenceUrl: story.universe.styleReferenceUrl || null,
+      characters: characters.map((c) => ({
+        id: c.id,
+        name: c.name,
+        speciesOrType: c.speciesOrType,
+      })),
+    },
+    imagePrompts: story.scenes.map((s) => {
+      const sceneCharacterNames =
+        planPageMap.get(s.sceneNumber) ?? allCharacterNames;
+      const characterNames = sceneCharacterNames.join(" and ");
+      return {
+        page: s.sceneNumber,
+        prompt: s.imagePrompt,
+        imageUrl: s.imageUrl,
+        // Wrapped per-page text Gemini receives — embeds the prompt
+        // above with the style reminder + character refresher.
+        geminiPagePrompt: s.imagePrompt
+          ? buildImagePagePrompt({
+              pageNumber: s.sceneNumber,
+              imagePrompt: s.imagePrompt,
+              characterNames,
+            })
+          : "",
+        characters: sceneCharacterNames,
+      };
+    }),
   });
 });
 

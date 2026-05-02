@@ -730,18 +730,55 @@ export default function ReadingMode() {
                       {debugData.writePrompt}
                     </pre>
                   </div>
+                  {debugData.image && (
+                    <div>
+                      <h3 className="text-amber-400 font-bold mb-1">Gemini Setup Message</h3>
+                      <p className="text-white/50 text-[11px] mb-2">
+                        Sent once at the start of the chat session.
+                        {debugData.image.hasStyleRef ? " Includes a style reference image." : " No style reference image."}
+                        {debugData.image.characters?.length
+                          ? ` Plus ${debugData.image.characters.length} character reference image(s): ${debugData.image.characters.map((c: any) => c.name).join(", ")}.`
+                          : ""}
+                      </p>
+                      <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                        {debugData.image.setupSystemPrompt}
+                      </pre>
+                    </div>
+                  )}
                   {debugData.imagePrompts?.length > 0 && (
                     <div>
                       <h3 className="text-amber-400 font-bold mb-1">Image Prompts (per page)</h3>
+                      <p className="text-white/50 text-[11px] mb-2">
+                        Per-scene prompt as written by the refiner, plus the
+                        wrapped text Gemini actually receives.
+                      </p>
                       <div className="space-y-3">
                         {debugData.imagePrompts.map((ip: any) => (
-                          <div key={ip.page} className="bg-black/30 rounded-lg p-4">
-                            <div className="flex items-center gap-2 mb-2">
+                          <div key={ip.page} className="bg-black/30 rounded-lg p-4 space-y-2">
+                            <div className="flex items-center gap-2">
                               <span className="text-amber-300 text-xs font-bold">Page {ip.page}</span>
                               {ip.imageUrl && <span className="text-green-400 text-[10px]">has image</span>}
                               {!ip.imageUrl && <span className="text-red-400 text-[10px]">no image</span>}
+                              {ip.characters?.length > 0 && (
+                                <span className="text-white/50 text-[10px]">
+                                  Characters: {ip.characters.join(", ")}
+                                </span>
+                              )}
                             </div>
-                            <p className="text-white/80 text-xs leading-relaxed">{ip.prompt || "(empty)"}</p>
+                            <div>
+                              <p className="text-white/40 text-[10px] uppercase tracking-wider mb-1">Prompt</p>
+                              <p className="text-white/80 text-xs leading-relaxed whitespace-pre-wrap">
+                                {ip.prompt || "(empty)"}
+                              </p>
+                            </div>
+                            {ip.geminiPagePrompt && (
+                              <div>
+                                <p className="text-white/40 text-[10px] uppercase tracking-wider mb-1">Wrapped (Gemini)</p>
+                                <pre className="text-white/70 text-[11px] whitespace-pre-wrap leading-relaxed">
+                                  {ip.geminiPagePrompt}
+                                </pre>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>

@@ -278,6 +278,59 @@ Keep the character recognizable across all studies — same colors, same proport
  * 1. First message: all character reference sheets + style guide
  * 2. Each subsequent message: one page's scene prompt → one illustration
  */
+/**
+ * Render the setup-message text Gemini receives at the start of a
+ * story-images chat session — the multi-paragraph "you are illustrating
+ * a children's picture book" preamble plus the style guide. Extracted
+ * so the admin debug panel can show exactly what Gemini sees without
+ * duplicating the string. The style + character reference images are
+ * sent alongside this text but aren't included here (they're binary).
+ */
+export function buildImageSetupSystemPrompt(args: {
+  charList: string;
+  styleGuide: string;
+  hasStyleRef: boolean;
+}): string {
+  const { charList, styleGuide, hasStyleRef } = args;
+  return `You are illustrating a children's picture book. I will give you scene descriptions one at a time. For each one, generate ONE illustration — a full scene with characters, background, and atmosphere.
+
+IMPORTANT — Read the following style guide carefully. Every illustration you generate MUST follow these rules exactly.${hasStyleRef ? " The STYLE REFERENCE IMAGE above is the visual anchor — match its exact style." : ""}
+
+${styleGuide}
+CRITICAL: Maintain PERFECT visual consistency across ALL pages:
+- Characters must look IDENTICAL on every page (same body, same colors, same outfit, same proportions)
+- Art style, color palette, and lighting approach must stay consistent throughout
+
+CHARACTERS: ${charList}
+Each character's visual appearance is defined ONLY by their CHARACTER REFERENCE IMAGE below. Do not infer or imagine details not shown in the reference.
+
+MANDATORY WORKFLOW — follow these steps for EVERY page:
+1. REVIEW: Before drawing, scroll back to the CHARACTER REFERENCE IMAGES below and study each character that appears in the scene. Note their exact body shape, colors, outfit, and accessories.
+2. DRAW: Generate the illustration, matching each character precisely to their reference image.
+
+Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EVERY page — they are the single source of truth for what each character looks like. As the conversation grows longer, do NOT rely on memory or earlier generated images. Always return to these reference images.
+- Do NOT copy the style, pose, layout, background, or artistic technique from the reference images
+- Do NOT reproduce the grid/multi-pose layout of reference sheets — generate SINGLE scene illustrations
+- The reference images may be in a different art style — IGNORE their style and follow the style guide above instead`;
+}
+
+/**
+ * Render the per-page text Gemini receives in the chat after the
+ * setup. Mirrors the inline template in generateStoryImages so the
+ * debug panel and the actual generator stay in lockstep.
+ */
+export function buildImagePagePrompt(args: {
+  pageNumber: number;
+  imagePrompt: string;
+  characterNames: string;
+}): string {
+  const { pageNumber, imagePrompt, characterNames } = args;
+  const refReminder = characterNames
+    ? `\n\nBEFORE DRAWING: Refer back to the CHARACTER REFERENCE IMAGES in the setup message for ${characterNames}. Match every detail — body shape, colors, clothing, and accessories. Every item of clothing and every accessory visible in the reference sheet must appear in this illustration.`
+    : "";
+  return `${ART_STYLE_REMINDER}${refReminder}\n\nPage ${pageNumber}: ${imagePrompt}\n\nGenerate a SINGLE scene illustration.\n\nEDGES: The painting MUST have soft, irregular edges that fade and bleed into white paper. Do NOT create a sharp rectangular border or clean-cut frame around the image.`;
+}
+
 export async function generateStoryImages(
   universeId: string,
   characterIds: string[],
@@ -330,26 +383,11 @@ export async function generateStoryImages(
   }
 
   setupParts.push({
-    text: `You are illustrating a children's picture book. I will give you scene descriptions one at a time. For each one, generate ONE illustration — a full scene with characters, background, and atmosphere.
-
-IMPORTANT — Read the following style guide carefully. Every illustration you generate MUST follow these rules exactly.${styleRef ? " The STYLE REFERENCE IMAGE above is the visual anchor — match its exact style." : ""}
-
-${styleGuide}
-CRITICAL: Maintain PERFECT visual consistency across ALL pages:
-- Characters must look IDENTICAL on every page (same body, same colors, same outfit, same proportions)
-- Art style, color palette, and lighting approach must stay consistent throughout
-
-CHARACTERS: ${charList}
-Each character's visual appearance is defined ONLY by their CHARACTER REFERENCE IMAGE below. Do not infer or imagine details not shown in the reference.
-
-MANDATORY WORKFLOW — follow these steps for EVERY page:
-1. REVIEW: Before drawing, scroll back to the CHARACTER REFERENCE IMAGES below and study each character that appears in the scene. Note their exact body shape, colors, outfit, and accessories.
-2. DRAW: Generate the illustration, matching each character precisely to their reference image.
-
-Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EVERY page — they are the single source of truth for what each character looks like. As the conversation grows longer, do NOT rely on memory or earlier generated images. Always return to these reference images.
-- Do NOT copy the style, pose, layout, background, or artistic technique from the reference images
-- Do NOT reproduce the grid/multi-pose layout of reference sheets — generate SINGLE scene illustrations
-- The reference images may be in a different art style — IGNORE their style and follow the style guide above instead`,
+    text: buildImageSetupSystemPrompt({
+      charList,
+      styleGuide,
+      hasStyleRef: !!styleRef,
+    }),
   });
 
   // Attach all character reference images to the setup message
@@ -402,12 +440,12 @@ Below are CHARACTER REFERENCE IMAGES. You MUST refer back to these images for EV
       prompt: page.image_prompt.slice(0, 100),
     });
 
-    const refReminder = characterNames
-      ? `\n\nBEFORE DRAWING: Refer back to the CHARACTER REFERENCE IMAGES in the setup message for ${characterNames}. Match every detail — body shape, colors, clothing, and accessories. Every item of clothing and every accessory visible in the reference sheet must appear in this illustration.`
-      : "";
-
     const pageParts: any[] = [{
-      text: `${ART_STYLE_REMINDER}${refReminder}\n\nPage ${page.page_number}: ${page.image_prompt}\n\nGenerate a SINGLE scene illustration.\n\nEDGES: The painting MUST have soft, irregular edges that fade and bleed into white paper. Do NOT create a sharp rectangular border or clean-cut frame around the image.`,
+      text: buildImagePagePrompt({
+        pageNumber: page.page_number,
+        imagePrompt: page.image_prompt,
+        characterNames,
+      }),
     }];
 
     try {
