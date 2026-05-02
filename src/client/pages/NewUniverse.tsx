@@ -1,38 +1,24 @@
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { createCustomUniverse } from "../api/client";
-import StoryLoadingScreen from "../components/StoryLoadingScreen";
 import UniverseBuilderForm, { UniverseBuilderPayload } from "../components/UniverseBuilderForm";
-
-const PHRASES = [
-  "Building your universe",
-  "Bringing characters to life",
-  "Sketching the world",
-  "Painting first impressions",
-];
 
 export default function NewUniverse() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(payload: UniverseBuilderPayload) {
-    setSubmitting(true);
-    try {
-      const { universeId } = await createCustomUniverse(payload);
-      queryClient.invalidateQueries({ queryKey: ["universes-my"] });
-      queryClient.invalidateQueries({ queryKey: ["universe-quota"] });
-      localStorage.setItem("universeId", universeId);
-      navigate("/my-universes");
-    } catch (e) {
-      setSubmitting(false);
-      throw e;
-    }
-  }
-
-  if (submitting) {
-    return <StoryLoadingScreen phrases={PHRASES} />;
+    const { universeId } = await createCustomUniverse(payload);
+    // The /custom endpoint returns 202 in milliseconds; the worker
+    // does the Claude + Gemini work in the background. Send the
+    // user back to /my-universes where the placeholder card and the
+    // global ProgressBanner show progress until ready — no
+    // intermediate full-screen loading view.
+    queryClient.invalidateQueries({ queryKey: ["universes-my"] });
+    queryClient.invalidateQueries({ queryKey: ["progress-banner-universes"] });
+    queryClient.invalidateQueries({ queryKey: ["universe-quota"] });
+    localStorage.setItem("universeId", universeId);
+    navigate("/my-universes");
   }
 
   return (

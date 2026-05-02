@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   completeOnboarding,
   completeOnboardingPreset,
@@ -10,43 +10,33 @@ import {
   type PrintShippingAddress,
 } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
-import StoryLoadingScreen from "../components/StoryLoadingScreen";
 import UniverseBuilderForm, { UniverseBuilderPayload } from "../components/UniverseBuilderForm";
 import AddressForm, { type AddressFormHandle } from "../components/AddressForm";
 import { parseStringList } from "../lib/parseStringList";
-
-const ONBOARDING_PHRASES = [
-  "Building your universe",
-  "Bringing characters to life",
-  "Sketching the world",
-  "Painting first impressions",
-];
-
-const PRESET_PHRASES = ["Setting up your shelf", "Almost ready"];
 
 type Step = "address" | "plan" | "choice" | "preset" | "world";
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user, refreshUser, logout } = useAuth();
   const [step, setStep] = useState<Step>("address");
-  const [submitting, setSubmitting] = useState(false);
-  const [submittingPreset, setSubmittingPreset] = useState(false);
   const [presetError, setPresetError] = useState<string | null>(null);
+  const [submittingPreset, setSubmittingPreset] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
   const addressFormRef = useRef<AddressFormHandle | null>(null);
 
   async function handleSubmit(payload: UniverseBuilderPayload) {
-    setSubmitting(true);
-    try {
-      await completeOnboarding(payload);
-      await refreshUser();
-      navigate("/library");
-    } catch (e) {
-      setSubmitting(false);
-      throw e;
-    }
+    // /api/auth/onboard is async (202 + universeId in milliseconds);
+    // navigate as soon as it returns. The placeholder universe lights
+    // up in /my-universes and the global ProgressBanner shows the
+    // build progress — no full-screen waiting view.
+    await completeOnboarding(payload);
+    await refreshUser();
+    queryClient.invalidateQueries({ queryKey: ["universes-my"] });
+    queryClient.invalidateQueries({ queryKey: ["progress-banner-universes"] });
+    navigate("/library");
   }
 
   async function handlePreset(templateUniverseId: string) {
@@ -55,15 +45,13 @@ export default function Onboarding() {
     try {
       await completeOnboardingPreset(templateUniverseId);
       await refreshUser();
+      queryClient.invalidateQueries({ queryKey: ["universes-my"] });
       navigate("/library");
     } catch (e: any) {
       setPresetError(e?.message || "Could not load that preset");
       setSubmittingPreset(false);
     }
   }
-
-  if (submitting) return <StoryLoadingScreen phrases={ONBOARDING_PHRASES} />;
-  if (submittingPreset) return <StoryLoadingScreen phrases={PRESET_PHRASES} />;
 
   async function handleAdminSkip() {
     try {
@@ -297,6 +285,7 @@ export default function Onboarding() {
             onBack={() => setStep("choice")}
             onPick={handlePreset}
             error={presetError}
+            busy={submittingPreset}
           />
         )}
 
@@ -317,10 +306,12 @@ function PresetPicker({
   onBack,
   onPick,
   error,
+  busy,
 }: {
   onBack: () => void;
   onPick: (id: string) => void;
   error: string | null;
+  busy?: boolean;
 }) {
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["templates"],
@@ -401,16 +392,17 @@ function PresetPicker({
       <div className="mt-6 flex justify-between items-center">
         <button
           onClick={onBack}
-          className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+          disabled={busy}
+          className="text-sm text-stone-500 hover:text-stone-700 transition-colors disabled:opacity-50"
         >
           &larr; Back
         </button>
         <button
           onClick={() => selectedId && onPick(selectedId)}
-          disabled={!selectedId}
+          disabled={!selectedId || busy}
           className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
-          Use this preset
+          {busy ? "Setting up…" : "Use this preset"}
         </button>
       </div>
     </div>

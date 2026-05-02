@@ -1,16 +1,16 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getMyUniverses, generateStory, getStoryQuota, createCheckoutSession } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import Chip from "../components/Chip";
-import StoryLoadingScreen, { STORY_TEXT_PHRASES } from "../components/StoryLoadingScreen";
 import { STRUCTURE_LIST } from "../../shared/structures";
 
 const AGE_GROUPS = ["2-3", "4-5", "6-8"];
 
 export default function StoryBuilder() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { isAdmin } = useAuth();
   const storedUniverseId = localStorage.getItem("universeId") || "";
 
@@ -57,26 +57,29 @@ export default function StoryBuilder() {
     setError("");
 
     try {
-      // POST /stories/generate now returns 202 + { storyId, jobId } and
-      // the worker handles text + image generation in the background.
-      // ReadingMode polls /stories/:id/status to drive its loading UI.
-      const { storyId } = await generateStory({
+      // POST /stories/generate returns 202 + { storyId, jobId } in
+      // milliseconds; the actual text + image generation happens in
+      // the worker. We send the user back to the library where the
+      // ProgressBanner shows in-flight builds and the bookshelf's
+      // status-aware BookCover lights up when the story is ready.
+      await generateStory({
         universeId,
         language: "en",
         ageGroup,
         structure: isAdmin ? structure : undefined,
         generateImages,
       });
-      navigate(`/reading/${storyId}`);
+      // Refresh the library + banner queries so the new placeholder
+      // shows up immediately on the next page.
+      queryClient.invalidateQueries({ queryKey: ["my-stories"] });
+      queryClient.invalidateQueries({ queryKey: ["progress-banner-stories"] });
+      queryClient.invalidateQueries({ queryKey: ["story-quota"] });
+      navigate("/library");
     } catch (e: any) {
       setError(e.message || "Something went wrong. Please try again.");
       setLoading(false);
     }
   };
-
-  if (loading) {
-    return <StoryLoadingScreen phrases={STORY_TEXT_PHRASES} />;
-  }
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -217,12 +220,14 @@ export default function StoryBuilder() {
           {/* Generate */}
           <button
             onClick={handleGenerate}
-            disabled={!universeId || (activeQuota && !activeQuota.allowed)}
+            disabled={loading || !universeId || (activeQuota && !activeQuota.allowed)}
             className="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {activeQuota && !activeQuota.allowed
-              ? (generateImages ? "Illustrated limit reached" : "Text-only limit reached")
-              : "Create story"}
+            {loading
+              ? "Starting…"
+              : activeQuota && !activeQuota.allowed
+                ? (generateImages ? "Illustrated limit reached" : "Text-only limit reached")
+                : "Create story"}
           </button>
       </>
       )}

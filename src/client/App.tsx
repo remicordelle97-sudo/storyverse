@@ -13,6 +13,7 @@ import PrintOrders from "./pages/PrintOrders";
 import PrintOrderDetail from "./pages/PrintOrderDetail";
 import PrintCart from "./pages/PrintCart";
 import Account from "./pages/Account";
+import ProgressBanner from "./components/ProgressBanner";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isImpersonating } = useAuth();
@@ -160,12 +161,26 @@ function ImpersonationBanner() {
   );
 }
 
+function AuthedShell() {
+  const { user } = useAuth();
+  return (
+    <>
+      <ImpersonationBanner />
+      {/* In-flight build progress for stories + universes. Component
+          opts out internally on /reading, /login, /onboarding. Only
+          render at all once we have an authed user — pre-auth there's
+          nothing to poll. */}
+      {user && <ProgressBanner />}
+      <AppRoutes />
+    </>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <div className="min-h-screen app-bg">
-        <ImpersonationBanner />
-        <AppRoutes />
+        <AuthedShell />
       </div>
     </AuthProvider>
   );
