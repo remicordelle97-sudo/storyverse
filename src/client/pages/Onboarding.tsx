@@ -24,12 +24,12 @@ const ONBOARDING_PHRASES = [
 
 const PRESET_PHRASES = ["Setting up your shelf", "Almost ready"];
 
-type Step = "plan" | "address" | "choice" | "preset" | "world";
+type Step = "address" | "plan" | "choice" | "preset" | "world";
 
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user, refreshUser, logout } = useAuth();
-  const [step, setStep] = useState<Step>("plan");
+  const [step, setStep] = useState<Step>("address");
   const [submitting, setSubmitting] = useState(false);
   const [submittingPreset, setSubmittingPreset] = useState(false);
   const [presetError, setPresetError] = useState<string | null>(null);
@@ -87,7 +87,7 @@ export default function Onboarding() {
     try {
       await saveShippingAddress(addressFormRef.current.current() as PrintShippingAddress);
       await refreshUser();
-      setStep("choice");
+      setStep("plan");
     } catch (e: any) {
       setAddressError(e?.message || "Couldn't save your address");
     } finally {
@@ -127,12 +127,16 @@ export default function Onboarding() {
         </div>
 
         <div className="flex items-center justify-center gap-2 mb-10 flex-wrap">
-          <StepDot active={step === "plan"} done={step !== "plan"} label="Plan" />
-          <div className="w-6 sm:w-8 h-px bg-stone-300" />
           <StepDot
             active={step === "address"}
-            done={["choice", "preset", "world"].includes(step)}
+            done={["plan", "choice", "preset", "world"].includes(step)}
             label="Shipping"
+          />
+          <div className="w-6 sm:w-8 h-px bg-stone-300" />
+          <StepDot
+            active={step === "plan"}
+            done={["choice", "preset", "world"].includes(step)}
+            label="Plan"
           />
           <div className="w-6 sm:w-8 h-px bg-stone-300" />
           <StepDot
@@ -191,9 +195,15 @@ export default function Onboarding() {
               </div>
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-between items-center">
               <button
                 onClick={() => setStep("address")}
+                className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+              >
+                &larr; Back
+              </button>
+              <button
+                onClick={() => setStep("choice")}
                 className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 Continue
@@ -221,30 +231,21 @@ export default function Onboarding() {
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap justify-between items-center gap-3">
+            <div className="mt-6 flex flex-wrap justify-end items-center gap-3">
               <button
                 onClick={() => setStep("plan")}
                 className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
                 disabled={savingAddress}
               >
-                &larr; Back
+                Skip for now
               </button>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setStep("choice")}
-                  className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
-                  disabled={savingAddress}
-                >
-                  Skip for now
-                </button>
-                <button
-                  onClick={handleSaveAddress}
-                  disabled={savingAddress}
-                  className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  {savingAddress ? "Saving…" : "Save & continue"}
-                </button>
-              </div>
+              <button
+                onClick={handleSaveAddress}
+                disabled={savingAddress}
+                className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {savingAddress ? "Saving…" : "Save & continue"}
+              </button>
             </div>
           </div>
         )}
@@ -282,7 +283,7 @@ export default function Onboarding() {
 
             <div className="mt-6 flex justify-between items-center">
               <button
-                onClick={() => setStep("address")}
+                onClick={() => setStep("plan")}
                 className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
               >
                 &larr; Back
