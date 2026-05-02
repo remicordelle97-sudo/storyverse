@@ -690,46 +690,62 @@ export default function ReadingMode() {
             <div className="flex-1 overflow-y-auto p-5 space-y-6 text-sm font-mono">
               {!debugData ? (
                 <p className="text-white/40">Loading debug data...</p>
-              ) : !debugData.planPrompt ? (
-                <p className="text-white/40">No debug data stored for this story (generated before debug logging was added).</p>
               ) : (
                 <>
                   <div>
                     <h3 className="text-amber-400 font-bold mb-1">Metadata</h3>
-                    <p className="text-white/60">Structure: <span className="text-white">{debugData.structure}</span></p>
+                    <p className="text-white/60">Structure: <span className="text-white">{debugData.structure || "—"}</span></p>
                     <p className="text-white/60">Mood: <span className="text-white">{debugData.mood}</span></p>
                     <p className="text-white/60">Age group: <span className="text-white">{debugData.ageGroup}</span></p>
                   </div>
-                  <div>
-                    <h3 className="text-amber-400 font-bold mb-1">Plan (generated)</h3>
-                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
-                      {JSON.stringify(debugData.plan, null, 2)}
-                    </pre>
-                  </div>
-                  <div>
-                    <h3 className="text-amber-400 font-bold mb-1">Planner System Prompt</h3>
-                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
-                      {debugData.plannerSystemPrompt}
-                    </pre>
-                  </div>
-                  <div>
-                    <h3 className="text-amber-400 font-bold mb-1">Plan User Prompt</h3>
-                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
-                      {debugData.planPrompt}
-                    </pre>
-                  </div>
-                  <div>
-                    <h3 className="text-amber-400 font-bold mb-1">Writer System Prompt</h3>
-                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
-                      {debugData.writerSystemPrompt}
-                    </pre>
-                  </div>
-                  <div>
-                    <h3 className="text-amber-400 font-bold mb-1">Writer User Prompt</h3>
-                    <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
-                      {debugData.writePrompt}
-                    </pre>
-                  </div>
+                  {/* Claude (planner + writer) inputs are only available
+                      for stories generated after debug logging landed.
+                      Pre-debug stories have an empty planPrompt — show
+                      a small note in place of the prompt sections, but
+                      still render the image-side debug below since it's
+                      reconstructed from current code + persisted scene
+                      prompts. */}
+                  {debugData.planPrompt ? (
+                    <>
+                      <div>
+                        <h3 className="text-amber-400 font-bold mb-1">Plan (generated)</h3>
+                        <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                          {JSON.stringify(debugData.plan, null, 2)}
+                        </pre>
+                      </div>
+                      <div>
+                        <h3 className="text-amber-400 font-bold mb-1">Planner System Prompt</h3>
+                        <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                          {debugData.plannerSystemPrompt}
+                        </pre>
+                      </div>
+                      <div>
+                        <h3 className="text-amber-400 font-bold mb-1">Plan User Prompt</h3>
+                        <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                          {debugData.planPrompt}
+                        </pre>
+                      </div>
+                      <div>
+                        <h3 className="text-amber-400 font-bold mb-1">Writer System Prompt</h3>
+                        <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                          {debugData.writerSystemPrompt}
+                        </pre>
+                      </div>
+                      <div>
+                        <h3 className="text-amber-400 font-bold mb-1">Writer User Prompt</h3>
+                        <pre className="text-white/80 whitespace-pre-wrap bg-black/30 rounded-lg p-4 text-xs leading-relaxed">
+                          {debugData.writePrompt}
+                        </pre>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="bg-black/30 rounded-lg p-4 text-white/50 text-xs leading-relaxed">
+                      Claude planner / writer prompts weren't logged for
+                      this story (generated before debug logging was
+                      added). Image-side debug is still reconstructable
+                      below.
+                    </div>
+                  )}
                   {debugData.image && (
                     <div>
                       <h3 className="text-amber-400 font-bold mb-1">Gemini Setup Message</h3>
