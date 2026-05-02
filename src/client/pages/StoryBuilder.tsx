@@ -168,8 +168,7 @@ export default function StoryBuilder() {
               Story idea <span className="text-stone-400 font-normal">(optional)</span>
             </label>
             <p className="text-xs text-stone-400 mb-2">
-              A sentence or two of inspiration. Examples: "Lily learns to share
-              her toys" or "An adventure to find the missing necklace."
+              A sentence or two of inspiration.
             </p>
             <textarea
               id="story-idea"
@@ -184,10 +183,7 @@ export default function StoryBuilder() {
                   : "border-stone-200 focus:ring-primary"
               }`}
             />
-            <div className="flex justify-between items-center mt-1">
-              <p className="text-[11px] text-stone-400">
-                Inappropriate content is ignored — your story stays kid-safe.
-              </p>
+            <div className="flex justify-end items-center mt-1">
               <p
                 className={`text-[11px] ${
                   storyIdeaTooLong ? "text-red-600" : "text-stone-400"
