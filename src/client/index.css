@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Global typography baseline. Lexend is loaded in index.html and used
+   across the app; the inline `style={{ fontFamily: ... }}` overrides
+   on individual pages were inconsistent (some pages set Lexend, some
+   inherited the system default), making /account read as a different
+   font than /library. Setting the base font here lets every page
+   inherit Lexend by default; the few decorative serif headers
+   (Library "My library", Onboarding "Welcome") still override locally
+   with Georgia. */
+html, body {
+  font-family: "Lexend", system-ui, -apple-system, sans-serif;
+}
+
 /* App-shell beige background. The Library page set the visual baseline,
    so every other page reuses this gradient for consistency. The reading
    view (the open book) keeps its own dark theatrical background. */

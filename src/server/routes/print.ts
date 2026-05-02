@@ -99,7 +99,12 @@ router.post("/cart", async (req, res) => {
       },
     });
     if (!story) return res.status(404).json({ error: "Story not found" });
-    if (story.universe.userId !== userId && story.createdById !== userId) {
+    // Allow the user to print any story they can read — owned stories
+    // and admin-featured public ones (so the "Add to print list"
+    // button on a featured-shelf book works without 403'ing).
+    const isOwner =
+      story.universe.userId === userId || story.createdById === userId;
+    if (!isOwner && !story.isPublic) {
       return res.status(403).json({ error: "Access denied" });
     }
     if (story.status !== "published") {
