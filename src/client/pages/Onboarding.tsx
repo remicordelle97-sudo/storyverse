@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   completeOnboarding,
   completeOnboardingPreset,
+  createCheckoutSession,
   getTemplateUniverses,
   saveShippingAddress,
   skipOnboarding,
@@ -13,30 +14,55 @@ import { useAuth } from "../auth/AuthContext";
 import UniverseBuilderForm, { UniverseBuilderPayload } from "../components/UniverseBuilderForm";
 import AddressForm, { type AddressFormHandle } from "../components/AddressForm";
 import { parseStringList } from "../lib/parseStringList";
+import { PREMIUM_MONTHLY_DISPLAY } from "../lib/pricing";
 
 type Step = "address" | "plan" | "choice" | "preset" | "world";
+type Plan = "free" | "premium";
 
 export default function Onboarding() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, refreshUser, logout } = useAuth();
   const [step, setStep] = useState<Step>("address");
+  const [selectedPlan, setSelectedPlan] = useState<Plan>("free");
   const [presetError, setPresetError] = useState<string | null>(null);
   const [submittingPreset, setSubmittingPreset] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
   const addressFormRef = useRef<AddressFormHandle | null>(null);
 
+  /**
+   * After universe creation succeeds: if the user picked Premium during
+   * the plan step, hand them off to Stripe Checkout. The Stripe webhook
+   * sets `User.plan = "premium"`; success_url drops them on
+   * `/library?upgraded=true`. If they cancel Stripe Checkout, the
+   * cancel_url lands on `/library` and they stay free — the universe
+   * was already enqueued so onboarding is complete either way.
+   */
+  async function landAfterUniverse() {
+    if (selectedPlan === "premium") {
+      try {
+        const { url } = await createCheckoutSession();
+        window.location.assign(url);
+        return;
+      } catch {
+        // If checkout creation fails, don't block onboarding — fall
+        // through and dump them on the library, where they can retry
+        // the upgrade from /account.
+      }
+    }
+    navigate("/library");
+  }
+
   async function handleSubmit(payload: UniverseBuilderPayload) {
     // /api/auth/onboard is async (202 + universeId in milliseconds);
-    // navigate as soon as it returns. The placeholder universe lights
-    // up in /my-universes and the global ProgressBanner shows the
-    // build progress — no full-screen waiting view.
+    // we don't wait on the build — the global ProgressBanner shows
+    // its progress wherever the user lands.
     await completeOnboarding(payload);
     await refreshUser();
     queryClient.invalidateQueries({ queryKey: ["universes-my"] });
     queryClient.invalidateQueries({ queryKey: ["progress-banner-universes"] });
-    navigate("/library");
+    await landAfterUniverse();
   }
 
   async function handlePreset(templateUniverseId: string) {
@@ -46,7 +72,7 @@ export default function Onboarding() {
       await completeOnboardingPreset(templateUniverseId);
       await refreshUser();
       queryClient.invalidateQueries({ queryKey: ["universes-my"] });
-      navigate("/library");
+      await landAfterUniverse();
     } catch (e: any) {
       setPresetError(e?.message || "Could not load that preset");
       setSubmittingPreset(false);
@@ -146,42 +172,35 @@ export default function Onboarding() {
             <p className="text-sm text-stone-500 mb-6">You can upgrade anytime later.</p>
 
             <div className="grid sm:grid-cols-2 gap-4">
-              <button
-                onClick={() => setStep("choice")}
-                className="text-left border-2 border-primary bg-primary/5 rounded-xl p-5 hover:bg-primary/10 transition-colors"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-stone-800">Free</h3>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary text-white font-medium">
-                    Selected
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-stone-800 mb-3">$0</p>
-                <ul className="text-xs text-stone-600 space-y-1.5">
-                  <li>1 universe</li>
-                  <li>2 illustrated stories per month</li>
-                  <li>10 text-only stories per month</li>
-                </ul>
-              </button>
-
-              <div
-                aria-disabled
-                className="text-left border-2 border-stone-200 rounded-xl p-5 opacity-60 cursor-not-allowed relative"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-stone-800">Premium</h3>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-200 text-stone-600 font-medium">
-                    Coming soon
-                  </span>
-                </div>
-                <p className="text-2xl font-bold text-stone-800 mb-3">—</p>
-                <ul className="text-xs text-stone-600 space-y-1.5">
-                  <li>Unlimited universes</li>
-                  <li>5 illustrated stories per month</li>
-                  <li>20 text-only stories per month</li>
-                </ul>
-              </div>
+              <PlanCard
+                name="Free"
+                price="$0"
+                features={[
+                  "1 universe",
+                  "2 illustrated stories per month",
+                  "10 text-only stories per month",
+                ]}
+                selected={selectedPlan === "free"}
+                onClick={() => setSelectedPlan("free")}
+              />
+              <PlanCard
+                name="Premium"
+                price={PREMIUM_MONTHLY_DISPLAY}
+                features={[
+                  "Unlimited universes",
+                  "5 illustrated stories per month",
+                  "20 text-only stories per month",
+                ]}
+                selected={selectedPlan === "premium"}
+                onClick={() => setSelectedPlan("premium")}
+              />
             </div>
+            {selectedPlan === "premium" && (
+              <p className="mt-4 text-xs text-stone-500">
+                We'll finish setting up your universe first, then take you to
+                checkout to activate Premium.
+              </p>
+            )}
 
             <div className="mt-6 flex justify-between items-center">
               <button
@@ -406,6 +425,48 @@ function PresetPicker({
         </button>
       </div>
     </div>
+  );
+}
+
+function PlanCard({
+  name,
+  price,
+  features,
+  selected,
+  onClick,
+}: {
+  name: string;
+  price: string;
+  features: string[];
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      type="button"
+      aria-pressed={selected}
+      className={`text-left border-2 rounded-xl p-5 transition-colors ${
+        selected
+          ? "border-primary bg-primary/5"
+          : "border-stone-200 bg-white hover:border-stone-300"
+      }`}
+    >
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-semibold text-stone-800">{name}</h3>
+        {selected && (
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary text-white font-medium">
+            Selected
+          </span>
+        )}
+      </div>
+      <p className="text-2xl font-bold text-stone-800 mb-3">{price}</p>
+      <ul className="text-xs text-stone-600 space-y-1.5">
+        {features.map((f) => (
+          <li key={f}>{f}</li>
+        ))}
+      </ul>
+    </button>
   );
 }
 

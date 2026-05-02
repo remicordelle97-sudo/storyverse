@@ -178,13 +178,45 @@ router.post(
         break;
       }
 
+      case "customer.subscription.updated": {
+        // Stripe fires this for trial-to-active, plan changes, payment
+        // recovery, pauses, etc. Re-assert the plan based on the
+        // subscription's current status — the goal is "if Stripe thinks
+        // the user is paying, they're premium." past_due keeps premium
+        // (Stripe handles dunning before flipping to canceled / unpaid).
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+        const user = await prisma.user.findUnique({
+          where: { stripeCustomerId: customerId },
+        });
+        if (!user) break;
+        const activeStatuses: Stripe.Subscription.Status[] = [
+          "active",
+          "trialing",
+          "past_due",
+        ];
+        const expectedPlan = activeStatuses.includes(subscription.status)
+          ? "premium"
+          : "free";
+        if (user.plan !== expectedPlan && user.role !== "admin") {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { plan: expectedPlan },
+          });
+          debug.story(
+            `User ${user.id} plan synced to ${expectedPlan} (subscription.${subscription.status})`
+          );
+        }
+        break;
+      }
+
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
         const user = await prisma.user.findUnique({
           where: { stripeCustomerId: customerId },
         });
-        if (user) {
+        if (user && user.role !== "admin") {
           await prisma.user.update({
             where: { id: user.id },
             data: { plan: "free" },
