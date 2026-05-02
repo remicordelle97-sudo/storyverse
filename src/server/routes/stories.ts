@@ -179,7 +179,10 @@ router.get("/:id/status", async (req, res) => {
 
     const isOwner = await verifyUniverseOwnership(story.universeId, req.userId as string);
     const isCreator = story.createdById === (req.userId as string);
-    if (!story.isPublic && !isOwner && !isCreator) {
+    // Admins can read any story (story-builder QA, debug panel, etc).
+    const requester = await prisma.user.findUnique({ where: { id: req.userId as string } });
+    const isAdmin = requester?.role === "admin";
+    if (!story.isPublic && !isOwner && !isCreator && !isAdmin) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -222,10 +225,14 @@ router.get("/:id", async (req, res) => {
     if (!story) {
       return res.status(404).json({ error: "Story not found" });
     }
-    // Allow access to: public stories, own universe stories, or stories the user created
+    // Allow access to: public stories, own universe stories, stories
+    // the user created, or any admin (admins can inspect any user's
+    // story for QA + the debug panel in ReadingMode).
     const isOwner = await verifyUniverseOwnership(story.universeId, req.userId as string);
     const isCreator = story.createdById === (req.userId as string);
-    if (!story.isPublic && !isOwner && !isCreator) {
+    const requester = await prisma.user.findUnique({ where: { id: req.userId as string } });
+    const isAdmin = requester?.role === "admin";
+    if (!story.isPublic && !isOwner && !isCreator && !isAdmin) {
       return res.status(403).json({ error: "Access denied" });
     }
     res.json(story);
