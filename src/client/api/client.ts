@@ -301,12 +301,15 @@ export interface PrintCartItem {
 }
 
 export interface PrintCartQuote {
-  printCostCents: number;
+  booksSubtotalCents: number;
   shippingCostCents: number;
   taxCostCents: number;
   customerPriceCents: number;
   shippingLevel: string;
-  perItem: { id: string; printCostCents: number }[];
+  pricePerBookCents: number;
+  // Lulu's print cost — surfaced for admin reporting only; doesn't
+  // factor into the customer-facing math under flat-rate pricing.
+  luluPrintCostCents: number;
 }
 
 export interface PrintCart {

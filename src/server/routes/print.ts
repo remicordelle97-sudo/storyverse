@@ -43,7 +43,12 @@ import {
 
 const router = Router();
 
-const PRINT_MARKUP = 1.5;
+// Flat customer price per book. Stripe charges this many cents per
+// book + Lulu's shipping pass-through. Lulu's print cost is still
+// snapshotted on each PrintOrder for accounting / margin reporting,
+// but the customer-facing price doesn't depend on it. Adjust this
+// constant if pricing changes; everything else flows from it.
+const BOOK_PRICE_CENTS = 999;
 
 const SAMPLE_LULU_ADDRESS: ShippingAddress = {
   name: "Lulu Sandbox",
@@ -75,7 +80,7 @@ router.get("/config", requireAdmin, (_req, res) => {
     baseUrl: LULU_CONFIG.baseUrl,
     isConfigured: LULU_CONFIG.isConfigured,
     defaultPodPackageId: LULU_CONFIG.defaultPodPackageId,
-    markup: PRINT_MARKUP,
+    bookPriceCents: BOOK_PRICE_CENTS,
   });
 });
 
@@ -173,12 +178,15 @@ router.get("/cart", async (req, res) => {
     }));
 
     let quote: {
-      printCostCents: number;
+      booksSubtotalCents: number;
       shippingCostCents: number;
       taxCostCents: number;
       customerPriceCents: number;
       shippingLevel: string;
-      perItem: { id: string; printCostCents: number }[];
+      pricePerBookCents: number;
+      // Internal-only: Lulu's print cost. Surfaced for admin / cost
+      // analysis but not used by the customer-facing math.
+      luluPrintCostCents: number;
     } | null = null;
 
     // No address yet, no items, or Lulu unconfigured → skip the quote
@@ -200,28 +208,19 @@ router.get("/cart", async (req, res) => {
           quantity: 1,
         })),
       });
-      const customerPriceCents =
-        Math.round(luluResp.printCostCents * PRINT_MARKUP) + luluResp.shippingCostCents;
-      // Per-item attribution for display: each item's share of the
-      // markup'd print cost. Shipping is one flat fee for the batch
-      // and isn't broken out per item in the UI.
-      const perItem = cartLines.map((l, i) => ({
-        id: l.id,
-        // Per-item cost: each book proportional to its page count.
-        // Lulu doesn't break down per-line-item costs in the same shape
-        // across products, so we approximate with page-count weighting.
-        printCostCents: Math.round(
-          (luluResp.printCostCents * l.pageCount) /
-            cartLines.reduce((acc, it) => acc + it.pageCount, 0)
-        ),
-      }));
+      // Flat-rate model: each book is BOOK_PRICE_CENTS, regardless of
+      // its page count or Lulu's per-line cost. Shipping is still
+      // pass-through from Lulu.
+      const booksSubtotalCents = cartLines.length * BOOK_PRICE_CENTS;
+      const customerPriceCents = booksSubtotalCents + luluResp.shippingCostCents;
       quote = {
-        printCostCents: luluResp.printCostCents,
+        booksSubtotalCents,
         shippingCostCents: luluResp.shippingCostCents,
         taxCostCents: luluResp.taxCostCents,
         customerPriceCents,
         shippingLevel: luluResp.shippingLevel,
-        perItem,
+        pricePerBookCents: BOOK_PRICE_CENTS,
+        luluPrintCostCents: luluResp.printCostCents,
       };
     }
 
@@ -338,19 +337,17 @@ router.post("/cart/checkout", async (req, res) => {
         quantity: 1,
       })),
     });
+    // Flat-rate pricing: BOOK_PRICE_CENTS per book + Lulu shipping
+    // pass-through. Lulu's per-line print cost is still snapshotted on
+    // each row (page-count weighted) so admin / margin reporting can
+    // see the cost basis, but it doesn't drive the customer total.
     const customerTotalCents =
-      Math.round(quote.printCostCents * PRINT_MARKUP) + quote.shippingCostCents;
-
-    // Promote the cart rows into a batch. printBatchId groups every
-    // PrintOrder for the user's checkout into one Lulu print-job and
-    // one Stripe payment. customerPriceCents per row holds that book's
-    // share of the markup'd print cost (no shipping); luluShippingCostCents
-    // is duplicated across rows so a single-row read can recover it.
+      builds.length * BOOK_PRICE_CENTS + quote.shippingCostCents;
     const totalPageCount = builds.reduce((acc, b) => acc + b.pageCount, 0);
     const batchId = crypto.randomUUID();
     await Promise.all(
       builds.map((b) => {
-        const itemPrintShareCents = Math.round(
+        const luluPrintShareCents = Math.round(
           (quote.printCostCents * b.pageCount) / totalPageCount
         );
         return prisma.printOrder.update({
@@ -361,9 +358,9 @@ router.post("/cart/checkout", async (req, res) => {
             shippingAddress: JSON.stringify(address),
             coverPdfUrl: b.pdfs.coverPdfUrl,
             interiorPdfUrl: b.pdfs.interiorPdfUrl,
-            luluPrintCostCents: itemPrintShareCents,
+            luluPrintCostCents: luluPrintShareCents,
             luluShippingCostCents: quote.shippingCostCents,
-            customerPriceCents: Math.round(itemPrintShareCents * PRINT_MARKUP),
+            customerPriceCents: BOOK_PRICE_CENTS,
           },
         });
       })
@@ -633,8 +630,8 @@ router.post("/test-order", requireAdmin, async (req, res) => {
         shippingAddress: address,
       }),
     ]);
-    const customerPriceCents =
-      Math.round(quote.printCostCents * PRINT_MARKUP) + quote.shippingCostCents;
+    // Flat $9.99/book + Lulu shipping pass-through.
+    const customerPriceCents = BOOK_PRICE_CENTS + quote.shippingCostCents;
 
     // Admin test orders run as a single-row batch.
     const batchId = crypto.randomUUID();
@@ -646,7 +643,7 @@ router.post("/test-order", requireAdmin, async (req, res) => {
         status: dryRun ? PRINT_ORDER_STATUS.draft : PRINT_ORDER_STATUS.draft,
         luluPrintCostCents: quote.printCostCents,
         luluShippingCostCents: quote.shippingCostCents,
-        customerPriceCents: Math.round(quote.printCostCents * PRINT_MARKUP),
+        customerPriceCents: BOOK_PRICE_CENTS,
         shippingAddress: JSON.stringify(address),
         coverPdfUrl: pdfs.coverPdfUrl,
         interiorPdfUrl: pdfs.interiorPdfUrl,

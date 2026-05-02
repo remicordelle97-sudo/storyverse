@@ -145,7 +145,7 @@ export default function PrintCart() {
         ) : (
           <ul className="space-y-3">
             {data.items.map((item) => {
-              const perItem = data.quote?.perItem.find((p) => p.id === item.id);
+              const perBook = data.quote?.pricePerBookCents;
               return (
                 <li
                   key={item.id}
@@ -159,7 +159,7 @@ export default function PrintCart() {
                   </div>
                   <div className="flex items-center gap-4 shrink-0">
                     <span className="text-sm text-stone-600">
-                      {perItem ? formatCents(Math.round(perItem.printCostCents * 1.5)) : "—"}
+                      {perBook != null ? formatCents(perBook) : "—"}
                     </span>
                     <button
                       onClick={() => handleRemove(item.id)}
@@ -180,8 +180,12 @@ export default function PrintCart() {
         {!empty && data.quote && (
           <div className="bg-white rounded-2xl shadow-sm border border-stone-200 p-5 space-y-1.5">
             <Row
-              label="Print"
-              value={formatCents(Math.round(data.quote.printCostCents * 1.5))}
+              label={
+                data.items.length === 1
+                  ? "Book"
+                  : `Books (${data.items.length} × ${formatCents(data.quote.pricePerBookCents)})`
+              }
+              value={formatCents(data.quote.booksSubtotalCents)}
               muted
             />
             <Row label="Shipping" value={formatCents(data.quote.shippingCostCents)} muted />

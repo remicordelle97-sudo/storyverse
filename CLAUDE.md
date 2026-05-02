@@ -376,13 +376,20 @@ address lives on `User.shippingAddress`, captured during onboarding
 across a batch — every row in the same `printBatchId` shares its
 status, `luluPrintJobId`, and tracking URL.
 
+**Pricing model — flat $9.99 per book + Lulu shipping pass-through.**
+The `BOOK_PRICE_CENTS` constant in `routes/print.ts` drives every
+customer-facing price; Lulu's per-line print cost is still
+snapshotted on each row for margin reporting but doesn't influence
+what we charge. To change the price (e.g. promotional run, currency
+adjustment), edit that one constant.
+
 **Pricing snapshot per row:**
-- `luluPrintCostCents` — that row's print cost (proportional to
-  the row's page count over total batch page count).
+- `luluPrintCostCents` — Lulu's per-line print cost (proportional
+  to page count over total batch page count). Cost basis only.
 - `luluShippingCostCents` — full batch shipping, duplicated on
   every row (single source of truth — read from any row).
-- `customerPriceCents` — `luluPrintCostCents * 1.5`. The batch
-  total is `sum(customerPriceCents) + luluShippingCostCents`.
+- `customerPriceCents` — `BOOK_PRICE_CENTS` (currently 999).
+  The batch total is `rows.length * BOOK_PRICE_CENTS + luluShippingCostCents`.
 
 **Schema additions:**
 - `User.shippingAddress` — JSON-encoded saved address. Empty
@@ -423,8 +430,9 @@ spending credit.
   Phase 3 will compute spine width from interior page count for
   perfect-bound (PB).
 
-Pricing: print cost × 1.5 + shipping pass-through (no separate tax
-charge to customer).
+Pricing: flat `$9.99` per book + Lulu shipping pass-through (no
+separate tax charge to customer; tax is collected by Lulu at
+fulfillment).
 
 **Idempotency:** `submitBatchToLulu` short-circuits if any row in
 the batch already has a `luluPrintJobId`. The Stripe webhook also

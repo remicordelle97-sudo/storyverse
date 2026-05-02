@@ -127,24 +127,25 @@ export default function StoryBuilder() {
         </div>
       ) : (
       <>
-          {/* Universe selector (if multiple) */}
-          {universes.length > 1 && (
-            <section className="mb-8">
-              <label className="block text-sm font-medium text-stone-700 mb-3">
-                Universe
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {universes.map((u: any) => (
-                  <Chip
-                    key={u.id}
-                    label={u.isPublic ? `${u.name} ★` : u.name}
-                    selected={universeId === u.id}
-                    onClick={() => setUniverseId(u.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
+          {/* Universe selector — always render so the user sees which
+              universe their story will use, even when there's only one
+              choice. The single-universe case still auto-selects via
+              the useEffect above. */}
+          <section className="mb-8">
+            <label className="block text-sm font-medium text-stone-700 mb-3">
+              Universe
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {universes.map((u: any) => (
+                <Chip
+                  key={u.id}
+                  label={u.isPublic ? `${u.name} ★` : u.name}
+                  selected={universeId === u.id}
+                  onClick={() => setUniverseId(u.id)}
+                />
+              ))}
+            </div>
+          </section>
 
           {/* Age group */}
           <section className="mb-8">
