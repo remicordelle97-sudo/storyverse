@@ -55,7 +55,13 @@ router.post("/create-checkout", authMiddleware, async (req, res) => {
     res.json({ url: session.url });
   } catch (e: any) {
     debug.error(`Checkout session failed: ${e.message}`);
-    res.status(500).json({ error: "Failed to create checkout session" });
+    // Surface the underlying Stripe error so misconfiguration (wrong
+    // price id, test/live mismatch, missing keys) is visible without
+    // tailing logs. Stripe error messages don't contain secrets.
+    res.status(500).json({
+      error: "Failed to create checkout session",
+      detail: e?.message || String(e),
+    });
   }
 });
 
@@ -79,7 +85,10 @@ router.post("/create-portal", authMiddleware, async (req, res) => {
     res.json({ url: session.url });
   } catch (e: any) {
     debug.error(`Portal session failed: ${e.message}`);
-    res.status(500).json({ error: "Failed to create portal session" });
+    res.status(500).json({
+      error: "Failed to create portal session",
+      detail: e?.message || String(e),
+    });
   }
 });
 
