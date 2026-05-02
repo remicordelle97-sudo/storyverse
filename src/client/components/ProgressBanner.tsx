@@ -82,8 +82,14 @@ export default function ProgressBanner() {
   if (stories.length === 0 && universes.length === 0) return null;
 
   return (
-    <div className="sticky top-0 z-30 bg-amber-50/95 backdrop-blur border-b border-amber-200 shadow-sm">
-      <div className="max-w-6xl mx-auto px-4 py-2 flex items-center gap-3 overflow-x-auto">
+    // Floating pill, horizontally centered. `fixed` instead of `sticky`
+    // so the banner doesn't reserve vertical space — page content stays
+    // exactly where it would be if the banner weren't there. The
+    // existing top-of-page elements (Library header, ImpersonationBanner)
+    // are at z-50/100, so z-40 here keeps the banner under the
+    // impersonation strip but over normal page chrome.
+    <div className="fixed top-3 left-1/2 -translate-x-1/2 z-40 pointer-events-none">
+      <div className="pointer-events-auto flex items-center gap-2 px-2 py-1.5 rounded-full bg-amber-50/95 backdrop-blur border border-amber-200 shadow-md max-w-[90vw] overflow-x-auto">
         {universes.map((u: any) => (
           <Item
             key={`u-${u.id}`}
