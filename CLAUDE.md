@@ -266,7 +266,7 @@ User → Universe → Character, Story → Scene, StoryCharacter
 User → GenerationJob (→ Story?, → Universe?)
 ```
 
-**User**: Google OAuth, JWT auth. Roles: user, admin. Plans: free (5 stories/month, 1 universe), premium (unlimited), admin.
+**User**: Google OAuth, JWT auth. Roles: `user`, `admin`. Plans: `free` (1 universe, 2 illustrated + 10 text stories/month), `premium` (unlimited universes, 5 illustrated + 20 text stories/month). Admin role bypasses all quotas. Carries `stripeCustomerId` (set lazily on first upgrade) and `shippingAddress` (JSON-encoded saved address for print-on-demand checkout). `serializeUser` exposes a derived `hasShippingAddress: boolean` to the client without ever sending the raw address.
 
 **Universe**: Name, setting description, themes, avoid-themes, style reference image. `status` tracks the async creation lifecycle: `queued | building | illustrating_assets | ready | failed`. Default is `"ready"` so legacy rows (pre-PR-5) are correct without a migration; new universes from `/api/auth/onboard` and `/api/universes/custom` start at `"queued"`. Preset clones (`/api/auth/onboard-preset`) skip the pipeline entirely and land at `"ready"` immediately. Sensory details/world rules/scale fields exist in schema but are deprecated.
 
@@ -320,6 +320,127 @@ status endpoint via `react-query`'s `refetchInterval`:
 - Horizontally scrollable bookshelves on mobile
 - FAQ modal centered on screen (not dropdown)
 - Spine shadow hidden on mobile (no spine in single-page mode)
+
+### Onboarding flow
+
+`src/client/pages/Onboarding.tsx` is a 4-step wizard for new users
+(role !== "admin" + `onboardedAt == null`). Steps in order:
+
+1. **Address** (skippable) — `AddressForm` writes via
+   `PUT /api/account/address`. Skip just continues without saving.
+2. **Plan** — Free vs Premium. Free continues to step 3. Premium
+   immediately redirects to Stripe Checkout via
+   `createCheckoutSession({ returnTo: "onboarding" })`. Stripe
+   sends the user back to:
+   - `/onboarding?paid=premium` on success → `refreshUser()`,
+     resume on step 3 (universe choice)
+   - `/onboarding?upgrade_cancelled=1` on cancel → land back on
+     step 2 with a "try Free or retry" note
+   The query string is cleared via `setSearchParams({}, { replace })`
+   on mount so refresh doesn't re-trigger.
+3. **Choice** — pick "Build my own universe" or "Use a preset."
+4. **World** (`UniverseBuilderForm`) or **Preset** (`PresetPicker`).
+
+After universe creation succeeds, the user is sent to `/library`.
+If they picked Premium, payment was already settled at step 2 — no
+post-creation Stripe redirect.
+
+### Premium subscription (Stripe)
+
+End-to-end recurring billing for the Premium plan. Stripe is the
+source of truth for what the user pays; the `User.plan` column
+mirrors subscription state via webhook.
+
+**Endpoints (`routes/billing.ts`):**
+- `POST /api/billing/create-checkout` — creates a subscription
+  Checkout session. Body accepts `{ returnTo: "library" |
+  "onboarding" }` (default `"library"`); the server picks the
+  matching `success_url` / `cancel_url`. Lazily creates a Stripe
+  customer on first call and persists `stripeCustomerId`.
+- `POST /api/billing/create-portal` — opens Stripe's hosted
+  Customer Portal for self-service cancel / payment-method updates.
+- `POST /api/billing/webhook` — handles `checkout.session.completed`
+  (premium upgrade OR print payment, branched on `metadata.kind`),
+  `customer.subscription.updated` (re-asserts plan from
+  `subscription.status` — `active` / `trialing` / `past_due` →
+  `premium`; otherwise → `free`), `customer.subscription.deleted`
+  (downgrade to free), `invoice.payment_failed` (logged only).
+  Both subscription handlers skip admin accounts so an admin who
+  happens to have a Stripe customer can't be downgraded.
+
+**UI surfaces:**
+- Onboarding step 2 (see above).
+- `/account` "Plan" section: badge for current plan, this month's
+  quota usage tiles, Upgrade / Manage CTA. Uses
+  `PREMIUM_MONTHLY_DISPLAY` from `src/client/lib/pricing.ts` for
+  the inline price string — keep in sync with the Stripe Price.
+- Library nav menu: "Manage subscription" or "Upgrade to Premium"
+  shortcut (also routes through `createCheckoutSession`).
+- `StoryBuilder` quota-exhausted CTA links to upgrade.
+
+**Admin reset cancels active Stripe subscriptions.** The
+`POST /api/admin/users/:userId/reset` endpoint lists every
+`active`/`trialing`/`past_due`/`paused` subscription on the target
+user's Stripe customer and cancels each immediately, then sets
+`plan = "free"`. Without this, setting plan in the DB was
+cosmetic — the next `subscription.updated` webhook would re-promote
+the user. `stripeCustomerId` is preserved so a future re-upgrade
+keeps their billing history.
+
+### Library nav + global UI shell
+
+`App.tsx` mounts the route tree inside `AuthedShell`, which
+provides a few cross-page surfaces:
+
+- `ImpersonationBanner` (top, full-width, amber) — only when an
+  admin is impersonating; click "Exit" to drop back to the admin
+  session.
+- `ProgressBanner` (`src/client/components/ProgressBanner.tsx`) —
+  floating top-center pill that lists in-flight story / universe
+  builds for the current user. Polls `getMyStories` +
+  `getMyUniverses` every 3s and shows one chip per non-terminal
+  item. Story chips use generic copy ("Writing your new story…")
+  because the title isn't available until the planner finishes;
+  universe chips include the universe name. `position: fixed` so
+  the banner doesn't reserve layout space. Hidden on `/reading`,
+  `/login`, `/onboarding`. Auto-disappears when nothing is in
+  flight.
+- `ErrorBoundary` (wraps `AppRoutes` only — banners stay visible
+  during a page-level error). On a render exception shows a
+  recovery card with the error message + JS stack +
+  `componentStack`, plus "Try again" / "Refresh page" actions.
+  Without this, a thrown render produced a blank screen.
+
+The Library `+` menu (top-right) holds `New Story`, `My Universes`,
+`Account`, `Sign Out` for everyone, plus `Manage Universes` /
+`Admin` for admins and `Upgrade to Premium` / `Manage Subscription`
+for non-admins. The `New Story` item is disabled when the user has
+universes but none in `status="ready"` — clicking it would dump
+them on a `/story-builder` empty state. Print-related shortcuts
+(`Waiting to print`, `My printed books`) are consolidated under
+`/account`'s "Printed books" section, not the top-level menu.
+
+### Account page
+
+`/account` (`src/client/pages/Account.tsx`) consolidates:
+
+- Identity (name + email — read-only).
+- Plan + this month's quota tiles + Upgrade or Manage CTA.
+- Printed-books shortcuts (link to `/print/cart` and `/orders`).
+- Shipping address (`AddressForm` + Save / Clear).
+
+`getAccount` (`GET /api/account`) returns the parsed shipping
+address; `PUT /api/account/address` validates + saves;
+`DELETE /api/account/address` clears.
+
+### Universe deletion is admin-only
+
+`DELETE /api/universes/:id` requires admin. Users used to be able
+to delete their own (for cleaning up failed builds), but failed
+universes already don't count against quota and the loss-of-data
+risk from a stray click outweighs the convenience. Cleanup happens
+via the admin reset endpoint or `UniverseManager`. The per-row
+"Delete" button is hidden in `MyUniverses`.
 
 ### Print on Demand (Lulu) — Phase 2, sandbox-only
 
