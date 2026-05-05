@@ -14,6 +14,7 @@ import PrintOrderDetail from "./pages/PrintOrderDetail";
 import PrintCart from "./pages/PrintCart";
 import Account from "./pages/Account";
 import ProgressBanner from "./components/ProgressBanner";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, isImpersonating } = useAuth();
@@ -171,7 +172,13 @@ function AuthedShell() {
           render at all once we have an authed user — pre-auth there's
           nothing to poll. */}
       {user && <ProgressBanner />}
-      <AppRoutes />
+      {/* Error boundary wraps the routed pages only — keeping it
+          inside the shell means the impersonation + progress banners
+          stay visible even if a page render throws, and the user
+          isn't dropped on a blank screen. */}
+      <ErrorBoundary>
+        <AppRoutes />
+      </ErrorBoundary>
     </>
   );
 }
