@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   completeOnboarding,
@@ -23,46 +23,83 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, refreshUser, logout } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // If the user is already premium when they land on onboarding (e.g.
+  // they paid then refreshed), reflect that in the plan picker.
+  const initialPlan: Plan = user?.plan === "premium" ? "premium" : "free";
   const [step, setStep] = useState<Step>("address");
-  const [selectedPlan, setSelectedPlan] = useState<Plan>("free");
+  const [selectedPlan, setSelectedPlan] = useState<Plan>(initialPlan);
   const [presetError, setPresetError] = useState<string | null>(null);
   const [submittingPreset, setSubmittingPreset] = useState(false);
   const [savingAddress, setSavingAddress] = useState(false);
   const [addressError, setAddressError] = useState<string | null>(null);
+  const [upgrading, setUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
+  const [upgradeCancelledNotice, setUpgradeCancelledNotice] = useState(false);
   const addressFormRef = useRef<AddressFormHandle | null>(null);
 
   /**
-   * After universe creation succeeds: if the user picked Premium during
-   * the plan step, hand them off to Stripe Checkout. The Stripe webhook
-   * sets `User.plan = "premium"`; success_url drops them on
-   * `/library?upgraded=true`. If they cancel Stripe Checkout, the
-   * cancel_url lands on `/library` and they stay free — the universe
-   * was already enqueued so onboarding is complete either way.
+   * Handle the round-trip from Stripe Checkout. Plan-step Continue
+   * with Premium selected calls /billing/create-checkout with
+   * returnTo=onboarding, so Stripe sends the user back here:
+   *   - success_url adds ?paid=premium → resume on the choice step
+   *     (the webhook has flipped User.plan to "premium")
+   *   - cancel_url adds ?upgrade_cancelled=1 → stay on the plan step
+   *     with an "upgrade cancelled" note so they can retry or pick Free
    */
-  async function landAfterUniverse() {
-    if (selectedPlan === "premium") {
+  useEffect(() => {
+    const paid = searchParams.get("paid");
+    const cancelled = searchParams.get("upgrade_cancelled");
+    if (paid === "premium") {
+      // Refresh user so the rest of the app sees the new plan; jump
+      // past Plan straight into the universe-choice step.
+      refreshUser().catch(() => undefined);
+      setSelectedPlan("premium");
+      setStep("choice");
+      // Drop the query string so a refresh doesn't keep re-triggering.
+      setSearchParams({}, { replace: true });
+    } else if (cancelled === "1") {
+      setSelectedPlan("free");
+      setStep("plan");
+      setUpgradeCancelledNotice(true);
+      setSearchParams({}, { replace: true });
+    }
+    // Run only on mount — searchParams is stable; setSearchParams is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handlePlanContinue() {
+    setUpgradeError(null);
+    setUpgradeCancelledNotice(false);
+    if (selectedPlan === "premium" && user?.plan !== "premium") {
+      // Settle payment before the user invests time in choosing /
+      // building a universe. createCheckoutSession redirects through
+      // Stripe and back to /onboarding with a query param that the
+      // mount-effect above resumes from.
+      setUpgrading(true);
       try {
-        const { url } = await createCheckoutSession();
+        const { url } = await createCheckoutSession({ returnTo: "onboarding" });
         window.location.assign(url);
         return;
-      } catch {
-        // If checkout creation fails, don't block onboarding — fall
-        // through and dump them on the library, where they can retry
-        // the upgrade from /account.
+      } catch (e: any) {
+        setUpgradeError(e?.message || "Couldn't start checkout");
+        setUpgrading(false);
+        return;
       }
     }
-    navigate("/library");
+    setStep("choice");
   }
 
   async function handleSubmit(payload: UniverseBuilderPayload) {
     // /api/auth/onboard is async (202 + universeId in milliseconds);
     // we don't wait on the build — the global ProgressBanner shows
-    // its progress wherever the user lands.
+    // its progress wherever the user lands. Payment (if any) was
+    // already settled at the plan step.
     await completeOnboarding(payload);
     await refreshUser();
     queryClient.invalidateQueries({ queryKey: ["universes-my"] });
     queryClient.invalidateQueries({ queryKey: ["progress-banner-universes"] });
-    await landAfterUniverse();
+    navigate("/library");
   }
 
   async function handlePreset(templateUniverseId: string) {
@@ -72,7 +109,7 @@ export default function Onboarding() {
       await completeOnboardingPreset(templateUniverseId);
       await refreshUser();
       queryClient.invalidateQueries({ queryKey: ["universes-my"] });
-      await landAfterUniverse();
+      navigate("/library");
     } catch (e: any) {
       setPresetError(e?.message || "Could not load that preset");
       setSubmittingPreset(false);
@@ -195,25 +232,46 @@ export default function Onboarding() {
                 onClick={() => setSelectedPlan("premium")}
               />
             </div>
-            {selectedPlan === "premium" && (
+            {selectedPlan === "premium" && user?.plan !== "premium" && (
               <p className="mt-4 text-xs text-stone-500">
-                We'll finish setting up your universe first, then take you to
-                checkout to activate Premium.
+                We'll take you to checkout to activate Premium, then come back
+                to set up your universe.
               </p>
+            )}
+            {user?.plan === "premium" && (
+              <p className="mt-4 text-xs text-emerald-700">
+                Premium is active on your account.
+              </p>
+            )}
+            {upgradeCancelledNotice && (
+              <div className="mt-4 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                Upgrade cancelled — pick Free to continue or try Premium again.
+              </div>
+            )}
+            {upgradeError && (
+              <div className="mt-4 text-sm text-red-700 bg-red-100 border border-red-200 rounded-lg px-3 py-2">
+                {upgradeError}
+              </div>
             )}
 
             <div className="mt-6 flex justify-between items-center">
               <button
                 onClick={() => setStep("address")}
                 className="text-sm text-stone-500 hover:text-stone-700 transition-colors"
+                disabled={upgrading}
               >
                 &larr; Back
               </button>
               <button
-                onClick={() => setStep("choice")}
-                className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                onClick={handlePlanContinue}
+                disabled={upgrading}
+                className="px-5 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                Continue
+                {upgrading
+                  ? "Redirecting…"
+                  : selectedPlan === "premium" && user?.plan !== "premium"
+                    ? `Continue to checkout — ${PREMIUM_MONTHLY_DISPLAY}`
+                    : "Continue"}
               </button>
             </div>
           </div>

@@ -137,8 +137,13 @@ export const renameCharacter = (characterId: string, name: string) =>
 
 // Universes
 // Billing
-export const createCheckoutSession = () =>
-  request<{ url: string }>("/billing/create-checkout", { method: "POST" });
+export const createCheckoutSession = (
+  options?: { returnTo?: "library" | "onboarding" },
+) =>
+  request<{ url: string }>("/billing/create-checkout", {
+    method: "POST",
+    body: JSON.stringify(options ?? {}),
+  });
 export const createPortalSession = () =>
   request<{ url: string }>("/billing/create-portal", { method: "POST" });
 

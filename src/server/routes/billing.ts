@@ -16,7 +16,12 @@ const APP_URL = process.env.APP_URL || "http://localhost:3000";
 
 const router = Router();
 
-// Create a Stripe Checkout session for upgrading to premium
+// Create a Stripe Checkout session for upgrading to premium.
+// Body: { returnTo?: "library" | "onboarding" }. Defaults to "library".
+// Onboarding callers (the new "settle payment before universe build"
+// flow) get URLs that bring the user back into /onboarding so they
+// resume mid-flow instead of getting dumped on the library before
+// they've picked a universe.
 router.post("/create-checkout", authMiddleware, async (req, res) => {
   if (!stripe) return res.status(503).json({ error: "Billing not configured" });
   try {
@@ -43,12 +48,22 @@ router.post("/create-checkout", authMiddleware, async (req, res) => {
       });
     }
 
+    const returnTo = req.body?.returnTo === "onboarding" ? "onboarding" : "library";
+    const successUrl =
+      returnTo === "onboarding"
+        ? `${APP_URL}/onboarding?paid=premium`
+        : `${APP_URL}/library?upgraded=true`;
+    const cancelUrl =
+      returnTo === "onboarding"
+        ? `${APP_URL}/onboarding?upgrade_cancelled=1`
+        : `${APP_URL}/library`;
+
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: "subscription",
       line_items: [{ price: PRICE_ID, quantity: 1 }],
-      success_url: `${APP_URL}/library?upgraded=true`,
-      cancel_url: `${APP_URL}/library`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: { userId: user.id },
     });
 
