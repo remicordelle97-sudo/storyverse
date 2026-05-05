@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { getMyUniverses, getUniverseQuota } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { parseStringList } from "../lib/parseStringList";
@@ -9,7 +9,6 @@ import { useInfiniteList } from "../hooks/useInfiniteList";
 export default function MyUniverses() {
   const navigate = useNavigate();
   const { isAdmin } = useAuth();
-  const queryClient = useQueryClient();
 
   // Infinite scroll on the universe sidebar so a user with >100
   // universes can still reach all of them. Polling is page-1-only —

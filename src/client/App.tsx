@@ -164,6 +164,7 @@ function ImpersonationBanner() {
 
 function AuthedShell() {
   const { user } = useAuth();
+  const location = useLocation();
   return (
     <>
       <ImpersonationBanner />
@@ -176,7 +177,7 @@ function AuthedShell() {
           inside the shell means the impersonation + progress banners
           stay visible even if a page render throws, and the user
           isn't dropped on a blank screen. */}
-      <ErrorBoundary>
+      <ErrorBoundary resetKey={`${location.pathname}${location.search}`}>
         <AppRoutes />
       </ErrorBoundary>
     </>

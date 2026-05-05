@@ -199,18 +199,18 @@ router.post("/users/:userId/reset", async (req, res) => {
     });
     const storyIds = stories.map((s) => s.id);
 
-    // TEMP: see CLAUDE.md — print orders should survive a reset before launch.
-    await prisma.printOrder.deleteMany({ where: { userId } });
-
-    await deleteUniversesCascade(universeIds);
-
     // Cancel any active Stripe subscriptions for this user. Without
     // this, setting plan="free" below is cosmetic — Stripe keeps
     // billing them and the next subscription.updated webhook flips
     // them right back to premium. We keep stripeCustomerId so a
     // future re-upgrade still finds their billing history.
     let subscriptionsCancelled = 0;
-    if (stripe && target.stripeCustomerId) {
+    if (target.stripeCustomerId) {
+      if (!stripe) {
+        return res.status(503).json({
+          error: "Stripe billing is not configured, so this premium user cannot be reset safely.",
+        });
+      }
       try {
         const subs = await stripe.subscriptions.list({
           customer: target.stripeCustomerId,
@@ -230,8 +230,16 @@ router.post("/users/:userId/reset", async (req, res) => {
         }
       } catch (e: any) {
         debug.error(`Stripe subscription cancel failed during reset: ${e?.message}`);
+        return res.status(502).json({
+          error: "Failed to cancel the user's Stripe subscription. No reset changes were applied.",
+        });
       }
     }
+
+    // TEMP: see CLAUDE.md — print orders should survive a reset before launch.
+    await prisma.printOrder.deleteMany({ where: { userId } });
+
+    await deleteUniversesCascade(universeIds);
 
     // Reset everything that makes the user look "fresh." Skip role —
     // an admin reset of an admin shouldn't demote them.

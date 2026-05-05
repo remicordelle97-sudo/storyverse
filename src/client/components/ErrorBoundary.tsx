@@ -1,5 +1,10 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
+interface Props {
+  children: ReactNode;
+  resetKey?: string;
+}
+
 interface State {
   error: Error | null;
   info: ErrorInfo | null;
@@ -12,7 +17,7 @@ interface State {
  * details block also surfaces error.stack + componentStack inline so
  * users pasting feedback can capture both without opening DevTools.
  */
-export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
+export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null, info: null };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
@@ -23,6 +28,15 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
     // eslint-disable-next-line no-console
     console.error("Render error caught by ErrorBoundary:", error, info);
     this.setState({ info });
+  }
+
+  componentDidUpdate(prevProps: Readonly<Props>) {
+    if (
+      this.state.error &&
+      prevProps.resetKey !== this.props.resetKey
+    ) {
+      this.setState({ error: null, info: null });
+    }
   }
 
   render() {

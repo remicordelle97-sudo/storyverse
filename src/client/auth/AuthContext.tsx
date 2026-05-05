@@ -28,7 +28,7 @@ interface AuthState {
   impersonatedUser: User | null;
   login: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<User | null>;
   startImpersonation: (token: string, targetUser: User) => void;
   stopImpersonation: () => void;
 }
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryClient.clear();
   };
 
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (): Promise<User | null> => {
     try {
       // Refresh the JWT to pick up any changes (e.g. new familyId)
       const tokenRes = await fetch("/api/auth/refresh", { method: "POST" });
@@ -108,11 +108,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           const data = await res.json();
           setUser(data);
+          return data;
         }
       }
     } catch {
       // ignore
     }
+    return null;
   }, []);
 
   // Try to restore session on mount

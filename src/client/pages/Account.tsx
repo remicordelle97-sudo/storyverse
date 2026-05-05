@@ -8,7 +8,6 @@ import {
   getStoryQuota,
   createCheckoutSession,
   createPortalSession,
-  type PrintShippingAddress,
 } from "../api/client";
 import AddressForm, { type AddressFormHandle } from "../components/AddressForm";
 import { useAuth } from "../auth/AuthContext";

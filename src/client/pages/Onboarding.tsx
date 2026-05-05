@@ -24,6 +24,7 @@ export default function Onboarding() {
   const queryClient = useQueryClient();
   const { user, refreshUser, logout } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const paidOnReturn = searchParams.get("paid") === "premium";
   // If the user is already premium when they land on onboarding (e.g.
   // they paid then refreshed), reflect that in the plan picker.
   const initialPlan: Plan = user?.plan === "premium" ? "premium" : "free";
@@ -36,6 +37,7 @@ export default function Onboarding() {
   const [upgrading, setUpgrading] = useState(false);
   const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [upgradeCancelledNotice, setUpgradeCancelledNotice] = useState(false);
+  const [confirmingUpgrade, setConfirmingUpgrade] = useState(paidOnReturn);
   const addressFormRef = useRef<AddressFormHandle | null>(null);
 
   /**
@@ -48,25 +50,56 @@ export default function Onboarding() {
    *     with an "upgrade cancelled" note so they can retry or pick Free
    */
   useEffect(() => {
+    let cancelledEffect = false;
     const paid = searchParams.get("paid");
     const cancelled = searchParams.get("upgrade_cancelled");
-    if (paid === "premium") {
-      // Refresh user so the rest of the app sees the new plan; jump
-      // past Plan straight into the universe-choice step.
-      refreshUser().catch(() => undefined);
+
+    async function resumePremiumFlow() {
+      setConfirmingUpgrade(true);
+      setUpgradeError(null);
+      setUpgradeCancelledNotice(false);
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const refreshed = await refreshUser();
+        if (cancelledEffect) return;
+        if (refreshed?.plan === "premium") {
+          setSelectedPlan("premium");
+          setStep("choice");
+          setConfirmingUpgrade(false);
+          setSearchParams({}, { replace: true });
+          return;
+        }
+        if (attempt < 4) {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
+
+      if (cancelledEffect) return;
       setSelectedPlan("premium");
-      setStep("choice");
-      // Drop the query string so a refresh doesn't keep re-triggering.
+      setStep("plan");
+      setUpgradeError(
+        "Payment went through, but Premium hasn't finished syncing yet. Please refresh in a moment before continuing.",
+      );
+      setConfirmingUpgrade(false);
       setSearchParams({}, { replace: true });
+    }
+
+    if (paid === "premium") {
+      void resumePremiumFlow();
     } else if (cancelled === "1") {
+      setConfirmingUpgrade(false);
       setSelectedPlan("free");
       setStep("plan");
       setUpgradeCancelledNotice(true);
       setSearchParams({}, { replace: true });
+    } else {
+      setConfirmingUpgrade(false);
     }
-    // Run only on mount — searchParams is stable; setSearchParams is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    return () => {
+      cancelledEffect = true;
+    };
+  }, [refreshUser, searchParams, setSearchParams]);
 
   async function handlePlanContinue() {
     setUpgradeError(null);
@@ -203,7 +236,16 @@ export default function Onboarding() {
           />
         </div>
 
-        {step === "plan" && (
+        {confirmingUpgrade && (
+          <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm text-center">
+            <h2 className="text-lg font-semibold text-stone-800 mb-2">Confirming Premium…</h2>
+            <p className="text-sm text-stone-500">
+              We&apos;re waiting for Stripe to confirm your subscription before we continue.
+            </p>
+          </div>
+        )}
+
+        {!confirmingUpgrade && step === "plan" && (
           <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
             <h2 className="text-lg font-semibold text-stone-800 mb-1">Choose your plan</h2>
             <p className="text-sm text-stone-500 mb-6">You can upgrade anytime later.</p>
@@ -277,7 +319,7 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step === "address" && (
+        {!confirmingUpgrade && step === "address" && (
           <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
             <h2 className="text-lg font-semibold text-stone-800 mb-1">
               Want printed copies later?
@@ -315,7 +357,7 @@ export default function Onboarding() {
           </div>
         )}
 
-        {step === "choice" && (
+        {!confirmingUpgrade && step === "choice" && (
           <div className="bg-white rounded-2xl border border-stone-200 p-6 sm:p-8 shadow-sm">
             <h2 className="text-lg font-semibold text-stone-800 mb-1">How do you want to start?</h2>
             <p className="text-sm text-stone-500 mb-6">
