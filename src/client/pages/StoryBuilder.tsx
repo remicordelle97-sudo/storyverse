@@ -15,7 +15,12 @@ export default function StoryBuilder() {
   const storedUniverseId = localStorage.getItem("universeId") || "";
 
   const { data: universesPage } = useQuery({
-    queryKey: ["universes-my"],
+    // Keep this cache key distinct from the infinite-query shelves in
+    // Library/MyUniverses/UniverseManager. Reusing the exact same key
+    // for both useQuery and useInfiniteQuery lets TanStack Query
+    // hydrate the builder with the wrong cache shape after route
+    // transitions, which can crash on "Back to library".
+    queryKey: ["universes-my", "story-builder"],
     queryFn: () => getMyUniverses(),
   });
   // Only ready universes can be used for story generation. A universe
