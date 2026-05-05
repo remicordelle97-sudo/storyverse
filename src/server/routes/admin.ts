@@ -1,4 +1,5 @@
 import { Router } from "express";
+import Stripe from "stripe";
 import prisma from "../lib/prisma.js";
 import { signAccessToken } from "../lib/jwt.js";
 import { requireAdmin } from "../middleware/auth.js";
@@ -7,6 +8,9 @@ import { deleteUniversesCascade } from "../lib/cascade.js";
 import { serializeUser } from "../lib/serializeUser.js";
 import { snapshotLatency } from "../middleware/httpLatency.js";
 import { claudeQueue, geminiQueue } from "../lib/queues.js";
+
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+const stripe = stripeKey ? new Stripe(stripeKey) : null;
 
 const router = Router();
 
@@ -200,9 +204,44 @@ router.post("/users/:userId/reset", async (req, res) => {
 
     await deleteUniversesCascade(universeIds);
 
+    // Cancel any active Stripe subscriptions for this user. Without
+    // this, setting plan="free" below is cosmetic — Stripe keeps
+    // billing them and the next subscription.updated webhook flips
+    // them right back to premium. We keep stripeCustomerId so a
+    // future re-upgrade still finds their billing history.
+    let subscriptionsCancelled = 0;
+    if (stripe && target.stripeCustomerId) {
+      try {
+        const subs = await stripe.subscriptions.list({
+          customer: target.stripeCustomerId,
+          status: "all",
+          limit: 20,
+        });
+        for (const sub of subs.data) {
+          if (
+            sub.status === "active" ||
+            sub.status === "trialing" ||
+            sub.status === "past_due" ||
+            sub.status === "paused"
+          ) {
+            await stripe.subscriptions.cancel(sub.id);
+            subscriptionsCancelled++;
+          }
+        }
+      } catch (e: any) {
+        debug.error(`Stripe subscription cancel failed during reset: ${e?.message}`);
+      }
+    }
+
+    // Reset everything that makes the user look "fresh." Skip role —
+    // an admin reset of an admin shouldn't demote them.
     await prisma.user.update({
       where: { id: userId },
-      data: { onboardedAt: null, shippingAddress: "" },
+      data: {
+        onboardedAt: null,
+        shippingAddress: "",
+        plan: target.role === "admin" ? target.plan : "free",
+      },
     });
 
     debug.story("Admin reset user", {
@@ -210,9 +249,15 @@ router.post("/users/:userId/reset", async (req, res) => {
       targetEmail: target.email,
       storiesDeleted: storyIds.length,
       universesDeleted: universeIds.length,
+      subscriptionsCancelled,
     });
 
-    res.json({ ok: true, storiesDeleted: storyIds.length, universesDeleted: universeIds.length });
+    res.json({
+      ok: true,
+      storiesDeleted: storyIds.length,
+      universesDeleted: universeIds.length,
+      subscriptionsCancelled,
+    });
   } catch (e) {
     debug.error("User reset failed", { error: String(e) });
     res.status(500).json({ error: "Failed to reset user" });

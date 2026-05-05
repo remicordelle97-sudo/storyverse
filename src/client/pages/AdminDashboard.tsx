@@ -26,17 +26,25 @@ export default function AdminDashboard() {
   };
 
   const handleReset = async (u: any) => {
+    const isPremium = u.plan === "premium";
     const ok = confirm(
-      `Reset ${u.email}?\n\nThis will delete ${u.storyCount} ${u.storyCount === 1 ? "story" : "stories"} and ${u.universeCount} ${u.universeCount === 1 ? "universe" : "universes"}. ` +
-        `They'll be sent through onboarding on their next login. This cannot be undone.`
+      `Reset ${u.email}?\n\n` +
+        `This will delete ${u.storyCount} ${u.storyCount === 1 ? "story" : "stories"} and ${u.universeCount} ${u.universeCount === 1 ? "universe" : "universes"}, clear their shipping address, and send them through onboarding on their next login.` +
+        (isPremium
+          ? `\n\nThey are currently on Premium — their Stripe subscription will also be cancelled and their plan reset to Free.`
+          : "") +
+        `\n\nThis cannot be undone.`,
     );
     if (!ok) return;
     setResettingId(u.id);
     try {
       const result = await resetUser(u.id);
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      const subPart = result.subscriptionsCancelled
+        ? ` Cancelled ${result.subscriptionsCancelled} Stripe subscription${result.subscriptionsCancelled === 1 ? "" : "s"}.`
+        : "";
       alert(
-        `Reset complete. Deleted ${result.storiesDeleted} stories and ${result.universesDeleted} universes.`
+        `Reset complete. Deleted ${result.storiesDeleted} stories and ${result.universesDeleted} universes.${subPart}`,
       );
     } catch (e: any) {
       alert(e.message || "Reset failed");

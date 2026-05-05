@@ -27,10 +27,12 @@ export const getAdminUsers = () => request<any[]>("/admin/users");
 export const impersonateUser = (userId: string) =>
   request<{ accessToken: string; user: any }>(`/admin/impersonate/${userId}`, { method: "POST" });
 export const resetUser = (userId: string) =>
-  request<{ ok: boolean; storiesDeleted: number; universesDeleted: number }>(
-    `/admin/users/${userId}/reset`,
-    { method: "POST" }
-  );
+  request<{
+    ok: boolean;
+    storiesDeleted: number;
+    universesDeleted: number;
+    subscriptionsCancelled: number;
+  }>(`/admin/users/${userId}/reset`, { method: "POST" });
 // Onboarding / custom universe builder share the same payload shape.
 // Photos are uploaded directly to R2 via a presigned URL (see
 // uploadPhoto below) and the returned `photoKey` is what gets sent
